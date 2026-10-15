@@ -41,5 +41,6 @@ echo Starting the WowWarband world server...
 start "WowWarband World Server" /D "%BIN%" "%BIN%\worldserver.exe" -c configs\worldserver.conf
 echo.
 echo Both server consoles are open. Leave them running while you play.
-echo Close the world-server console first, then the login-server console, to stop.
+echo To stop: close the world-server console, then the login-server console.
+echo Close the minimized WowWarband database window to stop MySQL too.
 endlocal

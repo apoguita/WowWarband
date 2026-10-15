@@ -10,6 +10,6 @@ Rebuilds must use the pinned module revisions and a clean database. Do not impor
 
 ## Local Windows runtime
 
-`Start-WowWarband.bat` starts the local-only MySQL database when needed, then opens separate login-server and world-server consoles. Leave both consoles open during play; close the world-server console first to stop it cleanly. The extracted client and addon copies live in `var/client/`; generated `dbc`, `maps`, `vmaps`, `mmaps`, and camera data live in `var/data/`. Local database credentials are stored only in ignored runtime configuration.
+`Start-WowWarband.bat` starts the local-only MySQL database when needed, then opens separate login-server and world-server consoles. Leave both consoles open during play. To stop cleanly, close the world-server console first, then the login-server console, and finally the minimized database window if you also want MySQL stopped. The extracted client and addon copies live in `var/client/`; generated `dbc`, `maps`, `vmaps`, `mmaps`, and camera data live in `var/data/`. Local database credentials are stored only in ignored runtime configuration.
 
 The GitHub checkout contains source and pinned submodule revisions, not the compiled binaries, downloaded client, generated map files, or local database. A full checkout of all source uses `git clone --recurse-submodules`.
