@@ -130,6 +130,9 @@ __pycache__/
 #
 # ==================
 
+!/modules/mod-warband-unbound-loot/
+!/modules/mod-warband-unbound-loot/**
+
 # Live-stack e2e private / local tooling (scratch tests stay uncommitted)
 e2e/local/**
 !e2e/local/README.md
