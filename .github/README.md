@@ -1,95 +1,134 @@
-# ![logo](https://raw.githubusercontent.com/azerothcore/azerothcore.github.io/master/images/logo-github.png) AzerothCore
+# WoW Warband
 
-[![Contributor Covenant](https://img.shields.io/badge/Contributor%20Covenant-2.1-4baaaa.svg)](CODE_OF_CONDUCT.md)
-[![CodeFactor](https://www.codefactor.io/repository/github/azerothcore/azerothcore-wotlk/badge)](https://www.codefactor.io/repository/github/azerothcore/azerothcore-wotlk)
-[![Discord](https://img.shields.io/discord/217589275766685707?logo=discord&logoColor=white)](https://discord.gg/gkt4y2x "Our community hub on Discord")
+WoW Warband is a personal, single-player World of Warcraft 3.3.5a project built
+around a party of AI-controlled companions. The aim is to make Azeroth feel more
+like a Guild Wars 1 hero-party campaign than a conventional solo private-server
+repack: the player leads the story while a small, persistent team fights beside
+them.
 
-## Build Status
+This repository is a customization layer over the
+[Playerbot-compatible AzerothCore base](https://github.com/mod-playerbots/azerothcore-wotlk).
+For core installation, server administration, and general AzerothCore
+development, use that project's documentation. This README describes what makes
+**WoW Warband** different.
 
-[![nopch-build](https://github.com/azerothcore/azerothcore-wotlk/actions/workflows/core-build-nopch.yml/badge.svg?branch=master)](https://github.com/azerothcore/azerothcore-wotlk/actions/workflows/core-build-nopch.yml?query=branch%3Amaster)
-[![pch-build](https://github.com/azerothcore/azerothcore-wotlk/actions/workflows/core-build-pch.yml/badge.svg?branch=master)](https://github.com/azerothcore/azerothcore-wotlk/actions/workflows/core-build-pch.yml?query=branch%3Amaster)
-[![core-modules-build](https://github.com/azerothcore/azerothcore-wotlk/actions/workflows/core_modules_build.yml/badge.svg?branch=master)](https://github.com/azerothcore/azerothcore-wotlk/actions/workflows/core_modules_build.yml?query=branch%3Amaster)
-[![windows-build](https://github.com/azerothcore/azerothcore-wotlk/actions/workflows/windows_build.yml/badge.svg?branch=master)](https://github.com/azerothcore/azerothcore-wotlk/actions/workflows/windows_build.yml?query=branch%3Amaster)
-[![macos-build](https://github.com/azerothcore/azerothcore-wotlk/actions/workflows/macos_build.yml/badge.svg?branch=master)](https://github.com/azerothcore/azerothcore-wotlk/actions/workflows/macos_build.yml?query=branch%3Amaster)
-[![docker-build](https://github.com/azerothcore/azerothcore-wotlk/actions/workflows/docker_build.yml/badge.svg?branch=master)](https://github.com/azerothcore/azerothcore-wotlk/actions/workflows/docker_build.yml?query=branch%3Amaster)
-[![tools-build](https://github.com/azerothcore/azerothcore-wotlk/actions/workflows/tools_build.yml/badge.svg?branch=master)](https://github.com/azerothcore/azerothcore-wotlk/actions/workflows/tools_build.yml?query=branch%3Amaster)
-[![dashboard-ci](https://github.com/azerothcore/azerothcore-wotlk/actions/workflows/dashboard-ci.yml/badge.svg?branch=master)](https://github.com/azerothcore/azerothcore-wotlk/actions/workflows/dashboard-ci.yml?query=branch%3Amaster)
+## Current focus
 
-## Introduction
+The active design direction is a leader and a party of **AltBot followers**:
 
-AzerothCore is an open-source game server application and framework designed for hosting massively multiplayer online role-playing games (MMORPGs). It is based on the popular MMORPG World of Warcraft (WoW) and seeks to recreate the gameplay experience of the original game from patch 3.3.5a.
+- Companions fight, follow, and fill chosen party roles.
+- The player shapes a companion through equipment, talents/builds, and
+  appearance.
+- Companions are intended to feel like heroes, not independently managed alts.
+  Their underlying character inventories and quest state exist only where the
+  technology requires them; routine inventory, profession, and quest-log
+  management are outside the desired player experience.
+- The intended growth curve unlocks a full party of five companions by level
+  15. The precise unlock cadence and catch-up rules remain open.
+- The leader should set the campaign pace. Shared campaign progress and
+  leader-led quest completion are promising directions under evaluation, not
+  implemented promises.
 
-The original code is based on MaNGOS, TrinityCore, and SunwellCore and has since then had extensive development to improve stability, in-game mechanics, and modularity to the game. AC has also grown into a community-driven project with a significant number of contributors and developers. It is written in C++ and provides a solid foundation for creating private servers that mimic the mechanics and behavior of the official WoW servers.
+Read [the Warband design document](../doc/Warband-Design.md) for the decisions,
+preferred behavior, alternatives, and unresolved technical questions. It is the
+source of truth for the product direction.
 
-## Philosophy
+## What is included
 
-Our main goal is to create a playable game server, offering a fully working in-game experience.
+The project includes the following server and client components. Third-party
+components are pinned as Git submodules; Warband-specific work lives in this
+repository. Their presence does not mean every available feature is part of the
+Warband experience.
 
-Here are the main points we focus on:
+| Component | Type | Role in WoW Warband |
+| --- | --- | --- |
+| [mod-playerbots][playerbots] | Server module | Supplies the AI-controlled characters used as AltBot companions. |
+| [mod-multibot-bridge][bridge] | Server module | Structured server link between companion UI and Playerbots. |
+| [MultiBot Chatless][multibot] | Client addon | Bridge-backed UI for companion, group, equipment, and loot controls. |
+| [Playerbot Manager][manager] | Client addon | Roster, gear, strategy, and build inspection; raid tools are optional. |
+| [mod-progression][progression] | Server module | Phase-gated content; the live phase is local runtime configuration. |
+| [mod-ale][ale] | Server module | Enables project-owned AzerothCore Lua scripts. |
+| [Unbound loot][unbound-loot] | Prototype module | Clears ordinary BoP/BoE item binding. |
+| [Keira3][keira] | Development tool | Database editor source, not a player-facing gameplay requirement. |
 
-* Stability
-  * We make sure all changes pass the CIs before being merged into the master branch.
+## Project-owned additions
 
-* Blizzlike content
-  * We strive to make all in-game content to be blizzlike. Therefore we have a high standard for fixes being made.
+These are the changes owned directly by the WoW Warband repository, rather
+than pinned third-party components:
 
-* Customization
-  * It is easy to customize your experience using [modules](#modules).
+| Addition | Status | Purpose |
+| --- | --- | --- |
+| `mod-warband-unbound-loot` | Unbuilt technical prototype | Tests a narrow ordinary-equipment binding-free direction. |
+| ALE smoke script | Development smoke test | Confirms the Lua scripting path loads; it adds no gameplay feature. |
+| Build, start, and backup scripts | Local workflow | Safeguard the local development runtime. |
+| [Design document](../doc/Warband-Design.md) | Active design record | Separates decisions, alternatives, and open questions. |
 
-* Community driven
-  * AzerothCore has an active community of developers, contributors, and users who collaborate, share knowledge, and provide support through forums, Discord channels, and other communication platforms. 
+There are no other tracked, project-owned gameplay modules at this point. The
+remaining listed components are third-party modules, addons, or tools with their
+full feature sets intentionally not treated as automatic Warband scope.
 
-### Modules
+## Loot and equipment
 
-AzerothCore is designed to be highly modular, allowing developers to extend and customize the game to suit their preferences or create unique gameplay experiences. This flexibility enables the addition of custom features, content, and modifications.
+The intended experience lets the player direct useful equipment to the right
+party role. How to handle Bind on Pickup rewards, companion quest eligibility,
+and late-joining companion catch-up is still being designed.
 
-We have a lot of modules already made by the community, many of which can be found in the [Module Catalogue](https://www.azerothcore.org/catalogue.html#/).
+The repository includes a small, **unbuilt and untested** technical prototype:
+[`mod-warband-unbound-loot`](../modules/mod-warband-unbound-loot/README.md). It
+removes ordinary item-instance BoP/BoE binding friction after acquisition or
+equipping, but deliberately leaves quest-template items, enchant-caused binding,
+and Bind-on-use behavior outside its scope. It is not the project's central
+feature and its presence does not mean that binding-free loot has been selected
+as the final Warband rule.
 
-## Installation
+The normal AzerothCore group-loot trade window and the Playerbots quest-sync
+behavior are also being evaluated before broader loot or progression rules are
+chosen. See the design document before treating either as settled behavior.
 
-Detailed installation instructions are available [here](http://www.azerothcore.org/wiki/installation).
+## Economy and quality of life
 
-## Contributing
+Warband should support buying and selling through both the normal Auction House
+and the Black Market Auction House. The goal is convenient solo access, not an
+elaborate economy simulation. The specific server modules and client addons for
+that experience are still being researched; none are claimed here as installed
+Warband functionality.
 
-AzerothCore can also serve as a learning resource for aspiring developers who want to understand how WoW servers work, how MMORPGs are structured, how game server emulators are created, or to improve their C++ and SQL knowledge.
+Loot collection, sorting, routing, and companion-equipment decisions are also
+priority quality-of-life areas. Tools that reduce routine friction are welcome
+when they reinforce the hero-party loop, but systems that turn companions into
+fully independent inventory, profession, or quest-management characters are
+outside the intended scope.
 
-If you want to contribute to the project, you will find a lot of resources that will guide you in our [wiki](https://www.azerothcore.org/wiki/contribute).
+## Project state
 
-We also recommend you read our [Contributor Covenant Code of Conduct](https://github.com/azerothcore/azerothcore-wotlk/blob/master/.github/CODE_OF_CONDUCT.md).
+The local server and client baseline has already been tested: a player can log
+in, create a character, play, and use companions that follow and fight. This is
+not an installation guide and does not ask contributors to restart setup work.
 
-Feel free to join our [Discord server](https://discord.gg/gkt4y2x).
+For this repository's source layout and local development workflow, see
+[WowWarband-Setup.md](../WowWarband-Setup.md). Runtime files, client copies,
+database data, generated maps, and local credentials remain outside version
+control.
 
-🤖 If you use any AI agent to work on AzerothCore, please read our [AI Agentic Engineering guidelines](https://www.azerothcore.org/wiki/agentic-engineering).
-Agent instructions for this repo live in [AGENTS.md](../AGENTS.md), with task-scoped guides in [.agents/docs/](../.agents/docs/); [.agents/README.md](../.agents/README.md) explains how to hook up your agent.
+## What WoW Warband is not
 
-Click on the "⭐ Star" button to help us gain more visibility on GitHub!
+- Not a generic repack or replacement for the upstream AzerothCore and
+  Playerbots documentation.
+- Not currently a final specification for shared campaign progress, quest
+  synchronization, binding rules, or companion catch-up.
+- Not a demand to use every feature provided by MultiBot, Playerbot Manager, or
+  Playerbots.
+- Not an in-depth Auction House simulation project.
 
-## Authors & Contributors
+Design choices are intentionally settled one at a time. Please distinguish
+implemented behavior from preferred behavior and open questions when adding to
+this project.
 
-The project was born in 2016 based on SunwellCore. Unfortunately, SunwellCore was published without any git history, so on git there are no credits for all the contributors before 2016.
-
-You can check the [authors](https://github.com/azerothcore/azerothcore-wotlk/blob/master/AUTHORS) file for more details.
-
-## Important Links
-
-- [Doxygen documentation](https://www.azerothcore.org/pages/doxygen/index.html)
-- [Website](http://www.azerothcore.org/)
-- [AzerothCore catalogue](http://www.azerothcore.org/catalogue.html  "Modules, tools, and other stuff for AzerothCore") (modules, tools, etc...)
-- [Our Discord server](https://discord.gg/gkt4y2x)
-- [Our wiki](http://www.azerothcore.org/wiki "Easy to use and developed by AzerothCore founder")
-- [Our forum](https://github.com/azerothcore/azerothcore-wotlk/discussions/)
-- [Our Facebook page](https://www.facebook.com/AzerothCore/)
-- [Our LinkedIn page](https://www.linkedin.com/company/azerothcore/)
-
-## License
-
-- The new AzerothCore source components are released under the [GNU AGPL v3](https://www.gnu.org/licenses/agpl-3.0.en.html)
-- The old sources based on MaNGOS/TrinityCore are released under the [GNU GPL v2](https://www.gnu.org/licenses/old-licenses/gpl-2.0.en.html)
-
-It's important to note that AzerothCore is not an official Blizzard Entertainment product, and it is not affiliated with or endorsed by World of Warcraft or Blizzard Entertainment. AzerothCore does not in any case sponsor nor support illegal public servers. If you use this project to run an illegal public server and not for testing and learning it is your own personal choice.
-
-## Special thanks
-
-[JetBrains](https://www.jetbrains.com/?from=AzerothCore) is providing free [open-source licenses](https://www.jetbrains.com/community/opensource/) to the AzerothCore developers.
-
-[![JetBrains logo.](https://resources.jetbrains.com/storage/products/company/brand/logos/jetbrains.svg)](https://jb.gg/OpenSourceSupport)
+[playerbots]: https://github.com/mod-playerbots/mod-playerbots
+[bridge]: https://github.com/Wishmaster117/mod-multibot-bridge
+[multibot]: https://github.com/Wishmaster117/MultiBot-Chatless
+[manager]: https://github.com/Lichborne-AC/PlayerbotManager
+[progression]: https://github.com/kadeshar/mod-progression
+[ale]: https://github.com/azerothcore/mod-ale
+[unbound-loot]: ../modules/mod-warband-unbound-loot/README.md
+[keira]: https://github.com/azerothcore/Keira3
