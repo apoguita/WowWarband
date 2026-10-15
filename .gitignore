@@ -11,6 +11,7 @@
 !/modules/CMakeLists.txt
 !/modules/*.h
 !/modules/*.cmake
+/bin/
 /build*/
 /var/*
 !/var/build/.gitkeep

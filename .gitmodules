@@ -1,0 +1,28 @@
+[submodule "modules/mod-playerbots"]
+	path = modules/mod-playerbots
+	url = https://github.com/mod-playerbots/mod-playerbots.git
+	branch = master
+[submodule "modules/mod-multibot-bridge"]
+	path = modules/mod-multibot-bridge
+	url = https://github.com/Wishmaster117/mod-multibot-bridge.git
+	branch = main
+[submodule "addons/MultiBot"]
+	path = addons/MultiBot
+	url = https://github.com/Wishmaster117/MultiBot-Chatless.git
+	branch = main
+[submodule "addons/PlayerbotManager"]
+	path = addons/PlayerbotManager
+	url = https://github.com/Lichborne-AC/PlayerbotManager.git
+	branch = master
+[submodule "modules/mod-ale"]
+	path = modules/mod-ale
+	url = https://github.com/azerothcore/mod-ale.git
+	branch = master
+[submodule "modules/mod-progression"]
+	path = modules/mod-progression
+	url = https://github.com/kadeshar/mod-progression.git
+	branch = master
+[submodule "tools/Keira3"]
+	path = tools/Keira3
+	url = https://github.com/azerothcore/Keira3.git
+	branch = master
