@@ -20,13 +20,6 @@ GroupSources(${CMAKE_CURRENT_SOURCE_DIR})
 add_library(shared
   ${PRIVATE_SOURCES})
 
-if(BUILD_SHARED_LIBS)
-  target_compile_definitions(shared PRIVATE ACORE_API_EXPORT_SHARED)
-  if(WIN32)
-    set_target_properties(shared PROPERTIES WINDOWS_EXPORT_ALL_SYMBOLS ON)
-  endif()
-endif()
-
 CollectIncludeDirectories(
   ${CMAKE_CURRENT_SOURCE_DIR}
   PUBLIC_INCLUDES)

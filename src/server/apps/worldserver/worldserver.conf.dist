@@ -2324,7 +2324,7 @@ Achievement.RealmFirstRaceLimitOnePerCharacter = 1
 #        Range:       0-11
 #        Default:     2
 
-MaxPrimaryTradeSkill = 11
+MaxPrimaryTradeSkill = 2
 
 #
 #    SkillChance.Prospecting

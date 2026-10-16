@@ -193,22 +193,6 @@ foreach(APPLICATION_NAME ${APPLICATIONS_BUILD_LIST})
     endif()
    endif()
 
-  if(BUILD_SHARED_LIBS AND WIN32)
-    if(${APP_PROJECT_NAME} MATCHES "authserver")
-      set(DYNAMIC_CORE_RUNTIME_LIBRARIES common database shared)
-    elseif(${APP_PROJECT_NAME} MATCHES "worldserver")
-      set(DYNAMIC_CORE_RUNTIME_LIBRARIES common database shared game)
-    endif()
-
-    foreach(CORE_LIBRARY ${DYNAMIC_CORE_RUNTIME_LIBRARIES})
-      add_custom_command(TARGET ${APP_PROJECT_NAME} POST_BUILD
-        COMMAND ${CMAKE_COMMAND} -E copy_if_different
-          "$<TARGET_FILE:${CORE_LIBRARY}>"
-          "$<TARGET_FILE_DIR:${APP_PROJECT_NAME}>"
-        COMMENT "Copy ${CORE_LIBRARY} runtime next to ${APP_PROJECT_NAME}")
-    endforeach()
-  endif()
-
   unset(APP_PUBLIC_INCLUDES)
   CollectIncludeDirectories(
     ${SOURCE_APP_PATH}

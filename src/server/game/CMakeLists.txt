@@ -41,17 +41,8 @@ target_link_libraries(game-interface
   INTERFACE
     shared)
 
-add_library(game
+add_library(game STATIC
   ${PRIVATE_SOURCES})
-
-if(BUILD_SHARED_LIBS)
-  target_compile_definitions(game PRIVATE ACORE_API_EXPORT_GAME)
-  if(WIN32)
-    set_target_properties(game PROPERTIES
-      WINDOWS_EXPORT_ALL_SYMBOLS ON
-      ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
-  endif()
-endif()
 
 add_dependencies(game revision.h)
 

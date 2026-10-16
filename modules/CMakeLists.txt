@@ -180,17 +180,6 @@ function(ConfigureScriptLoader SCRIPTLOADER_NAME LOADER_OUT IS_DYNAMIC_SCRIPTLOA
   set(${LOADER_OUT} ${GENERATED_LOADER} PARENT_SCOPE)
 endfunction()
 
-# Collect module headers up front so every dynamic target can see headers from
-# modules it depends on, regardless of module discovery order.
-set(PUBLIC_INCLUDES "")
-foreach(SOURCE_MODULE ${MODULES_MODULE_LIST})
-  ModuleNameToVariable(${SOURCE_MODULE} MODULE_MODULE_VARIABLE)
-  if(NOT ${MODULE_MODULE_VARIABLE} STREQUAL "disabled")
-    GetPathToModuleSource(${SOURCE_MODULE} MODULE_SOURCE_PATH)
-    CollectIncludeDirectories(${MODULE_SOURCE_PATH} PUBLIC_INCLUDES)
-  endif()
-endforeach()
-
 # Generates the actual module projects
 # Fills the STATIC_SCRIPT_MODULES and DYNAMIC_SCRIPT_MODULE_PROJECTS variables
 # which contain the names which scripts are linked statically/dynamically and
@@ -214,6 +203,8 @@ foreach(SOURCE_MODULE ${MODULES_MODULE_LIST})
 
       # Add the module content to the whole static module
       CollectSourceFiles(${MODULE_SOURCE_PATH} PRIVATE_SOURCES_MODULES)
+      CollectIncludeDirectories(${MODULE_SOURCE_PATH} PUBLIC_INCLUDES)
+
       # Skip deprecated api loaders
       if (AC_SCRIPTS_INCLUDES MATCHES "${SOURCE_MODULE}")
         message("> Module (${SOURCE_MODULE}) using deprecated loader api")
@@ -230,6 +221,8 @@ foreach(SOURCE_MODULE ${MODULES_MODULE_LIST})
     # Add the module content to the whole static module
     unset(MODULE_SOURCE_PRIVATE_SOURCES)
     CollectSourceFiles(${MODULE_SOURCE_PATH} MODULE_SOURCE_PRIVATE_SOURCES)
+    CollectIncludeDirectories(${MODULE_SOURCE_PATH} PUBLIC_INCLUDES)
+
     # Configure the scriptloader
     ConfigureScriptLoader(${SOURCE_MODULE} SCRIPT_MODULE_PRIVATE_SCRIPTLOADER ON ${SOURCE_MODULE})
     GetProjectNameOfModuleName(${SOURCE_MODULE} MODULE_SOURCE_PROJECT_NAME)
@@ -245,7 +238,6 @@ foreach(SOURCE_MODULE ${MODULES_MODULE_LIST})
     target_link_libraries(${MODULE_SOURCE_PROJECT_NAME}
       PRIVATE
         acore-core-interface
-        mysql
       PUBLIC
         game)
 
@@ -258,16 +250,6 @@ foreach(SOURCE_MODULE ${MODULES_MODULE_LIST})
       PROPERTIES
         FOLDER
           "modules")
-
-    if(WIN32)
-      set_target_properties(${MODULE_SOURCE_PROJECT_NAME}
-        PROPERTIES WINDOWS_EXPORT_ALL_SYMBOLS ON)
-    endif()
-
-    if(UNIX)
-      set_target_properties(${MODULE_SOURCE_PROJECT_NAME} PROPERTIES
-        LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin/scripts)
-    endif()
 
     if(UNIX)
       install(TARGETS ${MODULE_SOURCE_PROJECT_NAME}
@@ -292,20 +274,7 @@ endforeach()
 # Add the dynamic script modules to the worldserver as dependency
 set(WORLDSERVER_DYNAMIC_SCRIPT_MODULES_DEPENDENCIES ${DYNAMIC_SCRIPT_MODULE_PROJECTS} PARENT_SCOPE)
 
-# Modules are configured after src/server/apps, so its earlier dependency setup
-# cannot see these targets. Attach them directly to worldserver here.
-if(TARGET worldserver AND DYNAMIC_SCRIPT_MODULE_PROJECTS)
-  add_dependencies(worldserver ${DYNAMIC_SCRIPT_MODULE_PROJECTS})
-endif()
-
 ConfigureScriptLoader("static" SCRIPT_MODULE_PRIVATE_SCRIPTLOADER OFF ${STATIC_SCRIPT_MODULES})
-
-if(DYNAMIC_SCRIPT_MODULE_PROJECTS)
-  set(ACORE_DYNAMIC_MODULE_LOADER_CALL "LoadDynamicModulesScripts();")
-  set(GENERATED_DYNAMIC_MODULE_LOADER ${CMAKE_CURRENT_BINARY_DIR}/gen_scriptloader/DynamicModuleLoader.cpp)
-  configure_file(${CMAKE_CURRENT_SOURCE_DIR}/DynamicModuleLoader.cpp.in.cmake ${GENERATED_DYNAMIC_MODULE_LOADER})
-  list(APPEND PRIVATE_SOURCES_MODULES ${GENERATED_DYNAMIC_MODULE_LOADER})
-endif()
 
 list(REMOVE_DUPLICATES SCRIPT_MODULE_PRIVATE_SCRIPTLOADER)
 
@@ -332,7 +301,6 @@ target_link_libraries(modules
   PRIVATE
     acore-core-interface
     mysql
-    ${CMAKE_DL_LIBS}
   PUBLIC
     game-interface)
 
@@ -345,34 +313,6 @@ target_include_directories(modules
 foreach(SOURCE_MODULE ${MODULES_MODULE_LIST})
 	include("${CMAKE_SOURCE_DIR}/modules/${SOURCE_MODULE}/${SOURCE_MODULE}.cmake" OPTIONAL)
 endforeach()
-
-# These modules consume Playerbots APIs. Keep Playerbots as a separate DLL and
-# link its import library rather than folding its implementation into each one.
-if(TARGET mod_mod-playerbots)
-  foreach(PLAYERBOTS_CONSUMER mod_mod-bot-inventory-master mod_mod-multibot-bridge mod_mod-shared-gold)
-    if(TARGET ${PLAYERBOTS_CONSUMER})
-      target_link_libraries(${PLAYERBOTS_CONSUMER} PRIVATE mod_mod-playerbots)
-    endif()
-  endforeach()
-endif()
-
-# mod-ALE builds its Lua target from its own CMake file above; make the target
-# dependency explicit so both Lua headers and the static library reach its DLL.
-if(TARGET mod_mod-ale AND TARGET lualib)
-  target_link_libraries(mod_mod-ale PRIVATE lualib)
-endif()
-
-# ALE exposes Lua wrappers over core script and Playerbots APIs. Those objects
-# were implicitly present in the former static modules bundle; link them as
-# explicit shared/static library dependencies for the standalone DLL.
-if(TARGET mod_mod-ale)
-  if(TARGET scripts)
-    target_link_libraries(mod_mod-ale PRIVATE scripts)
-  endif()
-  if(TARGET mod_mod-playerbots)
-    target_link_libraries(mod_mod-ale PRIVATE mod_mod-playerbots)
-  endif()
-endif()
 
 set_target_properties(modules
   PROPERTIES

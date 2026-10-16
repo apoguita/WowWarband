@@ -138,7 +138,7 @@ struct SessionOutcome
 };
 
 /// The World
-class AC_GAME_API World: public IWorld
+class World: public IWorld
 {
 public:
     World();

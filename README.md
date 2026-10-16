@@ -23,12 +23,8 @@ The active design direction is a leader and a party of **AltBot followers**:
   Their underlying character inventories and quest state exist only where the
   technology requires them; routine inventory, profession, and quest-log
   management are outside the desired player experience.
-- The intended growth curve unlocks the full five-member group (leader plus
-  four companions) by level 15. New followers begin at level 1 and are intended
-  to catch up through a level-gap XP system; its exact curve and implementation
-  still need validation.
-- Raids are a later goal, but they must be downscaled or otherwise adapted for
-  that same five-member group rather than requiring a conventional raid roster.
+- The intended growth curve unlocks a full party of five companions by level
+  15. The precise unlock cadence and catch-up rules remain open.
 - The leader should set the campaign pace. Shared campaign progress and
   leader-led quest completion are promising directions under evaluation, not
   implemented promises.
@@ -37,51 +33,35 @@ Read [the Warband design document](doc/Warband-Design.md) for the decisions,
 preferred behavior, alternatives, and unresolved technical questions. It is the
 source of truth for the product direction.
 
-For staged module candidates, overlapping features, and the exact SQL/config
-work still deferred to the supervised build, see the
-[server-module shortlist](doc/Warband-Server-Module-Shortlist.md) and
-[module assessment](doc/Warband-Module-Assessment.md). The
-[full AzerothCore server-module catalogue](doc/AzerothCore-Server-Module-Catalogue.md)
-is available for broader exploration; catalogue presence alone does not mean a
-module is compatible or selected.
+## What is included
 
-## Feature ideas and related modules
+The project includes the following server and client components. Third-party
+components are pinned as Git submodules; Warband-specific work lives in this
+repository. Their presence does not mean every available feature is part of the
+Warband experience.
 
-These are the experiences WoW Warband is assembling. The module names point to
-possible building blocks; they do not mean every feature is already active or
-that every feature of a module belongs in Warband.
-
-| Feature idea | Related modules or tools | What the feature is for |
+| Component | Type | Role in WoW Warband |
 | --- | --- | --- |
-| A hero party that follows and fights with the leader | [mod-playerbots][playerbots], [mod-multibot-bridge][bridge], [MultiBot Chatless][multibot], [Playerbot Manager][manager] | Bring followers into the campaign and let the player shape and direct their combat roles. |
-| A campaign that opens up as the leader progresses | [mod-progression][progression] | Gate content by progression phase. Shared campaign credit and follower catch-up remain separate Warband ideas to explore. |
-| More freedom when creating the party | [mod-arac][arac] | Explore every WotLK race/class combination, including Human Shaman and Undead Paladin. |
-| Useful gear goes to the companion who needs it | [mod-bot-inventory-master][bot-inventory-master], [mod-warband-unbound-loot][unbound-loot] | Make equipment management and passing items around the Warband easier, without turning general bag management into the main activity. |
-| Less repetitive corpse looting and junk handling | [mod-aoe-loot][aoe-loot], [mod-junk-to-gold-plus][junk-to-gold-plus], [mod-shared-gold][shared-gold] | Reduce repeated looting, simplify low-value item handling, and bring supported companion gold to the leader. These tools do not by themselves decide who should equip a drop. |
-| Gathering that fits a self-contained solo party | [mod-auto-gather][auto-gather], primary-profession configuration | Make gathering resources and using the WotLK profession roster practical in a single-player world. |
-| Buy and sell without building a complex economy simulation | [mod-ah-bot][ah-bot], [Black-Market-Auction-House][bmah] | Provide convenient normal-AH and Black Market access. The desired experience includes buying and selling in both; the current BMAH source is only a bidding candidate. |
-| Fewer interruptions during instance runs | [mod-dead-means-dead][dead-means-dead], [DungeonRespawn][dungeon-respawn] | Explore stopping creatures from respawning inside an instance and returning the player to its entrance after death. These are distinct behaviors. |
-| Make Warband-specific server behavior easier to extend | [mod-ale][ale], [Keira3][keira], dynamic module build tools | Support project Lua scripts, database editing, and targeted builds of separately linked modules. |
-
-Third-party modules are pinned sources or candidates unless explicitly noted
-otherwise. ARAC has been applied to the local runtime but still needs in-game
-verification. The in-house unbound-loot and dynamic-loader changes are source
-changes and require their documented build and runtime checks. See the
-[module shortlist](doc/Warband-Server-Module-Shortlist.md) and
-[module assessment](doc/Warband-Module-Assessment.md) for component-level status.
+| [mod-playerbots][playerbots] | Server module | Supplies the AI-controlled characters used as AltBot companions. |
+| [mod-multibot-bridge][bridge] | Server module | Structured server link between companion UI and Playerbots. |
+| [MultiBot Chatless][multibot] | Client addon | Bridge-backed UI for companion, group, equipment, and loot controls. |
+| [Playerbot Manager][manager] | Client addon | Roster, gear, strategy, and build inspection; raid tools are optional. |
+| [mod-progression][progression] | Server module | Phase-gated content; the live phase is local runtime configuration. |
+| [mod-ale][ale] | Server module | Enables project-owned AzerothCore Lua scripts. |
+| [Unbound loot][unbound-loot] | Prototype module | Clears ordinary BoP/BoE item binding. |
+| [Keira3][keira] | Development tool | Database editor source, not a player-facing gameplay requirement. |
 
 ## Project-owned additions
 
 These are the changes owned directly by the WoW Warband repository, rather
 than pinned third-party components:
 
-| Project-owned feature or workflow | State | What it adds |
+| Addition | Status | Purpose |
 | --- | --- | --- |
-| `mod-warband-unbound-loot` + core item changes | In-house source change; not yet runtime-verified | Remove binding as a barrier to moving equipment around the Warband. |
-| Dynamic module loader and module build scripts | In-house build/runtime support | Build and install selected module DLLs after the initial dynamic build; core changes still require a server rebuild. |
-| ALE smoke script | Development helper | Check that the Lua scripting path loads. |
-| Build, start, and backup scripts | Local workflow | Help operate and safeguard the local development runtime. |
-| [Warband design document](doc/Warband-Design.md) | Active design record | Keep settled direction, preferred behavior, alternatives, and open questions distinct. |
+| `mod-warband-unbound-loot` | Unbuilt technical prototype | Tests a narrow ordinary-equipment binding-free direction. |
+| ALE smoke script | Development smoke test | Confirms the Lua scripting path loads; it adds no gameplay feature. |
+| Build, start, and backup scripts | Local workflow | Safeguard the local development runtime. |
+| [Warband design document](doc/Warband-Design.md) | Active design record | Separates decisions, alternatives, and open questions. |
 
 There are no other tracked, project-owned gameplay modules at this point. The
 remaining listed components are third-party modules, addons, or tools with their
@@ -90,33 +70,28 @@ full feature sets intentionally not treated as automatic Warband scope.
 ## Loot and equipment
 
 The intended experience lets the player direct useful equipment to the right
-party role. No item-binding rule should prevent the leader from passing an item
-to a follower or moving it elsewhere in the Warband.
+party role. How to handle Bind on Pickup rewards, companion quest eligibility,
+and late-joining companion catch-up is still being designed.
 
 The repository includes a small, **unbuilt and untested** technical prototype:
-[`mod-warband-unbound-loot`](modules/mod-warband-unbound-loot/README.md), plus
-small in-house core item changes. Together they prevent new binding flags, clear
-existing ones, and remove binding or enchant state as a normal transfer barrier.
-They are unbuilt and untested, so this is source direction—not active server
-behavior.
+[`mod-warband-unbound-loot`](modules/mod-warband-unbound-loot/README.md). It
+removes ordinary item-instance BoP/BoE binding friction after acquisition or
+equipping, but deliberately leaves quest-template items, enchant-caused binding,
+and Bind-on-use behavior outside its scope. It is not the project's central
+feature and its presence does not mean that binding-free loot has been selected
+as the final Warband rule.
 
-Playerbots quest synchronization remains under evaluation for leader-paced quest
-completion and reward delivery. It is no longer required merely to work around
-item binding.
+The normal AzerothCore group-loot trade window and the Playerbots quest-sync
+behavior are also being evaluated before broader loot or progression rules are
+chosen. See the design document before treating either as settled behavior.
 
 ## Economy and quality of life
 
 Warband should support buying and selling through both the normal Auction House
 and the Black Market Auction House. The goal is convenient solo access, not an
-elaborate economy simulation. A normal-AH buy/sell module remains under review.
-The [BMAH Lua-script/client-addon source][bmah] is pinned but intentionally
-held inactive until it supports both buying and selling. Its current behavior
-is bidding on configured listings, not player consignment. Its test vendor
-entry is absent from the local world data, and the script does not create/spawn
-a vendor. Local ALE exposes the principal API names used, but runtime
-compatibility remains untested; loading the script would create a
-character-database table and start timers. The normal-AH option remains under
-review.
+elaborate economy simulation. The specific server modules and client addons for
+that experience are still being researched; none are claimed here as installed
+Warband functionality.
 
 Loot collection, sorting, routing, and companion-equipment decisions are also
 priority quality-of-life areas. Tools that reduce routine friction are welcome
@@ -140,7 +115,7 @@ control.
 - Not a generic repack or replacement for the upstream AzerothCore and
   Playerbots documentation.
 - Not currently a final specification for shared campaign progress, quest
-  synchronization, or the exact companion catch-up curve.
+  synchronization, binding rules, or companion catch-up.
 - Not a demand to use every feature provided by MultiBot, Playerbot Manager, or
   Playerbots.
 - Not an in-depth Auction House simulation project.
@@ -155,15 +130,5 @@ this project.
 [manager]: https://github.com/Lichborne-AC/PlayerbotManager
 [progression]: https://github.com/kadeshar/mod-progression
 [ale]: https://github.com/azerothcore/mod-ale
-[auto-gather]: https://github.com/thanhtong89/mod-auto-gather
-[aoe-loot]: https://github.com/azerothcore/mod-aoe-loot
-[bot-inventory-master]: https://github.com/TopHatMan/mod-bot-inventory-master
-[shared-gold]: https://github.com/maluramichael/mod-shared-gold
-[junk-to-gold-plus]: https://github.com/TrisBits/mod-junk-to-gold-plus
-[arac]: https://github.com/heyitsbench/mod-arac
-[dead-means-dead]: https://github.com/kjack9/mod-dead-means-dead
-[dungeon-respawn]: https://github.com/AnchyDev/DungeonRespawn
-[ah-bot]: https://github.com/azerothcore/mod-ah-bot
-[bmah]: https://github.com/Youpeoples/Black-Market-Auction-House
 [unbound-loot]: modules/mod-warband-unbound-loot/README.md
 [keira]: https://github.com/azerothcore/Keira3
