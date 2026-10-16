@@ -1,0 +1,128 @@
+-- CMake version: 3.29.2
+-- Selecting Windows SDK version 10.0.26100.0 to target Windows 10.0.19045.
+-- Lua version: lua52
+-- Lua linking: static
+-- Running cmake hook: AFTER_LOAD_CONF
+-- No hooks registered for AFTER_LOAD_CONF
+-- Enabled С++20 standard
+-- Detected 64-bit platform
+-- Detected amd64 processor architecture
+-- MSVC: Minimum version required is 19.24, found 19.42.34435.0 - ok!
+-- MSVC: Enabled standard conforming preprocessor
+-- MSVC: 64-bit platform, enforced -D_WIN64 parameter
+-- MSVC: Enabled extended object-support for debug-compiles
+-- MSVC: Overloaded standard names
+-- MSVC: Disabled NON-SECURE warnings
+-- MSVC: Disabled POSIX warnings
+-- MSVC: Disabled INTMAX_MAX warnings
+-- MSVC: Enable NOMINMAX
+-- MSVC: Disabled generic compiletime warnings
+-- Using installation path for configuration files
+-- Running cmake hook: AFTER_LOAD_CMAKE_MODULES
+-- No hooks registered for AFTER_LOAD_CMAKE_MODULES
+-- Found git binary : C:/Program Files/Git/cmd/git.exe
+
+* AzerothCore revision            : 57d46c3bd76f+ 2026-10-16 01:51:17 -0600 (main branch)
+
+* Install core to                 : C:/Users/Apo/Documents/GitHub/WowWarband/bin/RelWithDebInfo
+* Install configs to              : C:/Users/Apo/Documents/GitHub/WowWarband/bin/RelWithDebInfo
+
+* Build applications              : Yes (all)
+* Build tools                     : Yes (all)
+* Build with scripts              : Yes (static)
+* Build with modules              : Yes (static)
+* Build unit tests                : No  (default)
+* Build core w/PCH                : Yes (default)
+* Build scripts w/PCH             : Yes (default)
+* Show compile-warnings           : No  (default)
+* Use coreside debug              : No  (default)
+* Use MySQL sourcetree            : No
+* Use GIT revision hash           : Yes (default)
+* Use stub for libsidecar         : Yes
+* Enable vmap DisableMgr checks   : Yes (default)
+* Show source tree                : Yes - "hierarchical"
+
+CMake Warning (dev) at deps/boost/CMakeLists.txt:42 (find_package):
+  Policy CMP0144 is not set: find_package uses upper-case <PACKAGENAME>_ROOT
+  variables.  Run "cmake --help-policy CMP0144" for policy details.  Use the
+  cmake_policy command to set the policy and suppress this warning.
+
+  CMake variable BOOST_ROOT is set to:
+
+    C:\local\boost_1_83_0
+
+  For compatibility, find_package is ignoring the variable, but code in a
+  .cmake module might still use it.
+This warning is for project developers.  Use -Wno-dev to suppress it.
+
+-- Running cmake hook: BEFORE_SRC_LOAD
+-- No hooks registered for BEFORE_SRC_LOAD
+
+* Apps build list (all):
+  |
+  +- apps
+  |   +- authserver
+  |   +- worldserver
+  |
+
+-- Running cmake hook: BEFORE_GAME_LIBRARY
+-- No hooks registered for BEFORE_GAME_LIBRARY
+-- Running cmake hook: AFTER_GAME_LIBRARY
+-- No hooks registered for AFTER_GAME_LIBRARY
+-- Running cmake hook: BEFORE_SCRIPTS_LIBRARY
+-- No hooks registered for BEFORE_SCRIPTS_LIBRARY
+* Script configuration (static):
+  |
+  +- worldserver
+  |   +- Commands
+  |   +- Custom
+  |   +- EasternKingdoms
+  |   +- Events
+  |   +- Kalimdor
+  |   +- Northrend
+  |   +- OutdoorPvP
+  |   +- Outland
+  |   +- Pet
+  |   +- Spells
+  |   +- World
+  |
+
+
+* Tools build list (all):
+  |
+  +- tools
+  |   +- dbimport
+  |   +- map_extractor
+  |   +- mmaps_generator
+  |   +- vmap4_assembler
+  |   +- vmap4_extractor
+  |
+
+* Modules configuration (static):
+  |
+  +- worldserver
+  |   +- mod-ale
+  |   +- mod-multibot-bridge
+  |   +- mod-playerbots
+  |   +- mod-progression
+  |   +- mod-warband
+  |
+
+-- * Modules config list:
+  |
+--   +- mod-ale
+--   |  * mod_ale.conf
+--   +- mod-multibot-bridge
+--   |  * MultiBotBridge.conf
+--   +- mod-playerbots
+--   |  * playerbots.conf
+--   +- mod-progression
+--   |  * mod_progression.conf
+--   +- mod-warband
+--   |  * mod_warband.conf
+
+-- Running cmake hook: AFTER_SRC_LOAD
+-- No hooks registered for AFTER_SRC_LOAD
+-- Configuring done (1.4s)
+-- Generating done (0.4s)
+-- Build files have been written to: C:/Users/Apo/Documents/GitHub/WowWarband/build

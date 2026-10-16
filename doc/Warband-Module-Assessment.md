@@ -89,7 +89,7 @@ in-game verification or authorize additional integration work.
 | Profession availability | The tracked worldserver template, local runtime config, and its generated `.conf.dist` now set `MaxPrimaryTradeSkill = 11`, allowing all WotLK primary professions; secondary professions are not limited by this setting. | Confirm in-game after the next worldserver start. |
 | BMAH script and client UI | Intentionally held inactive per current direction. Its Lua source and client addon are present only under `extras/Black-Market-Auction-House`. The local ALE API has matching principal function names, but compatibility is not verified. | Add/support player buying and selling before activation; then resolve NPC/client setup and review its character-DB table/timer side effects. |
 | Shortlisted C++ modules | Source is pinned, but none of the new C++ modules is enabled in the current runtime. | If a specific candidate is later selected, review its SQL/configuration and prepare a scoped build estimate for explicit user approval before compiling or enabling it. Candidates include AoE Loot, Auto Gather, Bot Inventory Master, Junk to Gold Plus, Shared Gold, Dead Means Dead, DungeonRespawn, and normal-AH `mod-ah-bot`. |
-| In-house unbound-loot change | The module and core item-layer changes are present in source only; they have not been built or verified. | Requires rebuilding the modified core/module before the binding behavior can run. |
+| `mod-warband`: binding-free items | Implemented in the module and compiled into the current build. There is no core item-layer change: nothing under `src/` was modified for it, and the earlier documents that described accompanying core changes were describing a layer that does not exist in this repository. | Verify the behaviour in game: newly acquired, already-owned, quest, equipped, enchanted, mailed and group-roll items. |
 
 The BMAH Lua script is a possible no-C++-build integration, but the user has
 chosen to hold it inactive until it supports both buying and selling. Its
@@ -177,9 +177,9 @@ candidate config or SQL has been copied/imported into the runtime.
   the remaining price/quota defaults alone until they prove unsuitable. The
   seller seeds listings and the buyer can purchase player listings; this is an
   evaluation profile, not applied configuration or a final economy decision.
-- **In-house unbound loot:** no config or SQL is needed. It changes the core
-  item layer as well as adding a module, so a DLL-only build cannot activate the
-  complete policy; it needs the supervised worldserver rebuild.
+- **`mod-warband` binding-free items:** no config or SQL is needed and no core
+  change is involved: the behaviour is implemented entirely in the module, so any
+  build that contains `mod-warband` already has it.
 - **BMAH backport:** deployment requires the server Lua script and its matching
   3.3.5 client addon. The Lua creates its character DB table and starts timers
   when loaded. A dedicated NPC entry/placement is still missing, and the source
@@ -189,12 +189,14 @@ candidate config or SQL has been copied/imported into the runtime.
 The existing `build/CMakeCache.txt` was inspected read-only: the global default
 is still `MODULES=static`, and CMake knows only the previously configured
 modules (ALE, MultiBot Bridge, Playerbots, progression, and the in-house
-unbound-loot module). The unbound-loot module has a per-module `dynamic`
-override, but its accompanying core `Item.cpp`/`Item.h` changes still require a
-worldserver rebuild. Newly pinned candidate sources have not been configured
-or built. The eventual user-supervised configure/build must deliberately select
-the desired modules and linkage; pinning source alone does not add a module to
-the current build.
+`mod-warband` module). `mod-warband` is built into the current runtime; renaming
+its directory to `mod-warband` changes the generated entry point
+(`Addmod_warbandScripts`), so the next build has to be a CMake configure followed
+by a build. The core item layer the earlier documents described alongside it does
+not exist in `src/`, so no core change is waiting on a rebuild. Newly pinned
+candidate sources have not been configured or built. The eventual
+user-supervised configure/build must deliberately select the desired modules and
+linkage; pinning source alone does not add a module to the current build.
 
 CMake has logic to produce separate shared-library targets for modules
 configured as `dynamic`, and the generated DLL loader exports module entry

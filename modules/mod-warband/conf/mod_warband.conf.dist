@@ -1,0 +1,104 @@
+###################################################################################################
+#  WoW Warband
+#
+#  Server settings owned by the Warband module. The Warband client addon reads and changes the
+#  live values through the .warband chat commands, so a worldserver rebuild is not needed to
+#  tune them.
+#
+#  This file is read at startup and on .reload config.
+###################################################################################################
+
+###################################################################################################
+#  Warband XP multiplier
+#
+#     Warband.XP.Rate
+#        Server-wide experience multiplier applied to every character, followers included.
+#        Whole number from 1 to 10.
+#        Default: 3
+#
+Warband.XP.Rate = 3
+
+###################################################################################################
+#  Follower catch-up XP
+#
+#  Extra experience for a follower that is behind its leader. It applies on top of
+#  Warband.XP.Rate, and only to a bot piloted for a real player: the random bots that populate
+#  the world are never affected.
+#
+#  The multiplier is:  1 + (PerLevel * levels behind), with the floor and cap applied after.
+#  At the defaults a follower 1 level behind gains 10% extra, and one 20 levels behind gains
+#  200% extra (a x3.00 multiplier). At Warband.XP.Rate = 3 that second case receives x9.00.
+#
+#     Warband.CatchUp.Enabled
+#        Enable the follower catch-up multiplier.
+#        Default: 1 - Enabled
+#
+Warband.CatchUp.Enabled = 1
+
+#     Warband.CatchUp.PerLevel
+#        Extra experience per level of difference, as a fraction of 1.0. 0 disables the bonus
+#        without switching catch-up off.
+#        Default: 0.10
+#
+Warband.CatchUp.PerLevel = 0.10
+
+#     Warband.CatchUp.MinMultiplier
+#        Lowest catch-up multiplier granted while behind. 1.0 follows the plain per-level curve;
+#        a higher floor keeps the last few levels quick, where a follower's own experience
+#        requirement is largest and the level gap is smallest.
+#        Default: 1.0
+#
+Warband.CatchUp.MinMultiplier = 1.0
+
+#     Warband.CatchUp.MaxMultiplier
+#        Upper limit for the catch-up multiplier. 0 disables the cap.
+#        Default: 0 - uncapped
+#
+Warband.CatchUp.MaxMultiplier = 0
+
+#     Warband.CatchUp.Debug
+#        Log each applied catch-up multiplier, at most once per second, to the module logger.
+#        Useful for verifying the effect in game.
+#        Default: 0 - Disabled
+#
+Warband.CatchUp.Debug = 0
+
+###################################################################################################
+#  Follower gathering
+#
+#  The leader keeps the crafting professions; followers only need to gather for the party. When
+#  enabled, every follower in the party receives the leader's Herbalism, Mining and Skinning skill
+#  values, so it can work the same nodes and skin the same corpses. Playerbots already harvests
+#  whenever a bot has the skill, so the skill values are all that is missing.
+#
+#  The values stay in step while playing, not just at recruitment: a leader that grows from 100 to
+#  125 takes its followers with it. The mirror is applied on leader login, when a follower joins the
+#  party, and whenever a gathering skill changes - a point gained from a node or a corpse, a rank
+#  trained, .setskill, or a profession unlearned.
+#
+#  The mirror is a floor, never a ceiling: it only ever raises a follower. A party member that was
+#  trained further, or that was the character the player logged in as in an earlier session, keeps
+#  its own gathering progress instead of being dragged down to whoever is leading now. That is what
+#  makes swapping which party member is played safe.
+#
+#  Only the three gathering skills are copied, and only the skills the leader actually has: a
+#  follower never loses a skill because the leader lacks it. Recipes and crafting professions are
+#  not copied - the leader is the crafter, and copying every recipe to every follower would bloat
+#  their spell maps for nothing.
+#
+#  This writes to the follower's own character data, so it persists after the feature is disabled.
+#
+#     Warband.Gather.Enabled
+#        Enable follower gathering mirroring. The .warband gather command still applies it on
+#        demand while enabled.
+#        Default: 1 - Enabled
+#
+Warband.Gather.Enabled = 1
+
+#     Warband.Gather.Automatic
+#        Apply the mirror automatically on leader login, when a follower joins the party, and on
+#        every gathering skill change. Disable it to mirror only when .warband gather is used, which
+#        also stops followers from being pulled back when they gain a point on their own.
+#        Default: 1 - Enabled
+#
+Warband.Gather.Automatic = 1

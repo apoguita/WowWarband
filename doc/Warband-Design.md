@@ -212,11 +212,13 @@ This requires server-side work; a client addon cannot change binding behavior.
 The catalogue has no maintained module that covers every AzerothCore binding
 path.
 
-The in-repository `modules/mod-warband-unbound-loot` module now clears existing
-soulbound flags when a character logs in and after normal item-acquisition
-paths. In-house core changes prevent new soulbound flags from being set and
-remove soulbound or enchant binding as a normal transfer restriction. The code
-is unbuilt and untested; it is not active on the server.
+The in-repository `modules/mod-warband` module clears existing soulbound flags
+when a character logs in and after normal item-acquisition paths. There is no
+in-house core change: nothing in this repository prevents the core from setting a
+soulbound flag, and no in-house patch removes soulbound or enchant binding as a
+transfer restriction. The module clears the flag after the fact instead, and it
+is compiled into the current build; the behaviour itself has not been verified in
+game.
 
 The implementation still needs focused in-game validation for newly acquired,
 already-owned, quest, equipped, enchanted, mailed, and group-roll items. It

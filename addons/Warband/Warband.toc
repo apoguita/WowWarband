@@ -1,0 +1,10 @@
+## Interface: 30300
+## Title: WoW Warband
+## Notes: Configure server settings and view Warband features.
+## Author: WoW Warband
+## Version: 0.4.0
+## SavedVariables: WarbandDB
+
+Warband.lua
+Warband.xml
+Bindings.xml

@@ -1,0 +1,5 @@
+<Bindings>
+    <Binding name="WARBANDTOGGLE" header="WARBAND" runOnUp="false">
+        Warband_Toggle()
+    </Binding>
+</Bindings>

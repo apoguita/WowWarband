@@ -130,8 +130,8 @@ __pycache__/
 #
 # ==================
 
-!/modules/mod-warband-unbound-loot/
-!/modules/mod-warband-unbound-loot/**
+!/modules/mod-warband/
+!/modules/mod-warband/**
 
 # Live-stack e2e private / local tooling (scratch tests stay uncommitted)
 e2e/local/**
@@ -141,3 +141,12 @@ e2e/go.work.sum
 
 .cache
 compile_commands.json
+
+# Local tooling scratch: npm/pip caches, temp directories and logs that tools create when they run
+# with the repository root as their working directory (for example `python -m pip install --target .`
+# or an `npm exec` from the root). These are never meant to be committed.
+.npm-cache/
+.pip-cache/
+.pip-tmp/
+.pip-log.txt
+/build-*.log

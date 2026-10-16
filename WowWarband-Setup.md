@@ -48,24 +48,36 @@ as validated.
 
 ## Development workflow
 
-- `Build-WowWarband.bat` performs the full server-and-tools build and configures
-  discovered modules for dynamic linkage. The current `build` tree is configured
-  with global `MODULES=dynamic`; all 13 discovered modules built as separate
-  DLLs, and `worldserver` and `authserver` completed successfully in
-  `RelWithDebInfo`. The shared-core/dynamic-module mode is experimental in
-  AzerothCore.
-- `Configure-WarbandModules.bat` (no arguments) can update an existing CMake
-  configuration to dynamic linkage without compiling.
-  `Build-WarbandModules.bat <module-folder> [<module-folder> ...]` builds and
-  installs the named dynamic module DLL targets. It refuses to run unless the
-  global CMake cache is dynamic. The worldserver loader discovers `mod_*.dll`
-  files in its `scripts/` directory, so adding a module does not require
-  regenerating an embedded DLL list or relinking `worldserver`.
-
-  **Runtime activation is not yet verified:** the compiled servers have not
-  been started. Core or loader changes still require rebuilding and restarting
-  the server; changes isolated to one dynamic module can use the module-only
-  helper. A module may still need separate SQL, configuration, or client assets.
+- `Build-WowWarband.bat` incrementally builds and installs using the existing
+  CMake cache. It does not explicitly reconfigure or reset module/linkage
+  options on each invocation. CMake can still regenerate when build definitions
+  change. It checks dependencies normally and never uses a clean/rebuild target.
+- `Build-WowWarband.bat --configure` configures only, after approval. An existing
+  cache keeps its options; a new tree starts with static scripts and modules.
+  Configuring can perform compiler feature checks, but does not build or install
+  the server. Source files added to the recursively collected lists require
+  explicit reconfiguration because those lists use ordinary CMake globs.
+- The cache inspected on 16 October 2026 uses `MODULES=static` and
+  `SCRIPTS=static`. Earlier dynamic-build notes and the removed
+  `Configure-WarbandModules.bat` / `Build-WarbandModules.bat` helpers do not
+  describe the current workflow.
+- The CMake source now compiles static Playerbots separately as
+  `warband-playerbots`, then embeds its objects in the existing `modules`
+  archive. Its include paths contain its own sources and required core/library
+  interfaces, so adding an unrelated module directory should no longer change
+  every Playerbots compile command. Static registration remains unchanged.
+  **Configured and build-verified on 16 October 2026.** The initial migration
+  compiled all 662 Playerbots sources in a 588.94-second server build. A small
+  backend edit then built in 12.18 seconds without changing any Playerbots
+  object. Adding a temporary module also reused all Playerbots objects. See the
+  [validation report](doc/Playerbots-Build-Validation.md). A fresh build tree
+  still needs that initial compile.
+- Later edits to unrelated backend implementation files should reuse Playerbots
+  objects. Changes to Playerbots sources, headers it includes, compiler flags,
+  toolchain, or build configuration can still require recompilation. A server
+  relink or an up-to-date check is different from recompiling its 662 sources.
+  Keep shared core headers stable where possible; never bypass dependency checks
+  to force reuse of incompatible objects.
 - ALE loads project-owned scripts from `scripts/lua/`; `wowwarband_smoke_test.lua` is a harmless startup test. Keep custom script filenames unique.
 - The BMAH backport source is pinned under
   `extras/Black-Market-Auction-House/`. ALE is enabled and the local runtime

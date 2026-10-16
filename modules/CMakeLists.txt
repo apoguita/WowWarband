@@ -202,7 +202,14 @@ foreach(SOURCE_MODULE ${MODULES_MODULE_LIST})
     if(${MODULE_MODULE_VARIABLE} STREQUAL "static")
 
       # Add the module content to the whole static module
-      CollectSourceFiles(${MODULE_SOURCE_PATH} PRIVATE_SOURCES_MODULES)
+      if(SOURCE_MODULE STREQUAL "mod-playerbots")
+        # Keep unrelated modules' include paths out of the Playerbots compiler
+        # command. Changing that command invalidates every Playerbots object.
+        CollectSourceFiles(${MODULE_SOURCE_PATH} PLAYERBOTS_PRIVATE_SOURCES)
+        CollectIncludeDirectories(${MODULE_SOURCE_PATH} PLAYERBOTS_PRIVATE_INCLUDES)
+      else()
+        CollectSourceFiles(${MODULE_SOURCE_PATH} PRIVATE_SOURCES_MODULES)
+      endif()
       CollectIncludeDirectories(${MODULE_SOURCE_PATH} PUBLIC_INCLUDES)
 
       # Skip deprecated api loaders
@@ -287,6 +294,23 @@ add_library(modules STATIC
     ModulesScriptLoader.h
     ${SCRIPT_MODULE_PRIVATE_SCRIPTLOADER}
     ${PRIVATE_SOURCES_MODULES})
+
+if(PLAYERBOTS_PRIVATE_SOURCES)
+  # Compile separately, but embed the objects in the same modules archive.
+  # Preserve static registration and linker behavior without a new runtime DLL.
+  add_library(warband-playerbots OBJECT ${PLAYERBOTS_PRIVATE_SOURCES})
+  target_link_libraries(warband-playerbots
+    PRIVATE
+      acore-core-interface
+      mysql
+      game-interface)
+  target_include_directories(warband-playerbots
+    PRIVATE
+      ${CMAKE_CURRENT_SOURCE_DIR}
+      ${PLAYERBOTS_PRIVATE_INCLUDES})
+  set_target_properties(warband-playerbots PROPERTIES FOLDER "modules")
+  target_link_libraries(modules PRIVATE warband-playerbots)
+endif()
 
 if (MOD_ALE_FOUND)
     target_link_libraries(modules PUBLIC lualib)

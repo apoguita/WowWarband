@@ -15,10 +15,10 @@ alternatives remain undecided, they stay documented as options rather than
 being installed together. This status does not authorize a future install or
 build.
 
-`mod-warband-unbound-loot` is project-owned code, not a catalogue candidate. It
-now has matching in-house core changes for the binding-free item policy. Those
-changes are unbuilt and require an approved `worldserver` rebuild before
-testing.
+`mod-warband` is project-owned code, not a catalogue candidate. Its binding-free
+item policy lives entirely in the module: there is no in-house core change. The
+module is compiled into the current build, and its binding behaviour still needs
+an in-game verification pass.
 
 ## Requested foundation
 
