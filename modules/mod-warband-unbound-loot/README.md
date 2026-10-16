@@ -1,35 +1,45 @@
 # mod-warband-unbound-loot
 
-`mod-warband-unbound-loot` is a small AzerothCore server module for the WoW
-Warband prototype. It removes the soulbound flag from ordinary items after they
-are acquired, moved into inventory, or equipped. This lets a leader route normal
-Bind on Pickup and Bind on Equip gear to a companion without changing item
-templates or client files.
+`mod-warband-unbound-loot` is the migration half of WoW Warband's binding-free
+item policy. It clears existing soulbound flags from a character's stored items
+when that character logs in, including inventory, bank, keyring, and currency
+slots. It also clears an item after loot, creation, a quest reward, a group-roll
+reward, mail retrieval, movement, or equipping.
 
-## Deliberate scope
+The policy itself is enforced by the in-house core changes in `Item.h` and
+`Item.cpp`: new binding requests do not set the soulbound flag, and normal item
+transfer no longer rejects an item because it is soulbound or has a binding
+enchant.
 
-The module covers the normal item-instance soulbound flag for existing and newly
-received equipment. It does not change:
+The core item layer cannot tell a Warband transfer from another transfer, so the
+rule applies to every character on this single-player realm. It is not suitable
+unchanged for a realm with unrelated human players.
 
-- quest-template items (`BIND_QUEST_ITEM` and `BIND_QUEST_ITEM1`);
-- bindings caused by permanent or temporary enchants;
+## What remains separate from binding
+
+The binding-free rule deliberately does not alter:
+
 - unique-item limits, key ownership, inventory-space rules, or equipment
   requirements; or
 - quest rewards, progression, party eligibility, or automated distribution.
 
-Bind-on-use is also outside this module's immediate guarantee: the core applies
-that flag directly in its item-use handler after the generic inventory hooks
-have run. A complete Bind-on-use change needs a small core hook or patch and
-must be evaluated separately.
+The client may still display an item's original Bind on Pickup/Equip/Use text
+because those template labels come from client item data. This implementation
+changes the server rules: those labels do not cause binding or block transfer.
 
-This is a technical prototype, not a settled Warband loot policy. In particular,
-quest-item transfer and broader progression consequences remain open design
-questions.
+Quest-use handling, reward delivery, and the item-routing interface remain
+separate Warband work. They must not reintroduce binding restrictions.
 
 ## Activation
 
 The module is discovered by the AzerothCore module build system because it has a
 `src/` directory. It has no runtime configuration and makes no database changes.
-It takes effect only after the server has been reconfigured, rebuilt, and
-restarted with the module included. Those operational steps are intentionally
-not performed by this change.
+
+The binding policy also changes core item code, so that part requires rebuilding
+the shared `game` library and `worldserver`, then restarting the server. The
+current `RelWithDebInfo` build completed successfully with the module as its own
+DLL. The runtime was not started, so activation still needs a startup check.
+
+After activation, changes confined to this module can be built with
+`Build-WarbandModules.bat mod-warband-unbound-loot`; edits to the core item rules
+still require a core/server rebuild.

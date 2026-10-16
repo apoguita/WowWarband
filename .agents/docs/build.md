@@ -1,5 +1,12 @@
 # Build & tests
 
+WoW Warband builds require explicit user approval. Before configuring, building,
+or rebuilding, explain why it is needed, identify the source/build scope and
+whether Playerbots will be rebuilt, and estimate duration and material resource
+cost. Wait for approval of that scope before starting. Full builds including
+Playerbots are especially costly. Approval to change code does not approve a
+build. See `doc/Warband-Implementation-Policy.md`.
+
 Out-of-source build is required (in-source is blocked).
 
 ```bash

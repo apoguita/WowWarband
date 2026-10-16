@@ -4,7 +4,11 @@ AzerothCore is a C++ MMORPG server emulator for World of Warcraft 3.3.5a (WotLK)
 
 ## Agent rules
 
-- **Do not configure or build unless explicitly asked.** Builds are slow and rarely needed for code changes.
+- **Build approval is required.** Before any configure, build, or rebuild,
+  provide the reason, source scope, whether Playerbots is included, and a
+  duration/resource estimate; wait for explicit approval before starting. Full
+  builds involving Playerbots are especially costly. Code-change authorization
+  is not build authorization. See `doc/Warband-Implementation-Policy.md`.
 - **Never edit SQL files outside `data/sql/updates/pending_db_*/` unless explicitly requested.** `data/sql/base/`, `data/sql/archive/`, and `data/sql/updates/db_*/` are immutable.
 - Formatting follows `.editorconfig`: UTF-8, LF, max 120 cols, trailing newline, no trailing whitespace; 4-space indent for C++ (tabs forbidden), 2-space for JSON/YAML/sh/ts/js.
 - **Do not write or add live-stack e2e tests unless the user explicitly asks.** Do not create `e2e/local/` scratch tests to validate a fix. Existing `e2e/` tests that break after a change may be updated. Do not mention missing coverage unless the user asked about it.
