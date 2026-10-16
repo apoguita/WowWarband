@@ -29,19 +29,19 @@ namespace Acore
     [[noreturn]] AC_COMMON_API void Abort(std::string_view file, uint32 line, std::string_view function, std::string_view fmtMessage = {});
 
     template<typename... Args>
-    AC_COMMON_API inline void Assert(std::string_view file, uint32 line, std::string_view function, std::string_view debugInfo, std::string_view message, std::string_view fmt, Args&&... args)
+    inline void Assert(std::string_view file, uint32 line, std::string_view function, std::string_view debugInfo, std::string_view message, std::string_view fmt, Args&&... args)
     {
         Assert(file, line, function, debugInfo, message, StringFormat(fmt, std::forward<Args>(args)...));
     }
 
     template<typename... Args>
-    AC_COMMON_API inline void Fatal(std::string_view file, uint32 line, std::string_view function, std::string_view message, std::string_view fmt, Args&&... args)
+    inline void Fatal(std::string_view file, uint32 line, std::string_view function, std::string_view message, std::string_view fmt, Args&&... args)
     {
         Fatal(file, line, function, message, StringFormat(fmt, std::forward<Args>(args)...));
     }
 
     template<typename... Args>
-    AC_COMMON_API inline void Abort(std::string_view file, uint32 line, std::string_view function, std::string_view fmt, Args&&... args)
+    inline void Abort(std::string_view file, uint32 line, std::string_view function, std::string_view fmt, Args&&... args)
     {
         Abort(file, line, function, StringFormat(fmt, std::forward<Args>(args)...));
     }

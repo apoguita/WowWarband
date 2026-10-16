@@ -410,19 +410,19 @@ struct LootView
         : loot(_loot), viewer(_viewer), permission(_permission) {}
 };
 
-extern LootStore LootTemplates_Creature;
-extern LootStore LootTemplates_Fishing;
-extern LootStore LootTemplates_Gameobject;
-extern LootStore LootTemplates_Item;
-extern LootStore LootTemplates_Mail;
-extern LootStore LootTemplates_Milling;
-extern LootStore LootTemplates_Pickpocketing;
-extern LootStore LootTemplates_Reference;
-extern LootStore LootTemplates_Skinning;
-extern LootStore LootTemplates_Disenchant;
-extern LootStore LootTemplates_Prospecting;
-extern LootStore LootTemplates_Spell;
-extern LootStore LootTemplates_Player;
+extern AC_GAME_API LootStore LootTemplates_Creature;
+extern AC_GAME_API LootStore LootTemplates_Fishing;
+extern AC_GAME_API LootStore LootTemplates_Gameobject;
+extern AC_GAME_API LootStore LootTemplates_Item;
+extern AC_GAME_API LootStore LootTemplates_Mail;
+extern AC_GAME_API LootStore LootTemplates_Milling;
+extern AC_GAME_API LootStore LootTemplates_Pickpocketing;
+extern AC_GAME_API LootStore LootTemplates_Reference;
+extern AC_GAME_API LootStore LootTemplates_Skinning;
+extern AC_GAME_API LootStore LootTemplates_Disenchant;
+extern AC_GAME_API LootStore LootTemplates_Prospecting;
+extern AC_GAME_API LootStore LootTemplates_Spell;
+extern AC_GAME_API LootStore LootTemplates_Player;
 
 void LoadLootTemplates_Creature();
 void LoadLootTemplates_Fishing();

@@ -117,7 +117,7 @@ struct PackedGuidReader
     ObjectGuid& Guid;
 };
 
-class ObjectGuid
+class AC_GAME_API ObjectGuid
 {
     public:
         static ObjectGuid const Empty;

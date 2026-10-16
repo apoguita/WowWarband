@@ -26,3 +26,33 @@
 	path = tools/Keira3
 	url = https://github.com/azerothcore/Keira3.git
 	branch = master
+[submodule "modules/mod-auto-gather"]
+	path = modules/mod-auto-gather
+	url = https://github.com/thanhtong89/mod-auto-gather.git
+[submodule "modules/mod-arac"]
+	path = modules/mod-arac
+	url = https://github.com/heyitsbench/mod-arac.git
+[submodule "modules/mod-aoe-loot"]
+	path = modules/mod-aoe-loot
+	url = https://github.com/azerothcore/mod-aoe-loot.git
+[submodule "modules/mod-bot-inventory-master"]
+	path = modules/mod-bot-inventory-master
+	url = https://github.com/TopHatMan/mod-bot-inventory-master.git
+[submodule "modules/mod-junk-to-gold-plus"]
+	path = modules/mod-junk-to-gold-plus
+	url = https://github.com/TrisBits/mod-junk-to-gold-plus.git
+[submodule "modules/mod-shared-gold"]
+	path = modules/mod-shared-gold
+	url = https://github.com/maluramichael/mod-shared-gold.git
+[submodule "modules/mod-dead-means-dead"]
+	path = modules/mod-dead-means-dead
+	url = https://github.com/kjack9/mod-dead-means-dead.git
+[submodule "modules/DungeonRespawn"]
+	path = modules/DungeonRespawn
+	url = https://github.com/AnchyDev/DungeonRespawn.git
+[submodule "extras/Black-Market-Auction-House"]
+	path = extras/Black-Market-Auction-House
+	url = https://github.com/Youpeoples/Black-Market-Auction-House.git
+[submodule "modules/mod-ah-bot"]
+	path = modules/mod-ah-bot
+	url = https://github.com/azerothcore/mod-ah-bot.git

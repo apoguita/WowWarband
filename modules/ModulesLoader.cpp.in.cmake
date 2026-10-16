@@ -43,6 +43,7 @@ AC_MODULES_API char const* GetScriptModule()
 #else
 #  include "ModulesScriptLoader.h"
 #  define AC_MODULES_API
+void LoadDynamicModulesScripts();
 #endif
 
 /// Exposed in script modules to register all scripts to the ScriptMgr.
@@ -51,7 +52,10 @@ AC_MODULES_API void AddModulesScripts()
     // Modules
 @ACORE_SCRIPTS_INVOKE@
     // Deprecated api modules
-@AC_SCRIPTS_LIST@}
+@AC_SCRIPTS_LIST@
+    // Load modules built as separate shared libraries.
+    @ACORE_DYNAMIC_MODULE_LOADER_CALL@
+}
 
 /// Exposed in script modules to get the build directive of the module.
 AC_MODULES_API char const* GetModulesBuildDirective()

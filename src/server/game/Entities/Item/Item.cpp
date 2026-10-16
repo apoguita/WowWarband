@@ -792,11 +792,8 @@ bool Item::IsEquipped() const
     return !IsInBag() && m_slot < EQUIPMENT_SLOT_END;
 }
 
-bool Item::CanBeTraded(bool mail, bool trade) const
+bool Item::CanBeTraded(bool /*mail*/, bool /*trade*/) const
 {
-    if ((!mail || !IsBoundAccountWide()) && (IsSoulBound() && (!IsBOPTradable() || !trade)))
-        return false;
-
     if (IsBag() && (Player::IsBagPos(GetPos()) || !((Bag const*)this)->IsEmpty()))
         return false;
 
@@ -809,12 +806,6 @@ bool Item::CanBeTraded(bool mail, bool trade) const
         if (owner->GetLootGUID() == GetGUID())
             return false;
     }
-
-    if (IsBoundByTempEnchant()) // pussywizard
-        return false;
-
-    if ((!mail || !IsBoundAccountWide()) && IsBoundByEnchant())
-        return false;
 
     return true;
 }
@@ -1139,25 +1130,9 @@ Item* Item::CloneItem(uint32 count, Player const* player) const
     return newItem;
 }
 
-bool Item::IsBindedNotWith(Player const* player) const
+bool Item::IsBindedNotWith(Player const* /*player*/) const
 {
-    // not binded item
-    if (!IsSoulBound())
-        return false;
-
-    // own item
-    if (GetOwnerGUID() == player->GetGUID())
-        return false;
-
-    if (IsBOPTradable())
-        if (allowedGUIDs.find(player->GetGUID()) != allowedGUIDs.end())
-            return false;
-
-    // BOA item case
-    if (IsBoundAccountWide())
-        return false;
-
-    return true;
+    return false;
 }
 
 void Item::BuildUpdate(UpdateDataMapType& data_map)

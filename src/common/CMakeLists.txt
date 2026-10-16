@@ -48,6 +48,13 @@ GroupSources(${CMAKE_CURRENT_SOURCE_DIR})
 add_library(common
   ${PRIVATE_SOURCES})
 
+if(BUILD_SHARED_LIBS)
+  target_compile_definitions(common PRIVATE ACORE_API_EXPORT_COMMON)
+  if(WIN32)
+    set_target_properties(common PROPERTIES WINDOWS_EXPORT_ALL_SYMBOLS ON)
+  endif()
+endif()
+
 CollectIncludeDirectories(
   ${CMAKE_CURRENT_SOURCE_DIR}
   PUBLIC_INCLUDES

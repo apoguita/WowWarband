@@ -26,10 +26,17 @@ if not exist "%MYSQL_ROOT%\lib\libmysql.dll" (
 )
 
 echo Configuring the pinned WowWarband source tree...
-cmake -S "%ROOT%" -B "%BUILD%" "-DCMAKE_INSTALL_PREFIX=%BIN%" -DCMAKE_BUILD_TYPE=RelWithDebInfo -DTOOLS_BUILD=all "-DBOOST_ROOT=%BOOST_ROOT%" "-DOPENSSL_ROOT_DIR=%OPENSSL_ROOT_DIR%" -DSCRIPTS=static -DMODULES=static
+cmake -S "%ROOT%" -B "%BUILD%" ^
+  "-DCMAKE_INSTALL_PREFIX=%BIN%" ^
+  -DCMAKE_BUILD_TYPE=RelWithDebInfo ^
+  -DTOOLS_BUILD=all ^
+  "-DBOOST_ROOT=%BOOST_ROOT%" ^
+  "-DOPENSSL_ROOT_DIR=%OPENSSL_ROOT_DIR%" ^
+  -DSCRIPTS=static ^
+  -DMODULES=dynamic
 if errorlevel 1 goto failed
 
-echo Building server, tools, and selected modules...
+echo Building server, tools, and discovered modules with dynamic linkage...
 cmake --build "%BUILD%" --config RelWithDebInfo --target install --parallel 4
 if errorlevel 1 goto failed
 

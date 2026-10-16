@@ -26,7 +26,7 @@
 class Player;
 class WorldPacket;
 
-class RaceMgr
+class AC_GAME_API RaceMgr
 {
 private:
     RaceMgr();
