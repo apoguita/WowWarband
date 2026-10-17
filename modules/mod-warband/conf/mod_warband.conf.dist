@@ -171,3 +171,26 @@ Warband.MagicFind.Gold = 6.0
 #  .warband goldfind <multiplier>, and .warband goldfind reset returns it to x1.
 #
 Warband.GoldFind.Multiplier = 3.0
+
+###################################################################################################
+#  Trash auto-sell
+#
+#  A Warband of five loots five bags' worth of grey junk, and a follower's bags cannot be opened by
+#  hand the way the leader's can. With this enabled, a grey item is sold the moment it is picked up:
+#  it never stays in any bag, the vendor price is paid to whoever looted it, and the item is gone.
+#  The coin is not the point of the feature - bag space is - so it does not matter which purse it
+#  lands in.
+#
+#  It covers the leader and every follower, because the follower is the one filling a bag nobody can
+#  clean out. It does not touch quest items, items that start a quest, or anything an accepted quest
+#  still needs, and a grey with no vendor price is left where it is rather than deleted for nothing.
+#
+#  A pickup only happens when the picking character has a free slot, so a bag that is already full
+#  cannot be emptied by looting. .warband trash sell sweeps the whole party's bags instead, which is
+#  what clears an existing accumulation. The panel's Trash sell page does the same with a button.
+#
+#     Warband.TrashSell.Enabled
+#        Sell grey loot at pickup time, for the leader and every follower.
+#        Default: 1 - Enabled
+#
+Warband.TrashSell.Enabled = 1

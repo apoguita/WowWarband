@@ -27,6 +27,16 @@ build, and an addon is deployed to the client under
 | `addons/PlayerbotManager` | Third-party addon | Companion management UI. |
 | `mod-progression` | Third-party module | Content gating by progression phase. |
 | `mod-ale` | Third-party module | Lua scripting support. |
+| `mod-ah-bot-plus` | Third-party module | The auction-house market: it stocks all three houses and buys what the party lists. The one deliberately approved dependency, because writing a market is a project of its own |
+
+**Warband implements every feature in-house unless a recorded decision says otherwise.** Third-party
+modules and addons are reference material: never a dependency, never an install step, never part
+of the build — with exactly one recorded exception, the auction-house market (`mod-ah-bot-plus`),
+named and justified in the [implementation policy](../doc/Warband-Implementation-Policy.md). Nothing
+is staged in this checkout — `modules/` holds the runtime baseline, `mod-warband` and that one
+dependency, no researched module is a submodule, and the read-only research clones under
+`.agents/reference/` are never built. A link in the research documents is a citation of where a
+behaviour was studied, nothing more.
 
 Modules that were only *researched* are not installed and are not part of the
 build. That research lives in
@@ -50,6 +60,7 @@ Warband features. It carries one small core change - the item binding policy in
 | Bound gear inside the Warband | Built; not yet verified in game |
 | Magic find | Built; not yet verified in game |
 | Gold find | Built; not yet verified in game |
+| Trash auto-sell | Built; not yet verified in game |
 
 - **XP multiplier** scales every experience gain - kills, quests, exploration and
   battlegrounds - for every character, followers included. It is a whole number
@@ -75,6 +86,12 @@ Warband features. It carries one small core change - the item binding policy in
   shipped at x3, so a 50 silver pile becomes 1 gold 50. It covers creatures, chests,
   mines and containers, and it leaves vendoring, quest rewards, mail and the auction
   house alone.
+- **Trash auto-sell** is about bag space, not money: a grey item is sold the moment it is
+  picked up, so it never occupies a slot, and the copper goes to whoever looted it. It
+  covers the leader and every companion, because a companion's bags are the ones nobody
+  can empty by hand. Quest items, quest-starting items and anything an accepted quest
+  still needs are never sold. A bag that is already full cannot be emptied by looting, so
+  `.warband trash sell` - or the panel's button - sweeps the whole party's bags.
 - **Follower gathering** gives every companion in the party the leader's Herbalism,
   Mining and Skinning values, so they can work the same nodes and skin the same
   corpses without owning a crafting profession. It is a floor, never a ceiling:

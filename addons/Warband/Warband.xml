@@ -989,7 +989,332 @@
                                 </FontString>
                             </Layer>
                         </Layers>
-                    </Frame>        </Frames>
+                    </Frame>
+                    <Frame name="WarbandPageTrashSell" parent="WarbandDetailPane" hidden="true">
+                        <Size>
+                            <AbsDimension x="732" y="470"/>
+                        </Size>
+                        <Anchors>
+                            <Anchor point="TOPLEFT" relativeTo="WarbandDetailPane"
+                                relativePoint="TOPLEFT">
+                                <Offset>
+                                    <AbsDimension x="24" y="-80"/>
+                                </Offset>
+                            </Anchor>
+                        </Anchors>
+                        <Layers>
+                            <Layer level="ARTWORK">
+                                <FontString name="$parentCaption" inherits="GameFontNormalSmall"
+                                    justifyH="LEFT" text="TRASH SELL">
+                                    <Size>
+                                        <AbsDimension x="300" y="12"/>
+                                    </Size>
+                                    <Anchors>
+                                        <Anchor point="TOPLEFT"/>
+                                    </Anchors>
+                                    <Color r="1" g="0.82" b="0"/>
+                                </FontString>
+                                <FontString name="$parentStatus" inherits="GameFontHighlightSmall"
+                                    justifyH="LEFT" text="Reading the trash auto-sell state...">
+                                    <Size>
+                                        <AbsDimension x="620" y="14"/>
+                                    </Size>
+                                    <Anchors>
+                                        <Anchor point="TOPLEFT">
+                                            <Offset>
+                                                <AbsDimension x="0" y="-24"/>
+                                            </Offset>
+                                        </Anchor>
+                                    </Anchors>
+                                </FontString>
+                                <FontString name="$parentHint" inherits="GameFontDisableSmall"
+                                    justifyH="LEFT"
+                                    text="Every grey item the Warband loots is sold on the spot, so it never takes a bag slot, and the copper goes to whoever looted it. Quest items, quest-starting items and anything an accepted quest still needs are never sold, and a grey no vendor would pay for is left where it is. Followers sell too: their bags are the ones that fill up where nobody can empty them by hand. A bag that is already full cannot be emptied by looting, so use the button below or .warband trash sell.">
+                                    <Size>
+                                        <AbsDimension x="620" y="86"/>
+                                    </Size>
+                                    <Anchors>
+                                        <Anchor point="TOPLEFT">
+                                            <Offset>
+                                                <AbsDimension x="0" y="-48"/>
+                                            </Offset>
+                                        </Anchor>
+                                    </Anchors>
+                                </FontString>
+                                <FontString name="$parentDetail" inherits="GameFontNormalSmall"
+                                    justifyH="LEFT" text="">
+                                    <Size>
+                                        <AbsDimension x="620" y="40"/>
+                                    </Size>
+                                    <Anchors>
+                                        <Anchor point="TOPLEFT">
+                                            <Offset>
+                                                <AbsDimension x="0" y="-146"/>
+                                            </Offset>
+                                        </Anchor>
+                                    </Anchors>
+                                    <Color r="1" g="0.82" b="0"/>
+                                </FontString>
+                            </Layer>
+                        </Layers>
+                        <Frames>
+                            <Button name="$parentToggle" inherits="UIPanelButtonTemplate"
+                                text="Trash sell: on">
+                                <Size>
+                                    <AbsDimension x="160" y="22"/>
+                                </Size>
+                                <Anchors>
+                                    <Anchor point="TOPLEFT">
+                                        <Offset>
+                                            <AbsDimension x="0" y="-200"/>
+                                        </Offset>
+                                    </Anchor>
+                                </Anchors>
+                                <Scripts>
+                                    <OnClick>
+                                        Warband_ToggleTrashSell();
+                                    </OnClick>
+                                </Scripts>
+                            </Button>
+                            <Button name="$parentSweep" inherits="UIPanelButtonTemplate"
+                                text="Sell the junk in our bags now">
+                                <Size>
+                                    <AbsDimension x="230" y="22"/>
+                                </Size>
+                                <Anchors>
+                                    <Anchor point="TOPLEFT">
+                                        <Offset>
+                                            <AbsDimension x="172" y="-200"/>
+                                        </Offset>
+                                    </Anchor>
+                                </Anchors>
+                                <Scripts>
+                                    <OnClick>
+                                        Warband_SellJunkNow();
+                                    </OnClick>
+                                </Scripts>
+                            </Button>
+                        </Frames>
+                    </Frame>
+                    <Frame name="WarbandPageAuctionHouse" parent="WarbandDetailPane" hidden="true">
+                        <Size>
+                            <AbsDimension x="732" y="470"/>
+                        </Size>
+                        <Anchors>
+                            <Anchor point="TOPLEFT" relativeTo="WarbandDetailPane"
+                                relativePoint="TOPLEFT">
+                                <Offset>
+                                    <AbsDimension x="24" y="-80"/>
+                                </Offset>
+                            </Anchor>
+                        </Anchors>
+                        <Layers>
+                            <Layer level="ARTWORK">
+                                <FontString name="$parentCaption" inherits="GameFontNormalSmall"
+                                    justifyH="LEFT" text="AUCTION HOUSE">
+                                    <Size>
+                                        <AbsDimension x="300" y="12"/>
+                                    </Size>
+                                    <Anchors>
+                                        <Anchor point="TOPLEFT"/>
+                                    </Anchors>
+                                    <Color r="1" g="0.82" b="0"/>
+                                </FontString>
+                                <FontString name="$parentStatus" inherits="GameFontHighlightSmall"
+                                    justifyH="LEFT" text="Reading the auction house settings...">
+                                    <Size>
+                                        <AbsDimension x="620" y="14"/>
+                                    </Size>
+                                    <Anchors>
+                                        <Anchor point="TOPLEFT">
+                                            <Offset>
+                                                <AbsDimension x="0" y="-24"/>
+                                            </Offset>
+                                        </Anchor>
+                                    </Anchors>
+                                </FontString>
+                                <FontString name="$parentHint" inherits="GameFontDisableSmall"
+                                    justifyH="LEFT"
+                                    text="The market here is run by the auction bot: its sellers keep the houses stocked so there is always something to buy, and its buyer purchases what your party lists, so selling works without other players. Everything the bot sells or buys is an ordinary auction. Prices, filters and listing rules live in the bot's own configuration file; this page only controls the parts that change how busy the market is.">
+                                    <Size>
+                                        <AbsDimension x="620" y="60"/>
+                                    </Size>
+                                    <Anchors>
+                                        <Anchor point="TOPLEFT">
+                                            <Offset>
+                                                <AbsDimension x="0" y="-48"/>
+                                            </Offset>
+                                        </Anchor>
+                                    </Anchors>
+                                </FontString>
+                                <FontString name="$parentDetail" inherits="GameFontNormalSmall"
+                                    justifyH="LEFT" text="">
+                                    <Size>
+                                        <AbsDimension x="620" y="42"/>
+                                    </Size>
+                                    <Anchors>
+                                        <Anchor point="TOPLEFT">
+                                            <Offset>
+                                                <AbsDimension x="0" y="-116"/>
+                                            </Offset>
+                                        </Anchor>
+                                    </Anchors>
+                                    <Color r="1" g="0.82" b="0"/>
+                                </FontString>
+                                <FontString name="$parentItemsLabel" inherits="GameFontDisableSmall"
+                                    justifyH="LEFT" text="Listings added per cycle">
+                                    <Size>
+                                        <AbsDimension x="200" y="12"/>
+                                    </Size>
+                                    <Anchors>
+                                        <Anchor point="TOPLEFT">
+                                            <Offset>
+                                                <AbsDimension x="0" y="-262"/>
+                                            </Offset>
+                                        </Anchor>
+                                    </Anchors>
+                                </FontString>
+                                <FontString name="$parentCandidatesLabel" inherits="GameFontDisableSmall"
+                                    justifyH="LEFT" text="Listings the buyer checks per cycle">
+                                    <Size>
+                                        <AbsDimension x="260" y="12"/>
+                                    </Size>
+                                    <Anchors>
+                                        <Anchor point="TOPLEFT">
+                                            <Offset>
+                                                <AbsDimension x="0" y="-296"/>
+                                            </Offset>
+                                        </Anchor>
+                                    </Anchors>
+                                </FontString>
+                            </Layer>
+                        </Layers>
+                        <Frames>
+                            <Button name="$parentSellerToggle" inherits="UIPanelButtonTemplate"
+                                text="Seller: on">
+                                <Size>
+                                    <AbsDimension x="140" y="22"/>
+                                </Size>
+                                <Anchors>
+                                    <Anchor point="TOPLEFT">
+                                        <Offset>
+                                            <AbsDimension x="0" y="-200"/>
+                                        </Offset>
+                                    </Anchor>
+                                </Anchors>
+                                <Scripts>
+                                    <OnClick>
+                                        Warband_ToggleAuctionSeller();
+                                    </OnClick>
+                                </Scripts>
+                            </Button>
+                            <Button name="$parentBuyerToggle" inherits="UIPanelButtonTemplate"
+                                text="Buyer: on">
+                                <Size>
+                                    <AbsDimension x="140" y="22"/>
+                                </Size>
+                                <Anchors>
+                                    <Anchor point="TOPLEFT">
+                                        <Offset>
+                                            <AbsDimension x="150" y="-200"/>
+                                        </Offset>
+                                    </Anchor>
+                                </Anchors>
+                                <Scripts>
+                                    <OnClick>
+                                        Warband_ToggleAuctionBuyer();
+                                    </OnClick>
+                                </Scripts>
+                            </Button>
+                            <Button name="$parentRepopulate" inherits="UIPanelButtonTemplate"
+                                text="Restock now">
+                                <Size>
+                                    <AbsDimension x="140" y="22"/>
+                                </Size>
+                                <Anchors>
+                                    <Anchor point="TOPLEFT">
+                                        <Offset>
+                                            <AbsDimension x="300" y="-200"/>
+                                        </Offset>
+                                    </Anchor>
+                                </Anchors>
+                                <Scripts>
+                                    <OnClick>
+                                        Warband_RefreshAuction();
+                                    </OnClick>
+                                </Scripts>
+                            </Button>
+                            <Button name="$parentItemsDown" inherits="UIPanelButtonTemplate" text="-">
+                                <Size>
+                                    <AbsDimension x="24" y="22"/>
+                                </Size>
+                                <Anchors>
+                                    <Anchor point="TOPLEFT">
+                                        <Offset>
+                                            <AbsDimension x="280" y="-257"/>
+                                        </Offset>
+                                    </Anchor>
+                                </Anchors>
+                                <Scripts>
+                                    <OnClick>
+                                        Warband_StepAuctionItems(-25);
+                                    </OnClick>
+                                </Scripts>
+                            </Button>
+                            <Button name="$parentItemsUp" inherits="UIPanelButtonTemplate" text="+">
+                                <Size>
+                                    <AbsDimension x="24" y="22"/>
+                                </Size>
+                                <Anchors>
+                                    <Anchor point="TOPLEFT">
+                                        <Offset>
+                                            <AbsDimension x="310" y="-257"/>
+                                        </Offset>
+                                    </Anchor>
+                                </Anchors>
+                                <Scripts>
+                                    <OnClick>
+                                        Warband_StepAuctionItems(25);
+                                    </OnClick>
+                                </Scripts>
+                            </Button>
+                            <Button name="$parentCandidatesDown" inherits="UIPanelButtonTemplate" text="-">
+                                <Size>
+                                    <AbsDimension x="24" y="22"/>
+                                </Size>
+                                <Anchors>
+                                    <Anchor point="TOPLEFT">
+                                        <Offset>
+                                            <AbsDimension x="280" y="-291"/>
+                                        </Offset>
+                                    </Anchor>
+                                </Anchors>
+                                <Scripts>
+                                    <OnClick>
+                                        Warband_StepAuctionCandidates(-1);
+                                    </OnClick>
+                                </Scripts>
+                            </Button>
+                            <Button name="$parentCandidatesUp" inherits="UIPanelButtonTemplate" text="+">
+                                <Size>
+                                    <AbsDimension x="24" y="22"/>
+                                </Size>
+                                <Anchors>
+                                    <Anchor point="TOPLEFT">
+                                        <Offset>
+                                            <AbsDimension x="310" y="-291"/>
+                                        </Offset>
+                                    </Anchor>
+                                </Anchors>
+                                <Scripts>
+                                    <OnClick>
+                                        Warband_StepAuctionCandidates(1);
+                                    </OnClick>
+                                </Scripts>
+                            </Button>
+                        </Frames>
+                    </Frame>
+        </Frames>
         <Scripts>
             <OnShow>
                 Warband_OnShow(self);

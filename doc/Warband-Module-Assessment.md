@@ -1,20 +1,28 @@
 # Warband module assessment
 
-**Research snapshot: 2026-10-15.** This assessment preserves research into
-third-party modules and addons. It is a technical reference for deciding what
-to implement in WoW Warband-owned server code and client UI, and for separately
-evaluating any proposed dependency. A candidate is not a generic API or an
-automatic installation/build task. Some candidates are pinned as source, but
-none is thereby considered selected, built, enabled, database-installed, or
-gameplay-verified. See the
+**Research snapshot: 2026-10-15, status wording corrected 16 October 2026.** This assessment
+preserves research into third-party modules and addons. It is a technical reference for
+deciding what to implement in WoW Warband-owned server code and client UI, and for separately
+evaluating any proposed dependency. A candidate is not a generic API or an automatic
+installation/build task.
+
+**Warband implements every feature in-house unless a recorded decision says otherwise.** Nothing
+below is a dependency, and nothing is staged: no candidate source is present in this checkout,
+none is a submodule, and none is configured or built. The links are citations — the record of
+where a behaviour was studied. Three of them were read line by line and kept as read-only
+clones under `.agents/reference/`, which nothing builds. See the
 [implementation policy](Warband-Implementation-Policy.md).
 
 ## How to read this document
 
-* **Source staged** means a pinned upstream source is present in this checkout; it is not a
-  compatibility or runtime-success claim.
+* **Reference only** means the upstream source or README was read for this research. Nothing
+  from it is in the build, and the only local copies are read-only research clones under
+  `.agents/reference/`. Earlier revisions called these rows "source staged"; that wording was
+  stale and is retired.
 * **Promising candidate** means the upstream source appears to be a real module with a defined
-  purpose that could support Warband. It is _not_ confirmed compatible with this Playerbot fork.
+  purpose that could support Warband. It judges the upstream code only: it does not mean the
+  component is adopted, staged, installed or depended on. It is _not_ confirmed compatible with
+  this Playerbot fork either.
 * **Blocked or not suitable as-is** means a known dependency, core patch, incompatible goal, or
   explicit limitation prevents treating it as a ready candidate.
 * **Reference, not a solution** means it contains ideas or code worth studying but does not solve
@@ -37,45 +45,45 @@ and passes a focused in-game test. No item below has that status yet.
 | Raids and five-person adaptation | Raid Clear, Optimal Bot Raid, content downscaling | The two raid modules teach or organize ordinary bot raids. Neither turns raid encounters into five-member content. Downscaling is a separate design and technical problem. |
 | Appearance | standard Transmog **or** Retail Transmog Plus | Both own transmogrification. The retail-style option adds account-wide collections, outfits, and client UI; it should not be combined with standard Transmog. |
 
-## Source staged in this checkout
+## What the research actually read
 
-The following are pinned third-party source references for feature and
-compatibility research. None of these newly staged C++ candidates has been
-compiled, configured, enabled, or tested in-game. This does not refer to the
-already-running baseline modules (Playerbots, ALE, MultiBot Bridge, and
-progression). ARAC is the exception among non-C++ integrations: its world SQL
-and server/client DBC assets are installed in the local runtime, but the
-character-creation flow has not been verified in-game. The BMAH script/addon
-remains inactive and undeployed.
+The candidates below were read for feature and compatibility research. **None is present in this
+checkout, none is a submodule, and none has been compiled, configured, enabled, or tested
+in-game.** Three were read line by line and kept as read-only clones under `.agents/reference/`
+(`mod-auto-gather`, `mod-aoe-loot`, `mod-junk-to-gold-plus`); for the rest only the upstream
+README, docs and file listing were read, and no local copy exists at all.
 
-| Source | What is present | Integration boundary |
+The already-running baseline modules (Playerbots, ALE, MultiBot Bridge, progression) are not
+candidates and are not covered by this section. ARAC is the exception among non-C++ integrations:
+its world SQL and server/client DBC assets are installed in the local runtime, but the
+character-creation flow has not been verified in-game. The BMAH script/addon sits uncompiled in
+`extras/` and is inactive.
+
+| Source | What was read | Integration boundary |
 |---|---|---|
 | `mod-auto-gather` | C++ module and config template | Its PlayerScript updates every player; there is no Playerbot exclusion. It only performs work when a character has mining, herbalism, or skinning. Keep follower professions out of scope and review whether a bot guard is needed. |
 | `mod-aoe-loot` | C++ module and world DB module-string SQL | Consolidates nearby corpse loot; does not route items to the right follower. Its SQL uses the `module_string` tables present in this checkout's world schema, not hard-coded core string IDs. |
-| `mod-bot-inventory-master` | C++ command/protocol module, bundled client UI, and SQL aid | Supports online same-account bots. The UI includes equipment plus individual/party bag views and direct/bulk sell/destroy controls. It exceeds the desired equipment-only player-facing scope unless restricted; dangerous single-item actions are enabled by the supplied config defaults. The runtime has not received its UI or module. |
+| `mod-bot-inventory-master` | Upstream C++ command/protocol module, bundled client UI, and SQL aid | Supports online same-account bots. The UI includes equipment plus individual/party bag views and direct/bulk sell/destroy controls. It exceeds the desired equipment-only player-facing scope unless restricted; dangerous single-item actions are enabled by the supplied config defaults. The runtime has not received its UI or module. |
 | `mod-junk-to-gold-plus` | C++ auto-sell module and config template | Protects quest-related items and gray usable upgrades. Its loot hook does not specifically exclude Playerbots; verify the recipient and payment behavior before enabling for followers. |
 | `mod-shared-gold` | Playerbot-integrated C++ module and config template | Current core provides the script hooks it references, and the module uses Playerbot master ownership. AH proceeds are explicitly outside its coverage. |
 | `mod-arac` | ARAC SQL, server DBC content, client MPQ source | Local data integration applied without a C++ build. World SQL added all 100 WotLK race/class combinations; server DBC files were replaced with a backup retained under ignored `var/backups/`; client MPQ was installed as `patch-z.mpq`, leaving the existing `patch-a.mpq` untouched. Actual client patch loading and character creation remain unverified. |
 | `mod-dead-means-dead` | C++ module and config template | Matches the requested in-instance creature-respawn behavior. Its README says active instances remain protected, but instance unload can restore original respawn timing. No `Instance.UnloadDelay` change is included or approved. |
 | `DungeonRespawn` | Archived C++ module, config and character DB SQL | Matches the separate request to return the player to the dungeon entrance after death. Keep as a source candidate; it is archived and uncompiled against this fork. |
 | `extras/Black-Market-Auction-House` | Eluna-style server script plus 3.3.5 client addon | Not activated. Its current NPC list contains test entry `2069430`, absent from the local world data; the source does not create or spawn that NPC. The local ALE code exposes the principal Lua APIs it calls, including player whisper event 19 and creature gossip, but runtime compatibility is untested because ALE diverges from standard Eluna. The addon TOC targets interface 30300 and depends on `Blizzard_AuctionUI`. Loading the script creates a character-database table and starts auction timers. |
-| `mod-ah-bot` | Official AzerothCore C++ module source and world SQL | Source is pinned but inactive. It supports seller and buyer behavior independently, requires a configured account/character and world SQL, and documents minimum core commit `9adba48`, which is an ancestor of this checkout. It has a `src/` tree and is discovered by this branch's module scanner; a per-module `CMakeLists.txt` is not required for source discovery. |
+| `mod-ah-bot` | Official AzerothCore C++ module source and world SQL | Reference only; nothing installed. It supports seller and buyer behavior independently, requires a configured account/character and world SQL, and documents minimum core commit `9adba48`, which is an ancestor of this checkout. Its module loader entry point and lack of a per-module `CMakeLists.txt` were read from the upstream tree; no local copy exists here. |
 
-The source directories are ignored by the generic `modules/*` rule, so each
-module is recorded as a Git submodule pointer in `.gitmodules` and the index.
-The module loader discovers C++ modules by the presence of `src/`; ARAC has no
-`src/` directory and is therefore not part of CMake's module build list.
-The local runtime's module-config directory currently contains configs only
-for the existing baseline modules; no newly staged candidate has been
-configured for runtime use.
+`modules/` contains only the runtime baseline and the project-owned `mod-warband`, and
+`.gitmodules` records only those baseline submodules — no candidate module is registered there.
+The module loader discovers C++ modules by the presence of `src/`; ARAC has no `src/` directory
+and is therefore not part of CMake's module build list. The local runtime's module-config
+directory contains configs only for the baseline modules; no candidate has been configured for
+runtime use.
 
-A read-only loader scan found that each staged C++ candidate exposes the
-module-specific `Add…Scripts` entry point expected by this checkout's current
-loader template; none contains the legacy `AC_ADD_SCRIPT_LOADER` or
-`AC_ADD_SCRIPT` macros that CMake uses to force deprecated-loader modules to
-static linkage. This is source-level evidence only: it does not establish
-compile compatibility or prove that separately built DLL entry points are
-loaded by the running server.
+An earlier revision described a "read-only loader scan" of "each staged C++ candidate" and its
+`Add…Scripts` entry point. That scan was performed against copies that no longer exist in this
+tree, so the finding is retained as history only. It never established compile compatibility, and
+it does not prove that separately built DLL entry points are loaded by the running server. The
+only evidence that counts is a build against this checkout, which requires its own approval.
 
 ## Existing non-build integration status
 
@@ -88,7 +96,7 @@ in-game verification or authorize additional integration work.
 | ARAC race/class combinations | Installed locally without a C++ build: world SQL contains all 100 WotLK race/class combinations, matching server DBCs are in `var/data/dbc/`, and the client patch is `patch-z.mpq`. | Verify the client loads the patch and character creation offers combinations such as Human Shaman and Undead Paladin. |
 | Profession availability | The tracked worldserver template, local runtime config, and its generated `.conf.dist` now set `MaxPrimaryTradeSkill = 11`, allowing all WotLK primary professions; secondary professions are not limited by this setting. | Confirm in-game after the next worldserver start. |
 | BMAH script and client UI | Intentionally held inactive per current direction. Its Lua source and client addon are present only under `extras/Black-Market-Auction-House`. The local ALE API has matching principal function names, but compatibility is not verified. | Add/support player buying and selling before activation; then resolve NPC/client setup and review its character-DB table/timer side effects. |
-| Shortlisted C++ modules | Source is pinned, but none of the new C++ modules is enabled in the current runtime. | If a specific candidate is later selected, review its SQL/configuration and prepare a scoped build estimate for explicit user approval before compiling or enabling it. Candidates include AoE Loot, Auto Gather, Bot Inventory Master, Junk to Gold Plus, Shared Gold, Dead Means Dead, DungeonRespawn, and normal-AH `mod-ah-bot`. |
+| Shortlisted C++ modules | None of these candidates is present in this checkout, and none is enabled in the current runtime. | Warband builds the behaviour itself, in `mod-warband`. If adoption of a third-party component were ever chosen instead, that decision, its SQL/configuration review and a scoped build estimate would have to be recorded and approved before compiling or enabling it. Candidates include AoE Loot, Auto Gather, Bot Inventory Master, Junk to Gold Plus, Shared Gold, Dead Means Dead, DungeonRespawn, and normal-AH `mod-ah-bot`. |
 | `mod-warband`: gear sharing | The one Warband feature with a core change: `Item::CanBeTraded()` and `Item::IsBindedNotWith()` consult a Warband binding policy, defaulting to the ordinary rule. The module sets it from `Warband.Binding.Enforced`, and the panel toggles it at runtime. The earlier binding-free behaviour, which cleared the soulbound flag from almost everything, has been removed. | Verify in game: the switch in both positions, a piece moving between leader and companion in both directions, companion to companion, an equipped item, an enchant-bound item, and mail, vendor, auction and guild bank behaving as the switch says. |
 
 The BMAH Lua script is a possible no-C++-build integration, but the user has
@@ -99,15 +107,19 @@ is not verified. This is a feature-fit and integration-readiness deferral, not
 a C++ build requirement.
 
 No build or CMake reconfiguration was run for this research snapshot. A module
-being source-staged, or its SQL/config being present, must not be reported as
-active until the required approved build and relevant runtime checks.
+being read for research, or its SQL/config being described here, must not be
+reported as active until the required approved build and relevant runtime checks.
 
 ## Integration requirements recorded for reference
 
 These are source-reviewed deployment requirements, not applied setup steps or
 an approved integration plan.
-The only newly applied module SQL/data integration is ARAC; no deferred
-candidate config or SQL has been copied/imported into the runtime.
+The only newly applied module SQL/data integration is ARAC; no candidate config
+or SQL has been copied into the runtime.
+
+Paths below are the **upstream repository's own layout**, reproduced so the research can be
+checked. They do not exist in this checkout. Where a read-only clone is kept, its local path is
+`.agents/reference/<module>/…` with the same subdirectories.
 
 - **Auto Gather:** copy `modules/mod-auto-gather/conf/mod_auto_gather.conf.dist`
   to `bin/RelWithDebInfo/configs/modules/mod_auto_gather.conf`. No SQL file is
@@ -193,10 +205,10 @@ modules (ALE, MultiBot Bridge, Playerbots, progression, and the in-house
 its directory to `mod-warband` changes the generated entry point
 (`Addmod_warbandScripts`), so the next build has to be a CMake configure followed
 by a build. The core item layer the earlier documents described alongside it does
-not exist in `src/`, so no core change is waiting on a rebuild. Newly pinned
-candidate sources have not been configured or built. The eventual
-user-supervised configure/build must deliberately select the desired modules and
-linkage; pinning source alone does not add a module to the current build.
+not exist in `src/`, so no core change is waiting on a rebuild. No candidate
+source is present to configure or build. The eventual user-supervised
+configure/build must deliberately select the desired modules and linkage;
+reading an upstream module does not add anything to the current build.
 
 CMake has logic to produce separate shared-library targets for modules
 configured as `dynamic`, and the generated DLL loader exports module entry
@@ -219,17 +231,17 @@ also remain outside a DLL-only path.
 
 | Item | Status | What research establishes | Warband fit / limit |
 |---|---|---|---|
-| `mod-aoe-loot` | Promising candidate | Official module, current C++ source, group support, per-player toggle, configured range, and a combined loot window. | Good collection convenience. It intentionally does not decide which follower owns equipment. |
+| `mod-aoe-loot` | Reference only; postponed 16 October 2026 (backlog item 15) | Official module, current C++ source, group support, per-player toggle, configured range, and a combined loot window. | Judged too invasive for the loot pipeline still under test: it swallows every `CMSG_LOOT` and rewrites the opened corpse's row list. It intentionally does not decide which follower owns equipment. |
 | `mod-shared-loot` | Promising candidate, but a policy choice | Forces Free-For-All and optionally pairs with the core's everyone-loots behavior. It explicitly does not rewrite loot distribution. | It removes rolls but does not supply role-aware allocation. With duplicated “everyone loot,” it may create more follower bags, the opposite of the equipment-only goal. |
-| `mod-quest-loot-party` (Nexartgroup fork) | Experimental candidate; not staged | The fork offers three toggles: share eligible quest objective items to group members who have and still need the quest; increase quest-drop chance when someone needs it; or give each eligible member a copy of the same qualifying corpse loot. Its README says the formerly required PR #16509 is obsolete because its hooks are now present in AzerothCore. It has only two commits on the repository page. | Its quest features still require per-character quest state and do not make followers eligible for leader-only completion/turn-in. Personal mode is not independent per-player loot: the corpse table rolls once and the same qualifying items are copied to all, risking multiplied supply and full follower bags. The local fork contains the needed player/global/misc script hooks, but module compilation and gameplay behavior are unverified. |
-| `mod-shared-gold` | Promising candidate | Explicit Playerbot integration routes bot loot, vendor-sale, and quest-reward gold to the real master; it leaves AH proceeds and other ambiguous transfers alone. | A strong match for a leader-owned wallet if follower gold should be invisible. It is independent of item routing. |
-| `mod-bot-inventory-master` | Promising candidate; UI is bundled but not deployed | The server module exposes same-account equipment and inventory commands. Its matching Interface 30300 addon currently includes equipment management, individual and party bag views, bulk cleanup, selling, and deletion. The addon README says v0.8 while its TOC says v0.9. | The closest existing candidate for equipment control and party-loot housekeeping, but its broad bag UI and destructive controls go beyond the intended equipment-only experience. The server config defaults are unsafe for hands-off use (unrestricted single-item sell/destroy and no confirmation). Keep the addon optional; first decide which controls are appropriate, reconcile version metadata, and verify its protocol with the pinned server module. |
+| `mod-quest-loot-party` (Nexartgroup fork) | Reference only; not taken up | The fork offers three toggles: share eligible quest objective items to group members who have and still need the quest; increase quest-drop chance when someone needs it; or give each eligible member a copy of the same qualifying corpse loot. Its README says the formerly required PR #16509 is obsolete because its hooks are now present in AzerothCore. It has only two commits on the repository page. | Its quest features still require per-character quest state and do not make followers eligible for leader-only completion/turn-in. Personal mode is not independent per-player loot: the corpse table rolls once and the same qualifying items are copied to all, risking multiplied supply and full follower bags. The local fork contains the needed player/global/misc script hooks, but module compilation and gameplay behavior are unverified. |
+| `mod-shared-gold` | Reference only; candidate for backlog item 20 | Explicit Playerbot integration routes bot loot, vendor-sale, and quest-reward gold to the real master; it leaves AH proceeds and other ambiguous transfers alone. | A strong match for a leader-owned wallet if follower gold should be invisible. It is independent of item routing. |
+| `mod-bot-inventory-master` | Reference only; candidate for backlog item 16, UI not deployed | The server module exposes same-account equipment and inventory commands. Its matching Interface 30300 addon currently includes equipment management, individual and party bag views, bulk cleanup, selling, and deletion. The addon README says v0.8 while its TOC says v0.9. | The closest existing reference for equipment control and party-loot housekeeping, but its broad bag UI and destructive controls go beyond the intended equipment-only experience. The server config defaults are unsafe for hands-off use (unrestricted single-item sell/destroy and no confirmation). Keep the addon optional; first decide which controls are appropriate, reconcile version metadata, and verify the protocol if a server side is ever built. |
 | `mod-bot-quiet-rolls` | Conditional candidate | It keeps the normal roll outcome and only suppresses bot “passed” chat packets. Its README requires the current Playerbot fork's `WorldSession::IsHeadless()` support. | Useful only if normal rolls remain. It has no bearing on who receives a drop. |
-| `mod-junk-to-gold-plus` | Source staged; candidate single auto-seller | Conventional C++ module that sells gray loot when looted while protecting quest items, quest-start items, active-objective items, and usable gray upgrades. Its hook does not explicitly exclude bots. | User prefers this over Auto Sell Grey. Verify bot recipient/payment behavior. Its direct `ModifyMoney` credit will not be recognized by Shared Gold's marked vendor-sale path, so that combination does not itself centralize the auto-sale proceeds. |
+| `mod-junk-to-gold-plus` | Reference only; delivered as Warband's own trash auto-sell | Conventional C++ module that sells gray loot when looted while protecting quest items, quest-start items, active-objective items, and usable gray upgrades. Its hook does not explicitly exclude bots. | Warband built its own: grey sold on pickup for leader and followers, quest protections kept, gold to whoever looted (accepted). Do not copy its grey-"upgrade" rule or its function-local static cache. A convergence aid, not a feature goal. |
 | `mod-autosell-grey` | Blocked / reference unless its patch is accepted | Lua/Eluna system with a small core patch to `Player::StoreLootItem()`, character SQL, and full-bag handling. It explicitly excludes bots. | Does not solve follower bags and requires a core patch, contrary to the modular direction. It should not be batched with Junk to Gold Plus. |
 | `mod-autosort` | Low-risk convenience candidate | Inventory sorting only. | Leader quality of life; no follower routing or cleanup policy. |
 | `mod-e-interact` | Promising convenience candidate | One action can interact, loot, gather, speak, accept/complete quests, and answer rolls. | Reduces friction and complements AoE Loot. It overlaps Auto Gather only for the manual gathering interaction. |
-| `mod-auto-gather` | Source staged; bot-scope check needed | Automatic nearby mining, herbalism, and skinning, with range and safety options. Source runs its PlayerScript update on every player and does not contain a bot exclusion; gathering only runs when the character has the matching skill. | Useful for the leader. Do not give companions professions to enable it; if follower profession skills exist, assess whether a bot guard is needed. |
+| `mod-auto-gather` | Reference only; deferred until the loot system has been played (backlog item 45) | Automatic nearby mining, herbalism, and skinning, with range and safety options. Source runs its PlayerScript update on every player and does not contain a bot exclusion; gathering only runs when the character has the matching skill. | Useful for the leader. Do not give companions professions to enable it; the Warband build has to choose its audience and decide whether the cast, its animation and the loot window survive. See backlog item 45. |
 
 ### Already requested baseline ideas
 
@@ -242,16 +254,16 @@ also remain outside a DLL-only path.
 | Item | Status | What research establishes | Warband fit / limit |
 |---|---|---|---|
 | Existing Playerbots AH code | Not an active AH feature | The checked-out `LootAction.cpp` contains an `AuctionItem` helper, but it is block-commented; no active Playerbots AH configuration option was found. | The existing Playerbots build does not remove the need for a separate normal-AH buy/sell module or Warband implementation. |
-| `mod-ah-bot` | Source pinned; inactive and unbuilt | Official AzerothCore module; upstream says seller and buyer operations can be enabled independently. It requires a configured player account/character and world-database SQL. Its minimum required core commit `9adba48` is an ancestor of this checkout. | A concrete normal-AH buy/sell candidate. Its quota/price controls are extensive, but can be configured simply; no AH settings or SQL have been applied, and no build/runtime validation has occurred. It does not handle BMAH. |
-| `mod-ah-bot-plus` | Not staged; source alternative | Another module that provides seller listings and an optional buyer for player listings. Its documented minimum core commit is an ancestor of this checkout. | Keep as an alternative to the official `mod-ah-bot`; do not include both because they overlap as AH market bots. It does not supply BMAH behavior. |
-| `Black-Market-Auction-House` | Source pinned; intentionally held inactive | Script and client UI provide bidding on configured offers, outbid refunds, and mail delivery. The source's test NPC entry `2069430` is absent from the local world data, and no NPC creation/spawn SQL is included. Local ALE exposes the principal API names used by the script, but its Eluna-origin runtime behavior has not been tested. | The user chose to defer activation until both buying and selling are supported; the current source does not support player listings/selling. A dedicated NPC and placement remain setup work; loading the script also creates a character DB table and starts auction timers. |
+| `mod-ah-bot` | Reference only; not taken up | Official AzerothCore module; upstream says seller and buyer operations can be enabled independently. It requires a configured player account/character and world-database SQL. Its minimum required core commit `9adba48` is an ancestor of this checkout. | A concrete normal-AH buy/sell candidate. Its quota/price controls are extensive, but can be configured simply; no AH settings or SQL have been applied, and no build/runtime validation has occurred. It does not handle BMAH. |
+| `mod-ah-bot-plus` | Reference only; not taken up | Another module that provides seller listings and an optional buyer for player listings. Its documented minimum core commit is an ancestor of this checkout. | Keep as an alternative to the official `mod-ah-bot`; do not include both because they overlap as AH market bots. It does not supply BMAH behavior. |
+| `Black-Market-Auction-House` | Local copy under `extras/`; intentionally held inactive | Script and client UI provide bidding on configured offers, outbid refunds, and mail delivery. The source's test NPC entry `2069430` is absent from the local world data, and no NPC creation/spawn SQL is included. Local ALE exposes the principal API names used by the script, but its Eluna-origin runtime behavior has not been tested. | The user chose to defer activation until both buying and selling are supported; the current source does not support player listings/selling. A dedicated NPC and placement remain setup work; loading the script also creates a character DB table and starts auction timers. |
 
 ### Growth, campaign progress, and catch-up
 
 | Item | Status | What research establishes | Warband fit / limit |
 |---|---|---|---|
 | `mod-individual-rates` | Promising candidate | Mature-looking C++ module providing account-first or per-character XP, reputation, skill, drops, money, and caps. Its own documentation warns that core rates multiply with its rates. | A good **control surface** for the leader's pacing, but it does not synchronize followers. If selected, it should be the only general rate authority. |
-| `mod-xp-dynamic` | Reference only; not staged | Its upstream README describes per-level/source XP rates and an account-alt progression bonus that applies below the highest-level character on the account, with the multiplier based on how many characters reached the server cap. It also includes gold/reputation rates, skill-XP bonus rolls, and optional class fixes for ARAC. It requires a character-database account-table SQL update and a C++ rebuild. | It does not describe or implement an XP multiplier based on a follower's gap from the active leader, and does not establish support for owned AltBots. It is not the requested catch-up solution. It could only be considered separately for general rate controls, where it overlaps `mod-individual-rates`; a custom Playerbot-aware rule remains the likely route for leader-relative catch-up. |
+| `mod-xp-dynamic` | Reference only; not taken up | Its upstream README describes per-level/source XP rates and an account-alt progression bonus that applies below the highest-level character on the account, with the multiplier based on how many characters reached the server cap. It also includes gold/reputation rates, skill-XP bonus rolls, and optional class fixes for ARAC. It requires a character-database account-table SQL update and a C++ rebuild. | It does not describe or implement an XP multiplier based on a follower's gap from the active leader, and does not establish support for owned AltBots. It is not the requested catch-up solution. It could only be considered separately for general rate controls, where it overlaps `mod-individual-rates`; a custom Playerbot-aware rule remains the likely route for leader-relative catch-up. |
 | Core `Rate.XP.*` settings | Built-in AzerothCore configuration, no module | The tracked worldserver template exposes separate multipliers for kill, quest, exploration, pet, and battleground XP; its defaults are 1x. | This is sufficient for a simple server-wide XP pace adjustment. It does not provide a character-specific or leader-relative follower catch-up curve. |
 | `mod-accountwide` | Promising but not campaign sync | C++ replacement for ALE-style sharing of achievements, cosmetics, reputation, currencies, and PvP. It explicitly detects and skips Playerbots. | Can make account progression feel shared, but cannot transfer campaign quest states to followers. Its broad sharing may be more than the current scope; each feature needs an explicit enable/disable decision. |
 | `mod-rndbot-sync` | Reference, not a solution | It synchronizes **random** bots around the highest online real player and expressly excludes a player's own/party bots. | Its protected exclusions mean it will not catch up Warband followers. It is useful as a code/design reference only. |
@@ -282,7 +294,12 @@ also remain outside a DLL-only path.
 | Forever Journal | Deferred convenience | Realm-data journal with a client component. | Useful reference/planning UI later; no companion-system effect. |
 | Boss Archive | Later economy/collection option | Recovers or archives boss loot. | Changes farming and gear acquisition. It should follow, not decide, the loot model. |
 
-## What should be implemented by Warband itself
+## What Warband builds itself
+
+**Everything is built in-house by default** (see the
+[implementation policy](Warband-Implementation-Policy.md)); the three behaviours below are simply
+the ones where no shortlisted module even approximates the intended experience, so there is not
+even a design to borrow.
 
 No shortlisted module supplies the three central behaviors below without changing the intended experience.
 
@@ -296,7 +313,7 @@ Potential small fallback: if the archived DungeonRespawn module is incompatible,
 
 1. If a third-party dependency is proposed, finish source-level compatibility checks and distinguish downloaded source from compiled/runtime behavior.
 2. Resolve the actual loot-policy alternatives that cannot safely be enabled together, especially FFA versus normal rolls and automatic gray cleanup versus recipient-aware equipment handling.
-3. The retained research compares the pinned official normal-AH bot with the unpinned `mod-ah-bot-plus` alternative. If either is proposed, select at most one and review its integration scope; no build is authorized by this note. Review the BMAH Lua/client-addon source separately; it is bid-only as documented and needs player-listing support to meet the confirmed Black Market buy-and-sell goal.
+3. The retained research compares the official normal-AH bot with the `mod-ah-bot-plus` alternative. Both are reference only; if either is ever proposed for adoption, select at most one and review its integration scope — no build is authorized by this note. Review the BMAH Lua/client-addon source separately; it is bid-only as documented and needs player-listing support to meet the confirmed Black Market buy-and-sell goal.
 4. Keep the custom follower level-gap catch-up, leader-paced quest completion/rewards, and five-member raid adaptations as documented Warband work.
 5. If an implementation is later selected, review its SQL/config/client-data
    requirements as part of its scoped estimate and approval request. ARAC's SQL

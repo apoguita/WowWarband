@@ -5,8 +5,11 @@
 
 **Implementation boundary:** Product direction is implemented in WoW
 Warband-owned server code and, when needed, a Warband-owned client addon/plugin.
-Third-party modules and addons in the research remain references unless a
-specific capability is separately selected and verified. See the
+**Warband implements every feature in-house by default**: a third-party module or
+addon is used only when a recorded decision says so, naming the component and why
+Warband's own build does not supply the behaviour. Every module link in this
+document is research — how a behaviour works, what it needs, which pitfalls were
+hit — never an install, and nothing is staged in this tree. See the
 [implementation policy](Warband-Implementation-Policy.md).
 
 This document records the intended player experience for WoW Warband. It is not
@@ -508,7 +511,7 @@ fit the design best if their exact compatibility is later confirmed.
 **Type:** Server module. It populates the Auction House with configurable
 listings and optional purchasing behavior.
 
-**Official `mod-ah-bot`:** Its source is now pinned in the repository. Upstream
+**Official `mod-ah-bot`:** Reference only; nothing is in this tree. Upstream
 supports seller and buyer behavior independently and requires world SQL plus a
 configured bot account/character. Its documented minimum core commit is an
 ancestor of this checkout. It has not been built, configured, enabled, or tested
@@ -517,7 +520,7 @@ here.
 Source: [azerothcore/mod-ah-bot](https://github.com/azerothcore/mod-ah-bot)
 
 **`mod-ah-bot-plus` alternative:** A second seller/buyer candidate with similar
-purpose; its source is not pinned. These are alternatives, not modules to stack.
+purpose, also reference only. These are alternatives to compare, not modules to stack.
 The intended standard-AH experience is that the player can buy useful items and
 sell eligible items without a detailed market simulation. Evaluate the simple
 seller/buyer configuration that best serves that loop. Neither module provides
@@ -605,20 +608,28 @@ claim that they are inherently bad tools.
   to be checked.
 - [DungeonRespawn](https://github.com/AnchyDev/DungeonRespawn) is a separate,
   archived character-recovery candidate that returns the player to the dungeon
-  entrance after death. Keep it distinct from stopping instance creatures from
-  respawning; compatibility remains unverified.
+  start after death. Keep it distinct from stopping instance creatures from
+  respawning (backlog item 24, still wanted). Source was read on 16 October 2026
+  and the behaviour postponed (backlog item 47) as too hacky to build on: it
+  hijacks the release teleport and keeps a per-character anchor row in the
+  character database.
 - [No Hearthstone Cooldown](https://github.com/BytesGalore/mod-no-hearthstone-cooldown)
   substantially changes travel pacing. Its stated core-version requirement must
   be verified against the Playerbot fork before it can be considered.
 - The older [TerraByte AoE Loot port](https://github.com/TerraByte-tbwps/mod-aoe-loot)
-  was reported broken after packet changes. That is distinct from the official
-  AzerothCore `mod-aoe-loot` source now staged in this repository; the staged
-  version remains unbuilt and needs compatibility/gameplay validation.
-- [Auto Gather](https://github.com/thanhtong89/mod-auto-gather) is staged as an
-  optional leader convenience because gathering automation was requested. It
-  changes the ordinary gathering loop and its PlayerScript also runs for bots
-  with matching skills, so it must not be mistaken for a follower-profession
-  feature or enabled without deciding bot behavior.
+  was reported broken after packet changes. The current
+  [AzerothCore `mod-aoe-loot`](https://github.com/azerothcore/mod-aoe-loot) was read on
+  16 October 2026 and **postponed** (backlog item 15): it needs no core change, but it
+  swallows every `CMSG_LOOT`, rewrites the opened corpse's row list, moves quest items
+  straight into the bags and mails overflow. That is too much surgery inside the loot
+  pipeline still under test, so nearby-corpse collection waits.
+- [Auto Gather](https://github.com/thanhtong89/mod-auto-gather) is kept as
+  research for a Warband-owned proximity-gathering feature, not as something to
+  install. Gathering automation was requested, but 16 October 2026 it was put
+  after the loot system: play the loot pipeline first, then decide. It changes
+  the ordinary gathering loop and its PlayerScript also runs for bots with
+  matching skills, so it must not be mistaken for a follower-profession feature
+  or enabled without deciding bot behavior. See backlog item 45.
 
 ### Defined Direction: Auction House and Loot
 
@@ -630,11 +641,14 @@ The preferred standard-Auction-House experience is now defined as:
 - the player can list and sell eligible items.
 
 The goal is dependable solo convenience, not an in-depth market simulation.
-The official `mod-ah-bot` source is pinned for the eventual build review; the
-un-pinned `mod-ah-bot-plus` remains an alternative. Choose at most one after
-comparing their seller/buyer behavior and setup. AuctionSim is explicitly not
-the preferred direction. Exact item categories, price rules, buyer behavior,
-and progression limits remain implementation choices to settle later.
+**Decided 16 October 2026:** the market is `mod-ah-bot-plus`, the one approved third-party
+dependency (see the implementation policy), because writing an auction market is a project of its
+own and the requirement is movement on the house — something to buy, and a buyer for what the
+party lists. Warband supplies the control surface: `.warband ah` and the panel's Auction house
+page. The official `mod-ah-bot` stays the reference for what a market needs; `mod-ah-bot-plus` won
+because it needs no database schema. AuctionSim was read and kept as the fallback if this proves
+lifeless. Exact item categories, price rules, buyer behavior, and progression limits are now the
+bot's own configuration, not Warband decisions.
 
 The existing Playerbots source does not supply a no-build shortcut: its
 `LootAction.cpp` contains an `AuctionItem` helper, but that code is block
@@ -650,14 +664,14 @@ and world-convenience decision. Neither AH bot candidate nor AuctionSim supplies
 candidate has now been found: [Youpeoples/Black-Market-Auction-House](https://github.com/Youpeoples/Black-Market-Auction-House)
 provides an Eluna server script and a matching client addon for configured
 listings, bidding, refunds, and mailed wins. It is not installed or validated
-in the running server/client, though its source is now pinned in this repository.
+in the running server/client; a copy sits uncompiled under `extras/`.
 It provides bids on preconfigured listings, not a player-facing way to post
 items for sale, so it does not yet satisfy the requested buy-and-sell
 capability. The current direction is to **hold this candidate inactive until
 both buying and selling are supported**. This is a scope decision; whether to
 extend the script or implement a different solution remains open.
 
-The pinned script's configured test vendor (`2069430`) is absent from the local
+The `extras/` script's configured test vendor (`2069430`) is absent from the local
 world data, and the source does not include SQL to create or spawn that NPC. The
 local ALE source exposes the principal Lua API names used by the script,
 including whisper event 19 and creature-gossip registration, but runtime
@@ -683,12 +697,14 @@ Implementation questions after that requirement is met include:
 #### Loot Handling
 
 No evaluated module currently provides a safe, role-aware equipment distribution
-system for a Warband party. Several supporting sources are now pinned in the
-repository but remain unbuilt and inactive: AoE Loot combines nearby corpses,
-Bot Inventory Master exposes commands for same-account bot gear/bags, and Junk
-to Gold Plus sells protected gray loot. None chooses the right equipment
-recipient or defines a fully automatic Warband loot policy. The design problem
-remains open:
+system for a Warband party. Two supporting behaviours have been read as
+references for Warband's own build, neither installed and neither in this tree:
+Bot Inventory Master exposes commands for same-account bot gear/bags (item 16),
+and Junk to Gold Plus informed the trash auto-sell that is now built (a fix for
+bag space, not a feature). Nearby-corpse collection
+(item 15) is postponed because the reference is too invasive. None of them chooses
+the right equipment recipient or defines a fully automatic Warband loot policy.
+The design problem remains open:
 
 - Who owns ordinary drops by default: leader, eligible companion, or a role
   policy?
@@ -705,7 +721,8 @@ cleanup, and bag-control tools are not substitutes for a loot policy.
 
 ## Next Discovery Topic
 
-Continue the source compatibility review and stage useful modules together,
-while keeping conflicting loot/economy choices open. Do not apply module
-configuration or SQL, alter client/server runtime data, or build until the
-supervised final integration step.
+Continue the source review, but for one purpose only: turning what upstream modules do into a
+Warband-owned implementation. Nothing is staged, and staging anything remains off the table —
+every feature here is Warband's own code unless a recorded decision says otherwise. Keep
+conflicting loot/economy choices open. Do not apply module configuration or SQL, alter
+client/server runtime data, or build until the supervised final integration step.

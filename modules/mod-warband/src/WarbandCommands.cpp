@@ -20,6 +20,15 @@
  *   .warband goldfind                              read the coin multiplier
  *   .warband goldfind <multiplier>                 x1 to x20 on looted coin
  *   .warband goldfind reset                        back to x1
+ *   .warband trash                                 read the trash auto-sell state
+ *   .warband trash on | off                        sell grey loot at pickup, or stop doing it
+ *   .warband trash sell                            empty every party member's bags of grey loot
+ *   .warband ah                                    read the auction bot's live settings
+ *   .warband ah seller | buyer on | off            switch a side of the market on or off
+ *   .warband ah items <10-5000>                    listings added per cycle
+ *   .warband ah candidates <1-50>                  listings the buyer considers per cycle
+ *   .warband ah stock <alliance|horde|neutral> <n> stock target for one auction house
+ *   .warband ah repopulate                         rebuild the bot's item lists and top up now
  *
  * Every reply is a single machine-readable line, which is how the Warband addon reads state:
  *   WARBAND_XP=3
@@ -28,6 +37,8 @@
  *   WARBAND_BINDING=enforced=0
  *   WARBAND_MAGICFIND=green=2.00;blue=4.00;purple=6.00;orange=6.00;gold=6.00
  *   WARBAND_GOLDFIND=3.00
+ *   WARBAND_TRASHSELL=enabled=1;sold=12;copper=3456;swept=0
+ *   WARBAND_AHBOT=installed=1;seller=1;buyer=1;items=150;candidates=5;alliance=1200;horde=1200;neutral=200
  */
 
 #include "Chat.h"
@@ -69,6 +80,20 @@ void ResetWarbandMagicFindMultipliers();
 float GetWarbandGoldFindMultiplier();
 bool SetWarbandGoldFindMultiplier(float multiplier);
 void ResetWarbandGoldFindMultiplier();
+bool GetWarbandTrashSellEnabled();
+bool SetWarbandTrashSellEnabled(bool enabled);
+uint32 GetWarbandTrashSoldItems();
+uint64 GetWarbandTrashSoldCopper();
+uint32 WarbandSellTrashInParty(Player* leader);
+bool WarbandAuctionBotInstalled();
+bool GetWarbandAuctionBotSetting(std::string const& key, bool fallback);
+uint32 GetWarbandAuctionBotNumber(std::string const& key, uint32 fallback);
+bool WarbandSetAuctionBotSeller(bool enabled);
+bool WarbandSetAuctionBotBuyer(bool enabled);
+bool WarbandSetAuctionBotItemsPerCycle(uint32 items);
+bool WarbandSetAuctionBotBuyCandidates(uint32 candidates);
+bool WarbandSetAuctionBotStock(std::string const& house, uint32 items);
+void WarbandRefreshAuctionBot();
 
 using namespace Acore::ChatCommands;
 
@@ -89,6 +114,13 @@ char const* const MagicFindUsage =
 char const* const GoldFindUsage =
     "Usage: .warband goldfind [<multiplier 1-20>] [reset]";
 
+char const* const TrashUsage =
+    "Usage: .warband trash [on|off|sell] - sell sells the grey loot already in the party's bags";
+
+char const* const AuctionHouseUsage =
+    "Usage: .warband ah [seller|buyer on|off] [items <10-5000>] [candidates <1-50>]"
+    " [stock <alliance|horde|neutral> <0-20000>] [repopulate]";
+
 // Parses the single numeric argument that may follow a keyword.
 bool ParseValue(char const* args, size_t keywordLength, float& value)
 {
@@ -98,6 +130,43 @@ bool ParseValue(char const* args, size_t keywordLength, float& value)
     char* end = nullptr;
     value = std::strtof(args + keywordLength + 1, &end);
     return end != args + keywordLength + 1 && (*end == '\0' || *end == ' ') && std::isfinite(value);
+}
+
+// "on" or "off", with the keyword already consumed.
+bool ParseToggle(char const* text, bool& value)
+{
+    while (*text == ' ')
+        ++text;
+
+    if (strncmp(text, "on", 2) == 0 && (text[2] == '\0' || text[2] == ' '))
+    {
+        value = true;
+        return true;
+    }
+
+    if (strncmp(text, "off", 3) == 0 && (text[3] == '\0' || text[3] == ' '))
+    {
+        value = false;
+        return true;
+    }
+
+    return false;
+}
+
+// A whole number, with the keyword already consumed.
+bool ParseCount(char const* text, uint32& value)
+{
+    while (*text == ' ')
+        ++text;
+
+    char* end = nullptr;
+    unsigned long const parsed = std::strtoul(text, &end, 10);
+
+    if (end == text || (*end != '\0' && *end != ' '))
+        return false;
+
+    value = static_cast<uint32>(parsed);
+    return true;
 }
 }
 
@@ -118,6 +187,8 @@ public:
             {"mf",        HandleMagicFindCommand, SEC_PLAYER, Console::No},
             {"goldfind", HandleGoldFindCommand,   SEC_PLAYER, Console::No},
             {"gf",       HandleGoldFindCommand,   SEC_PLAYER, Console::No},
+            {"trash",    HandleTrashCommand,      SEC_PLAYER, Console::No},
+            {"ah",       HandleAuctionHouseCommand, SEC_PLAYER, Console::No},
         };
 
         static ChatCommandTable commandTable =
@@ -473,6 +544,177 @@ private:
         std::snprintf(value, sizeof(value), "%.2f", GetWarbandGoldFindMultiplier());
 
         handler->SendSysMessage(std::string("WARBAND_GOLDFIND=") + value);
+    }
+
+    // Trash auto-sell. "sell" is the sweep: it walks the leader's bags and every follower's, which
+    // is the only way to clear a follower that is already full, since a full character cannot loot
+    // in the first place.
+    static bool HandleTrashCommand(ChatHandler* handler, char const* args)
+    {
+        while (*args == ' ')
+            ++args;
+
+        if (strncmp(args, "on", 2) == 0 && (args[2] == '\0' || args[2] == ' '))
+        {
+            SetWarbandTrashSellEnabled(true);
+            SendTrashSell(handler);
+            return true;
+        }
+
+        if (strncmp(args, "off", 3) == 0 && (args[3] == '\0' || args[3] == ' '))
+        {
+            SetWarbandTrashSellEnabled(false);
+            SendTrashSell(handler);
+            return true;
+        }
+
+        if (strncmp(args, "sell", 4) == 0 && (args[4] == '\0' || args[4] == ' '))
+        {
+            Player* player = handler->GetSession() ? handler->GetSession()->GetPlayer() : nullptr;
+            if (!player)
+                return false;
+
+            SendTrashSell(handler, WarbandSellTrashInParty(player));
+            return true;
+        }
+
+        if (!*args)
+        {
+            SendTrashSell(handler);
+            return true;
+        }
+
+        handler->SendSysMessage(TrashUsage);
+        return false;
+    }
+
+    // "swept" is how many items this particular command sold; "sold" and "copper" are the running
+    // totals for the session, so the page can show what the feature has done since the last start.
+    static void SendTrashSell(ChatHandler* handler, uint32 swept = 0)
+    {
+        handler->PSendSysMessage(
+            "WARBAND_TRASHSELL=enabled={};sold={};copper={};swept={}",
+            GetWarbandTrashSellEnabled() ? 1 : 0,
+            GetWarbandTrashSoldItems(),
+            GetWarbandTrashSoldCopper(),
+            swept);
+    }
+
+    // Auction house: the market itself is mod-ah-bot-plus, which has no user front end at all, so
+    // this is the surface the panel talks to. Only the options that shape the market are offered;
+    // prices and filters stay in the bot's own configuration file.
+    static bool HandleAuctionHouseCommand(ChatHandler* handler, char const* args)
+    {
+        while (*args == ' ')
+            ++args;
+
+        if (!WarbandAuctionBotInstalled())
+        {
+            handler->PSendSysMessage("WARBAND_AHBOT=installed=0");
+            return true;
+        }
+
+        if (!*args)
+        {
+            SendAuctionHouse(handler);
+            return true;
+        }
+
+        if (strncmp(args, "seller", 6) == 0 && (args[6] == '\0' || args[6] == ' '))
+        {
+            bool enabled = false;
+            if (!ParseToggle(args + 6, enabled) || !WarbandSetAuctionBotSeller(enabled))
+            {
+                handler->SendSysMessage(AuctionHouseUsage);
+                return false;
+            }
+
+            SendAuctionHouse(handler);
+            return true;
+        }
+
+        if (strncmp(args, "buyer", 5) == 0 && (args[5] == '\0' || args[5] == ' '))
+        {
+            bool enabled = false;
+            if (!ParseToggle(args + 5, enabled) || !WarbandSetAuctionBotBuyer(enabled))
+            {
+                handler->SendSysMessage(AuctionHouseUsage);
+                return false;
+            }
+
+            SendAuctionHouse(handler);
+            return true;
+        }
+
+        if (strncmp(args, "items", 5) == 0 && (args[5] == '\0' || args[5] == ' '))
+        {
+            uint32 items = 0;
+            if (!ParseCount(args + 5, items) || !WarbandSetAuctionBotItemsPerCycle(items))
+            {
+                handler->SendSysMessage(AuctionHouseUsage);
+                return false;
+            }
+
+            SendAuctionHouse(handler);
+            return true;
+        }
+
+        if (strncmp(args, "candidates", 10) == 0 && (args[10] == '\0' || args[10] == ' '))
+        {
+            uint32 candidates = 0;
+            if (!ParseCount(args + 10, candidates) || !WarbandSetAuctionBotBuyCandidates(candidates))
+            {
+                handler->SendSysMessage(AuctionHouseUsage);
+                return false;
+            }
+
+            SendAuctionHouse(handler);
+            return true;
+        }
+
+        if (strncmp(args, "stock", 5) == 0 && (args[5] == '\0' || args[5] == ' '))
+        {
+            char const* rest = args + 5;
+            while (*rest == ' ')
+                ++rest;
+
+            std::string const house(rest, strcspn(rest, " "));
+
+            uint32 items = 0;
+
+            if (house.empty() || !ParseCount(rest + house.size(), items) ||
+                !WarbandSetAuctionBotStock(house, items))
+            {
+                handler->SendSysMessage(AuctionHouseUsage);
+                return false;
+            }
+
+            SendAuctionHouse(handler);
+            return true;
+        }
+
+        if (strncmp(args, "repopulate", 10) == 0 && (args[10] == '\0' || args[10] == ' '))
+        {
+            WarbandRefreshAuctionBot();
+            SendAuctionHouse(handler);
+            return true;
+        }
+
+        handler->SendSysMessage(AuctionHouseUsage);
+        return false;
+    }
+
+    static void SendAuctionHouse(ChatHandler* handler)
+    {
+        handler->PSendSysMessage(
+            "WARBAND_AHBOT=installed=1;seller={};buyer={};items={};candidates={};alliance={};horde={};neutral={}",
+            GetWarbandAuctionBotSetting("AuctionHouseBot.EnableSeller", false) ? 1 : 0,
+            GetWarbandAuctionBotSetting("AuctionHouseBot.Buyer.Enabled", false) ? 1 : 0,
+            GetWarbandAuctionBotNumber("AuctionHouseBot.ItemsPerCycle", 0),
+            GetWarbandAuctionBotNumber("AuctionHouseBot.Buyer.BuyCandidatesPerBuyCycle", 0),
+            GetWarbandAuctionBotNumber("AuctionHouseBot.Alliance.MaxItems", 0),
+            GetWarbandAuctionBotNumber("AuctionHouseBot.Horde.MaxItems", 0),
+            GetWarbandAuctionBotNumber("AuctionHouseBot.Neutral.MaxItems", 0));
     }
 };
 

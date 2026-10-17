@@ -4,6 +4,13 @@ AzerothCore is a C++ MMORPG server emulator for World of Warcraft 3.3.5a (WotLK)
 
 ## Agent rules
 
+- **Warband implements features in-house unless a recorded decision says otherwise.** A
+  third-party module or addon is never a dependency, never an install step, and never part of
+  the build; a link in the docs is a citation of research. No candidate source is staged in this
+  tree — `modules/` holds the runtime baseline and project-owned `mod-warband` only, and the
+  read-only research clones under `.agents/reference/` are never built. Do not describe a module
+  as staged, pinned, or present in the checkout, and correct that wording when you find it. See
+  `doc/Warband-Implementation-Policy.md`.
 - **Build approval is required.** Before any configure, build, or rebuild,
   provide the reason, source scope, whether Playerbots is included, and a
   duration/resource estimate; wait for explicit approval before starting. Full

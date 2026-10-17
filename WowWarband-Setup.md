@@ -6,9 +6,13 @@ Runtime outputs, client assets, extracted server data, database files, and local
 
 The server build uses the Playerbot branch of `mod-playerbots/azerothcore-wotlk` with `mod-playerbots` master, plus the MultiBot bridge, ALE, and the progression module. The client addon source folders are `addons/MultiBot` and `addons/PlayerbotManager`. `tools/Keira3` is the database editor source; it is a separate desktop application.
 
-These pinned components describe the current source/runtime baseline, not a
+These baseline components describe the current source/runtime baseline, not a
 promise to implement future Warband features by installing more addons or
-modules. Feature research remains available as reference; new functionality is
+modules. **Warband implements its features in-house**: nothing beyond this
+baseline is present in the tree, the third-party modules named in the research
+documents are citations of study and never dependencies, and the read-only
+research clones under `.agents/reference/` are never built. Feature research
+remains available as reference; new functionality is
 owned by Warband server code and, where needed, a Warband client addon/plugin.
 Before any configure/build/rebuild, including a targeted build, provide a scope
 and cost estimate and wait for explicit user approval. A full rebuild involving
@@ -37,8 +41,10 @@ character creation remain unverified. Using `patch-z.mpq` follows an
 but that reference does not verify this particular client's patch stack.
 
 For a fresh local runtime, with the server and client stopped and a current
-database backup made, repeat the integration from the pinned `modules/mod-arac`
-source: apply `data/sql/db-world/arac.sql` to `acore_world`, copy
+database backup made, repeat the integration from the ARAC source
+([heyitsbench/mod-arac](https://github.com/heyitsbench/mod-arac) — a reference
+repository, not something staged in this checkout and not a dependency): apply
+`data/sql/db-world/arac.sql` to `acore_world`, copy
 `patch-contents/DBFilesContent/{CharBaseInfo,CharStartOutfit,SkillRaceClassInfo}.dbc`
 to `var/data/dbc/`, and copy `Patch-A.MPQ` to the client's `Data/` directory as
 a free patch name (this runtime uses `patch-z.mpq`). Do not overwrite another
@@ -79,8 +85,9 @@ as validated.
   Keep shared core headers stable where possible; never bypass dependency checks
   to force reuse of incompatible objects.
 - ALE loads project-owned scripts from `scripts/lua/`; `wowwarband_smoke_test.lua` is a harmless startup test. Keep custom script filenames unique.
-- The BMAH backport source is pinned under
-  `extras/Black-Market-Auction-House/`. ALE is enabled and the local runtime
+- The BMAH backport source sits uncompiled under
+  `extras/Black-Market-Auction-House/` — a local copy, not a dependency and not
+  part of any build. ALE is enabled and the local runtime
   script path points to `scripts/lua/`, so the script/addon could be deployed
   without a C++ build. It remains inactive: its configured test NPC entry
   `2069430` is absent from the local world data, and no NPC creation/spawn SQL

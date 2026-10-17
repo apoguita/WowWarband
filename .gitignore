@@ -60,6 +60,9 @@ CMakeLists.txt.user
 # Agents
 #
 .agents/plans/**
+# Read-only upstream clones kept for research. Never build input; see
+# doc/Warband-Implementation-Policy.md.
+.agents/reference/**
 
 #
 # Claude

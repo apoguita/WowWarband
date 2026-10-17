@@ -3,6 +3,35 @@
 **Status:** active project policy  
 **Last updated:** 16 October 2026
 
+## Implementation default: in-house
+
+**Warband implements every feature itself. A third-party module or addon is used only when a
+recorded decision says so, naming the component and why Warband's own build does not supply
+the behaviour.** This is the default, not a preference to be re-argued per feature:
+
+- Nothing in this repository is a dependency by default. A link is a **citation** of research,
+  never an install, and never a build input.
+- **No candidate third-party source is staged in this tree, and none ever was.** `modules/`
+  holds the runtime baseline (Playerbots, ALE, MultiBot Bridge, progression) and the
+  project-owned `mod-warband`. The only upstream copies kept locally are read-only research
+  clones under `.agents/reference/`, which nothing builds, configures, or loads.
+- Any wording in the research documents that says a module was "staged", "pinned in this
+  checkout", or "present as a submodule" is retired. Those statements were stale and are
+  corrected wherever they appear.
+- The research documents keep the *findings* — how a behaviour works, which hook it needs,
+  which pitfalls were already hit — because that is what makes the in-house build cheaper.
+  Reading upstream source is exactly how a Warband feature gets specified.
+
+**Approved dependencies, in full.** There is exactly one, and it is recorded here so the
+exception can never be mistaken for drift:
+
+| Component | What it supplies | Why not in-house | Decided |
+|---|---|---|---|
+| `mod-ah-bot-plus` | The auction-house market: it lists items in all three houses and buys what players list | Writing a working auction market is a project of its own, and the requirement is movement on the house, not an economy Warband needs to own | 16 October 2026 |
+
+Warband still owns the control surface for it: the `.warband ah` command and the panel's
+Auction house page are Warband code that reads and rewrites the bot's settings.
+
 ## Implementation model
 
 WoW Warband owns the implementation of its intended player experience. A
@@ -55,9 +84,16 @@ estimate and obtain approval for that scope before proceeding.
 
 ## Decision record
 
-For each proposed feature, record whether it is research, selected dependency,
-Warband-owned implementation, or implemented and verified. Keep those states
-distinct in the README, design record, and component assessments. Do not call a
-feature active because its source is present or because a build succeeded;
-report database setup, configuration, runtime loading, and gameplay verification
-separately where they apply.
+For each proposed feature, record whether it is research, a Warband-owned
+implementation, an approved dependency (the exception, with its reason), or
+implemented and verified. Keep those states distinct in the README, design
+record, and component assessments. Do not call a feature active because a
+research copy exists or because a build succeeded; report database setup,
+configuration, runtime loading, and gameplay verification separately where they
+apply.
+
+The only states a third-party component may carry in these documents are:
+**reference only** (read for research; nothing in the build), **not taken up**
+(candidate, no decision), and **approved dependency** (a recorded decision with
+its reason). "Staged", "pinned" and "in modules/" describe nothing that exists
+here and must not be used.

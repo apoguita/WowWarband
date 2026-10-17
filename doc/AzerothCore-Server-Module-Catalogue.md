@@ -4,6 +4,8 @@ Snapshot date: 2026-10-15. Source: public GitHub repositories tagged `azerothcor
 
 **Entries: 503.** Archived means the repository owner has made it read-only; it does not itself prove incompatibility.
 
+**Warband implements its features in-house.** An entry here means the repository was seen to exist, nothing more: it is not staged, not a dependency, and not a build input. Where a behaviour is taken up, Warband writes it, using the reference only to learn what that behaviour requires. See the [implementation policy](Warband-Implementation-Policy.md).
+
 | Module | Description | Updated | Archived |
 |---|---|---:|:---:|
 | [0x0003/mod-futa](https://github.com/0x0003/mod-futa) | "F*ck Ugly Trees" Association: apply Tree of Life passive healing bonuses to Restoration Druids without having to shapeshift into an ugly tree. | 2026-08-27 | No |

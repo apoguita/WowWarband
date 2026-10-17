@@ -2,9 +2,14 @@
 
 The in-house server module for WoW Warband. Everything Warband-specific that
 needs the server lives here: today the XP multiplier, follower catch-up
-experience, follower gathering, and bound gear moving inside the Warband. The
-client panel in `addons/Warband` drives the runtime settings through this module's
-`.warband` chat commands.
+experience, follower gathering, bound gear moving inside the Warband, magic find
+and gold find. The client panel in `addons/Warband` drives the runtime settings
+through this module's `.warband` chat commands.
+
+**Warband implements its features in-house.** A third-party module named anywhere
+in the project docs is a research reference for how a behaviour works - never a
+dependency, never installed, never staged in this tree. If a feature looks like an
+existing module's feature, it is still written here.
 
 The directory used to be called `mod-warband-unbound-loot`, after the first
 feature it happened to carry. That feature is gone - it cleared the soulbound flag
@@ -18,9 +23,11 @@ longer refers to it.
 | XP multiplier | Live and verified in game | `WarbandSettings.cpp`, `WarbandCommands.cpp` |
 | Follower catch-up XP | Live and verified in game | `WarbandSettings.cpp`, `WarbandCommands.cpp` |
 | Follower gathering | On-demand apply verified; automatic sync not yet verified | `WarbandGathering.cpp` |
-| Bound gear inside the Warband | Registered; not yet verified in game | `Item.cpp` (core), `WarbandTrading.cpp` |
-| Magic find | Registered; not yet verified in game | `WarbandMagicFind.cpp`, `WarbandCommands.cpp` |
-| Gold find | Registered; not yet verified in game | `WarbandGoldFind.cpp`, `WarbandCommands.cpp` |
+| Bound gear inside the Warband | Built; not yet verified in game | `Item.cpp` (core), `WarbandTrading.cpp` |
+| Magic find | Built; not yet verified in game | `WarbandMagicFind.cpp`, `WarbandCommands.cpp` |
+| Gold find | Built; not yet verified in game | `WarbandGoldFind.cpp`, `WarbandCommands.cpp` |
+| Trash auto-sell | Built; not yet verified in game | `WarbandTrashSell.cpp`, `WarbandCommands.cpp` |
+| Auction house control | Built; not yet verified in game | `WarbandAuctionHouse.cpp`, `WarbandCommands.cpp` |
 
 Keeping the two kinds of bot apart is what `WarbandPlayerRoles.h` is for:
 `WarbandFollowerMaster()` returns a leader only for a bot piloted by a real
@@ -228,6 +235,59 @@ vendoring, quest rewards, mail and the auction house is a different path and sta
 money has its own `Rate.RewardQuestMoney` and `Rate.RewardBonusMoney` in `worldserver.conf`.
 
 Because the module owns the rate, its value wins over `Rate.Drop.Money` in `worldserver.conf`.
+
+## Auction house control
+
+The market is not Warband code. `mod-ah-bot-plus` supplies it — it stocks the Alliance, Horde and
+Neutral houses and buys what the party lists — and it has no user front end at all, which is what
+this module adds: a control surface plus the panel page that talks to it.
+
+    .warband ah                                   read the bot's live settings
+    .warband ah seller | buyer on | off           switch a side of the market
+    .warband ah items <10-5000>                   listings added per cycle
+    .warband ah candidates <1-50>                 listings the buyer checks per cycle
+    .warband ah stock <alliance|horde|neutral> <n>  stock target for one house
+    .warband ah repopulate                        rebuild the bot's item lists and top up now
+
+The reply is
+`WARBAND_AHBOT=installed=1;seller=1;buyer=1;items=150;candidates=5;alliance=1200;horde=1200;neutral=200`,
+and `WARBAND_AHBOT=installed=0` when the bot is not installed.
+
+How a change lands: the bot reads its settings from `configs/modules/mod_ahbot.conf` in its own
+`OnAfterConfigLoad`. A command here rewrites that one line in the file — comments and every other
+option untouched — then reloads the configuration and re-runs the config hook, which is the path
+`.reload config` takes. So the change is live without a restart, and the bot repopulates its item
+candidate lists on the way. Prices, filters and listing rules are deliberately not exposed: they
+belong to the bot's own file.
+
+## Trash auto-sell
+
+The bag-space fix, not an economy feature. A party of five loots five times as much grey junk, and
+a follower's bags cannot be opened and emptied by hand the way the leader's can, so grey loot is
+sold the moment it is picked up: the vendor price is paid to whoever looted it and the item is
+destroyed before it can accumulate. Which purse the copper lands in is deliberately unimportant.
+
+    .warband trash            read the state and the session totals
+    .warband trash on | off   sell grey loot at pickup, or stop
+    .warband trash sell       empty the party's bags of grey loot right now
+
+The reply is `WARBAND_TRASHSELL=enabled=1;sold=12;copper=3456;swept=0`, and the panel's Trash sell
+page shows the same numbers with a toggle and a sweep button.
+
+It hangs on `PlayerScript::OnPlayerLootItem`, which the core raises at the end of the ordinary
+pickup path (`Player.cpp:13954`, after `StoreNewItem` and `SendNewItem`) for every `Player` - the
+real player and every follower alike. No core change is involved.
+
+Never sold: quest-class items, items that start a quest, and anything an accepted quest still
+needs. A grey with no vendor price is left in the bags rather than deleted for nothing. The
+keep-grey-"upgrades" rule from the module that inspired this is not copied: for vendor trash it
+never fires.
+
+Why the sweep exists: a pickup only happens when the looting character has a free slot, so a bag
+that is already full cannot be emptied by looting. `.warband trash sell` walks the leader's bags
+and every follower's, which is the only way to clear a follower that filled up before the feature
+was switched on.
+
 ## Follower gathering
 
 The leader keeps the crafting professions; followers only need to gather for the

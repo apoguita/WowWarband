@@ -33,6 +33,7 @@ local TEXT_GATHER_NO_REPLY = "Unavailable: this worldserver does not answer .war
 local TEXT_BINDING_NO_REPLY = "Unavailable: this worldserver does not answer .warband binding yet."
 local TEXT_MAGIC_FIND_NO_REPLY = "Unavailable: this worldserver does not answer .warband magicfind yet."
 local TEXT_GOLD_FIND_NO_REPLY = "Unavailable: this worldserver does not answer .warband goldfind yet."
+local TEXT_TRASH_SELL_NO_REPLY = "Unavailable: this worldserver does not answer .warband trash yet."
 
 local COLOR_GREEN = { 0.1, 1, 0.1 }
 local COLOR_AMBER = { 1, 0.7, 0 }
@@ -62,6 +63,8 @@ local Tree = {
             { id = "binding", text = "Item binding", status = "live", page = "binding" },
             { id = "magicfind", text = "Magic find", status = "live", page = "magicfind" },
             { id = "goldfind", text = "Gold find", status = "live", page = "goldfind" },
+            { id = "trashsell", text = "Trash sell", status = "live", page = "trashsell" },
+            { id = "auctionhouse", text = "Auction house", status = "live", page = "auctionhouse" },
         },
     },
     {
@@ -152,6 +155,37 @@ local GOLD_MAX = 20
 
 local goldFind = { known = false, mult = 3 }
 local goldFindRequest = { pending = false, deadline = nil }
+
+-- Trash auto-sell: grey loot sold at pickup time so it never takes a bag slot. "sold" and
+-- "copper" are the server's session totals, "swept" is what the last sweep command collected.
+local trashSell = { known = false, enabled = true, sold = 0, copper = 0, swept = 0 }
+local trashSellRequest = { pending = false, deadline = nil }
+local UpdateTrashSellDisplay
+local SetTrashSellStatus
+
+-- Auction house: the market is run by the auction bot, which has no user front end. This page is
+-- its only interface: on/off for its seller and buyer sides, and how busy each cycle is.
+local AUCTION_ITEMS_STEP = 25
+local AUCTION_ITEMS_MIN = 10
+local AUCTION_ITEMS_MAX = 5000
+local AUCTION_CANDIDATES_MIN = 1
+local AUCTION_CANDIDATES_MAX = 50
+
+local auction = {
+    known = false,
+    installed = false,
+    seller = false,
+    buyer = false,
+    items = 0,
+    candidates = 0,
+    alliance = 0,
+    horde = 0,
+    neutral = 0,
+}
+
+local auctionRequest = { pending = false, deadline = nil }
+local UpdateAuctionDisplay
+local SetAuctionStatus
 local UpdateGoldFindDisplay
 local SetGoldFindStatus
 local goldFindValue
@@ -237,6 +271,22 @@ local function RequestGoldFindState()
     StartRequest(goldFindRequest, ".warband goldfind")
 end
 
+local function RequestTrashSellState()
+    if UpdateTrashSellDisplay then
+        UpdateTrashSellDisplay()
+    end
+
+    StartRequest(trashSellRequest, ".warband trash")
+end
+
+local function RequestAuctionState()
+    if UpdateAuctionDisplay then
+        UpdateAuctionDisplay()
+    end
+
+    StartRequest(auctionRequest, ".warband ah")
+end
+
 -- Sends the value the panel shows. Repeating the last accepted value is skipped so a click that
 -- changes nothing does not produce needless chat traffic.
 local function CommitRate()
@@ -311,6 +361,16 @@ function Warband_OnUpdate()
         ClearRequest(goldFindRequest)
         SetGoldFindStatus(TEXT_GOLD_FIND_NO_REPLY, COLOR_GREY)
     end
+
+    if trashSellRequest.pending and GetTime() >= trashSellRequest.deadline then
+        ClearRequest(trashSellRequest)
+        SetTrashSellStatus(TEXT_TRASH_SELL_NO_REPLY, COLOR_GREY)
+    end
+
+    if auctionRequest.pending and GetTime() >= auctionRequest.deadline then
+        ClearRequest(auctionRequest)
+        SetAuctionStatus("Unavailable: this worldserver does not answer .warband ah yet.", COLOR_GREY)
+    end
 end
 
 function Warband_OnEvent(self, event, ...)
@@ -378,6 +438,70 @@ function Warband_OnEvent(self, event, ...)
         end
         return
     end
+    if string.find(message or "", "WARBAND_AHBOT=", 1, true) then
+        auction.installed = false
+
+        for key, value in string.gmatch(message, "([%a_]+)=([%d%.]+)") do
+            local number = tonumber(value)
+            if key == "installed" then
+                auction.installed = number == 1
+            elseif key == "seller" then
+                auction.seller = number == 1
+            elseif key == "buyer" then
+                auction.buyer = number == 1
+            elseif key == "items" then
+                auction.items = number or 0
+            elseif key == "candidates" then
+                auction.candidates = number or 0
+            elseif key == "alliance" then
+                auction.alliance = number or 0
+            elseif key == "horde" then
+                auction.horde = number or 0
+            elseif key == "neutral" then
+                auction.neutral = number or 0
+            end
+        end
+
+        ClearRequest(auctionRequest)
+        auction.known = true
+
+        if UpdateAuctionDisplay then
+            UpdateAuctionDisplay()
+        end
+
+        if RefreshDynamicPage then
+            RefreshDynamicPage()
+        end
+        return
+    end
+
+    if string.find(message or "", "WARBAND_TRASHSELL=", 1, true) then
+        for key, value in string.gmatch(message, "([%a_]+)=([%d%.]+)") do
+            local number = tonumber(value)
+            if key == "enabled" then
+                trashSell.enabled = number == 1
+            elseif key == "sold" then
+                trashSell.sold = number or 0
+            elseif key == "copper" then
+                trashSell.copper = number or 0
+            elseif key == "swept" then
+                trashSell.swept = number or 0
+            end
+        end
+
+        ClearRequest(trashSellRequest)
+        trashSell.known = true
+
+        if UpdateTrashSellDisplay then
+            UpdateTrashSellDisplay()
+        end
+
+        if RefreshDynamicPage then
+            RefreshDynamicPage()
+        end
+        return
+    end
+
     if string.find(message or "", "WARBAND_MAGICFIND=", 1, true) then
         for key, value in string.gmatch(message, "([%a_]+)=([%d%.]+)") do
             local number = tonumber(value)
@@ -1081,6 +1205,162 @@ function Warband_AdjustGoldFind(delta)
     StartRequest(goldFindRequest, string.format(".warband goldfind %.2f", wanted))
 end
 
+-- Trash auto-sell: one toggle and a sweep button. "Sold at pickup" is easy to disbelieve until the
+-- bags stay empty, so the page also reports what the feature has cleared so far.
+local function FormatCopper(copper)
+    copper = copper or 0
+
+    local gold = math.floor(copper / 10000)
+    local silver = math.floor((copper % 10000) / 100)
+    local rest = copper % 100
+
+    if gold > 0 then
+        return string.format("%dg %ds %dc", gold, silver, rest)
+    end
+
+    if silver > 0 then
+        return string.format("%ds %dc", silver, rest)
+    end
+
+    return string.format("%dc", rest)
+end
+
+SetTrashSellStatus = function(text, color)
+    WarbandPageTrashSellStatus:SetText(text)
+    WarbandPageTrashSellStatus:SetTextColor(color[1], color[2], color[3])
+end
+
+UpdateTrashSellDisplay = function()
+    if not trashSell.known then
+        SetTrashSellStatus("Reading the trash auto-sell state...", COLOR_AMBER)
+    elseif trashSell.enabled then
+        SetTrashSellStatus("Live - grey loot is sold on pickup and never takes a bag slot", COLOR_GREEN)
+    else
+        SetTrashSellStatus("Off - grey loot stays in the bags", COLOR_GREY)
+    end
+
+    WarbandPageTrashSellToggle:SetText(trashSell.enabled and "Trash sell: on" or "Trash sell: off")
+
+    if not trashSell.known then
+        WarbandPageTrashSellDetail:SetText("Waiting for the server...")
+        return
+    end
+
+    local detail = string.format("Cleared so far: %d item(s) for %s", trashSell.sold,
+        FormatCopper(trashSell.copper))
+
+    if trashSell.swept and trashSell.swept > 0 then
+        detail = detail .. string.format("\nThe last sweep sold %d item(s) from the bags.",
+            trashSell.swept)
+    end
+
+    WarbandPageTrashSellDetail:SetText(detail)
+end
+
+function Warband_ToggleTrashSell()
+    if not trashSell.known then
+        SetTrashSellStatus("Waiting for the server before changing this...", COLOR_AMBER)
+        StartRequest(trashSellRequest, ".warband trash")
+        return
+    end
+
+    if trashSell.enabled then
+        SetTrashSellStatus("Switching trash sell off...", COLOR_AMBER)
+        StartRequest(trashSellRequest, ".warband trash off")
+    else
+        SetTrashSellStatus("Switching trash sell on...", COLOR_AMBER)
+        StartRequest(trashSellRequest, ".warband trash on")
+    end
+end
+
+function Warband_SellJunkNow()
+    SetTrashSellStatus("Selling the junk in the bags...", COLOR_AMBER)
+    StartRequest(trashSellRequest, ".warband trash sell")
+end
+
+-- Auction house: the bot has no interface of its own, so this page is it.
+SetAuctionStatus = function(text, color)
+    WarbandPageAuctionHouseStatus:SetText(text)
+    WarbandPageAuctionHouseStatus:SetTextColor(color[1], color[2], color[3])
+end
+
+UpdateAuctionDisplay = function()
+    if not auction.known then
+        SetAuctionStatus("Reading the auction house settings...", COLOR_AMBER)
+    elseif not auction.installed then
+        SetAuctionStatus("No auction bot on this worldserver", COLOR_GREY)
+    elseif auction.seller and auction.buyer then
+        SetAuctionStatus("Live - the houses are stocked and your listings can be bought", COLOR_GREEN)
+    elseif auction.seller then
+        SetAuctionStatus("Seller only - stocked, but nothing buys your listings", COLOR_AMBER)
+    elseif auction.buyer then
+        SetAuctionStatus("Buyer only - your listings sell, the houses are not restocked", COLOR_AMBER)
+    else
+        SetAuctionStatus("Both sides off - the market is only what players put there", COLOR_GREY)
+    end
+
+    WarbandPageAuctionHouseSellerToggle:SetText(auction.seller and "Seller: on" or "Seller: off")
+    WarbandPageAuctionHouseBuyerToggle:SetText(auction.buyer and "Buyer: on" or "Buyer: off")
+
+    if auction.installed then
+        WarbandPageAuctionHouseDetail:SetText(string.format(
+            "%d listings added per cycle, %d checked for buying per cycle\nStock targets: %d Alliance, %d Horde, %d Neutral",
+            auction.items, auction.candidates, auction.alliance, auction.horde, auction.neutral))
+    else
+        WarbandPageAuctionHouseDetail:SetText("")
+    end
+end
+
+function Warband_ToggleAuctionSeller()
+    if auction.known and not auction.installed then
+        return
+    end
+
+    SetAuctionStatus("Switching the seller...", COLOR_AMBER)
+    StartRequest(auctionRequest,
+        auction.seller and ".warband ah seller off" or ".warband ah seller on")
+end
+
+function Warband_ToggleAuctionBuyer()
+    if auction.known and not auction.installed then
+        return
+    end
+
+    SetAuctionStatus("Switching the buyer...", COLOR_AMBER)
+    StartRequest(auctionRequest,
+        auction.buyer and ".warband ah buyer off" or ".warband ah buyer on")
+end
+
+function Warband_StepAuctionItems(delta)
+    if auction.known and not auction.installed then
+        return
+    end
+
+    local wanted = math.max(AUCTION_ITEMS_MIN, math.min(AUCTION_ITEMS_MAX, auction.items + delta))
+    SetAuctionStatus("Applying...", COLOR_AMBER)
+    StartRequest(auctionRequest, ".warband ah items " .. wanted)
+end
+
+function Warband_StepAuctionCandidates(delta)
+    if auction.known and not auction.installed then
+        return
+    end
+
+    local wanted = math.max(AUCTION_CANDIDATES_MIN,
+        math.min(AUCTION_CANDIDATES_MAX, auction.candidates + delta))
+    SetAuctionStatus("Applying...", COLOR_AMBER)
+    StartRequest(auctionRequest, ".warband ah candidates " .. wanted)
+end
+
+function Warband_RefreshAuction()
+    if auction.known and not auction.installed then
+        return
+    end
+
+    SetAuctionStatus("Restocking the auction houses...", COLOR_AMBER)
+    StartRequest(auctionRequest, ".warband ah repopulate")
+end
+
 -- Pages whose content depends on live state rather than fixed text.
 local function DynamicLines(kind)
     if kind == "features" then
@@ -1120,6 +1400,16 @@ local function DynamicLines(kind)
                 .. ", blue x" .. string.format("%.1f", magicFind.mult.blue or 1)
                 .. ", purple x" .. string.format("%.1f", magicFind.mult.purple or 1)
                 .. ", orange x" .. string.format("%.1f", magicFind.mult.orange or 1))
+        end
+
+        if trashSell.known and trashSell.enabled then
+            table.insert(lines, "- Trash sell: grey loot is sold on pickup, so bags stay empty")
+        end
+
+        if auction.known and auction.installed and auction.seller then
+            table.insert(lines, auction.buyer
+                and "- Auction house: stocked by the bot, and it buys what the party lists"
+                or "- Auction house: stocked by the bot, selling waits for a buyer")
         end
 
         table.insert(lines, " ")
@@ -1162,6 +1452,8 @@ local function ShowNode(node)
     WarbandPageBinding:Hide()
     WarbandPageMagicFind:Hide()
     WarbandPageGoldFind:Hide()
+    WarbandPageTrashSell:Hide()
+    WarbandPageAuctionHouse:Hide()
 
     if node.page == "experience" then
         WarbandPageExperience:Show()
@@ -1203,6 +1495,24 @@ local function ShowNode(node)
         return
     end
 
+    if node.page == "trashsell" then
+        if UpdateTrashSellDisplay then
+            UpdateTrashSellDisplay()
+        end
+
+        WarbandPageTrashSell:Show()
+        return
+    end
+
+    if node.page == "auctionhouse" then
+        if UpdateAuctionDisplay then
+            UpdateAuctionDisplay()
+        end
+
+        WarbandPageAuctionHouse:Show()
+        return
+    end
+
     RenderTextPage(node.dynamic and DynamicLines(node.dynamic) or node.lines
         or { "No details recorded for this feature yet." })
     WarbandPageText:Show()
@@ -1233,6 +1543,8 @@ function Warband_OnShow()
     RequestBindingState()
     RequestMagicFindState()
     RequestGoldFindState()
+    RequestTrashSellState()
+    RequestAuctionState()
 end
 
 function Warband_OnHide()
@@ -1242,6 +1554,8 @@ function Warband_OnHide()
     ClearRequest(bindingRequest)
     ClearRequest(magicFindRequest)
     ClearRequest(goldFindRequest)
+    ClearRequest(trashSellRequest)
+    ClearRequest(auctionRequest)
 end
 
 function Warband_OnCloseClick()

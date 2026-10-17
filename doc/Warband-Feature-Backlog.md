@@ -1,36 +1,26 @@
 # WoW Warband feature backlog
 
-**Status:** working inventory for prioritisation  
+**Status:** working inventory for prioritisation
 **Last updated:** 16 October 2026
 
-## Implementation rule
+## What belongs in this list
 
-**Every feature in this list is implemented in-house by Warband.** Server behaviour
-belongs in a Warband-owned AzerothCore module; a core change is made only where a module
-cannot provide the hook; player-facing controls belong in the Warband client addon. This
-is the rule set by [the implementation policy](Warband-Implementation-Policy.md).
+**Only features: capabilities the game does not have, for the Warband as a party.** A capability
+that merely removes friction the base game or the client leaves in place is a fix, not a feature,
+and does not get a row here — clicking six corpses, sorting a bag, freeing a travel timer or
+remembering a window position are fixes. A party of five learning to function together, and a raid
+tuned for five, are features.
 
-**Third-party modules and addons are reference material only.** They are never
-dependencies, never an install queue, and never part of the build. The research exists to
-answer three questions about a capability we intend to build ourselves: what the behaviour
-actually requires, what overlaps with something else, and which pitfalls were already hit.
-Where a row below names a module, that is a research citation — the source of what we know
-— not something to install. The candidate sources are not kept in `modules/`, which is
-consistent with this rule.
+**Every row names where it came from**: a request, a recorded decision, or a
+[shortlist entry](Warband-Server-Module-Shortlist.md) studied for the behaviour. The shortlist is
+the research that says what a capability requires; this list is what Warband intends to build.
+Delivered features are documented in the [README](../README.md) and are not repeated here.
 
-Components that are already installed in the local runtime are the baseline, not Warband
-features. They are listed separately below.
-
-**States used in the tables**
-
-| State | Meaning |
-|---|---|
-| **Live** | Built, loaded, and observed working in game |
-| **Installed** | In place in the runtime, behaviour not yet checked in game |
-| **Source only** | Warband's own code exists but has never been built or loaded |
-| **Designed** | Direction recorded, nothing implemented |
-| **Waiting** | Cannot start until a listed decision is made |
-| **Deferred** | Recorded, deliberately not being built now |
+**Everything is implemented in-house by Warband.** Server behaviour belongs in a Warband-owned
+AzerothCore module; a core change is made only where a module cannot provide the hook;
+player-facing controls belong in the Warband client addon. Third-party modules and addons are
+reference material only: never a dependency, never an install queue, never part of the build.
+A shortlist link in the Origin column is a citation of where the behaviour was studied.
 
 ## Runtime baseline (installed, not Warband features)
 
@@ -42,142 +32,105 @@ features. They are listed separately below.
 | `mod-progression` | Installed and configured at phase 18; supplies phase gating and its own rules |
 | MultiBot and Playerbot Manager addons | Existing client-side companion controls |
 
-## Warband features that are live and verified
+Delivered and verified separately, documented in the README: XP multiplier, follower catch-up,
+follower gathering, gear sharing inside the Warband, magic find, gold find, the 100 race/class
+combinations, the 11 primary professions, and trash auto-sell.
 
-| # | Feature | Built as |
+## Features wanted
+
+### Party and campaign
+
+| # | Feature | Origin | Where we build it | State |
+|---|---|---|---|---|
+| 2 | Party growth to five members: the leader and four followers | The premise: the player roleplays the whole five-member party | Warband server module + addon | Designed — cadence and eligibility undecided |
+| 3 | Recruitment: how a follower joins the party | Same premise | Warband server module + addon | Waiting on decision 3 |
+| 4 | Leader-paced questing: the leader does the objectives, followers complete at turn-in, and a late recruit inherits campaign progress | The premise, plus the research on quest-loot sharing | Warband server module | Designed — baseline quest sync must be verified first. Decision 5 (reward delivery) and 6 (quest-state model) sit inside this |
+| 8 | Party management: bench, swaps, saved compositions | Follows from 2: a five-member party needs a way to change who is in it | Warband server module + addon | Waiting on decision 7 |
+| 9 | Five-member adaptation of raids and large world events | The premise: content for four followers, not a raid of twenty-five | Warband core + server module | Designed — largest item; encounter rules and per-boss variation are open |
+
+### Party loot and gear
+
+| # | Feature | Origin | Where we build it | State |
+|---|---|---|---|---|
+| 13 | Loot ownership: who is entitled to ordinary drops | Shortlist: [mod-shared-loot][shared-loot] and [mod-quest-loot-party][quest-loot-party] both attack it | Warband server module | Waiting on decision 4 |
+| 12 | Gear routing: an item goes to the follower it suits | Shortlist: [mod-quest-loot-party][quest-loot-party] personal mode, which duplicating loot does not solve | Warband server module + addon | Waiting on 13 |
+| 16 | Companion equipment, talents and builds under the player's control | Shortlist: [mod-bot-inventory-master][bot-inventory-master] | Warband client addon + server module | Designed — equipment first, bags as the engine underneath |
+| 20 | Companion gold reaches the leader's purse | Shortlist: [mod-shared-gold][shared-gold] | Warband server module | Designed |
+
+### Economy and world
+
+| # | Feature | Origin | Where we build it | State |
+|---|---|---|---|---|
+| 18 | Normal Auction House: buy useful items, list and sell eligible ones, so the party's loot actually moves | **Decision, 16 October 2026: not built in-house.** The market is too much to write, so the approved dependency `mod-ah-bot-plus` supplies it and Warband builds only the control surface. That is the one recorded exception to the in-house rule, and it is named here as the rule requires | `mod-ah-bot-plus` (dependency) + Warband addon panel | **Installed and running** — the seller keeps Alliance, Horde and Neutral stocked, the buyer purchases player listings, and `.warband ah` plus the panel's Auction house page switch both sides. Open: player-side convenience, i.e. whether to add the retail-style auction window (shortlist) |
+| 19 | Black Market Auction House | Shortlist: [Black-Market-Auction-House][bmah] — bid-only as it stands | Warband server module + client UI | Waiting on: player listing and selling support |
+| 30 | Warband camp: a party facility with the services a five-member Warband needs | Shortlist: [mod-warband-camp][warband-camp] | Warband server module | Designed — scope of services undecided |
+| 46 | Transmogrification: the party looks how the player wants | Shortlist: [mod-transmog][transmog] and [Retail Transmog Plus][retail-transmog-plus] | Warband server module + client UI | Waiting on decision: appearance only, or the collection game |
+| 24 | Instances stop restocking: a creature that dies inside an instance does not come back for the rest of the run | Shortlist: [mod-dead-means-dead][dead-means-dead] | Warband server module | Designed — the respawn switch has to be re-applied when an instance loads, because an instance unload restores the original spawn timing |
+| 47 | Dying inside an instance returns the party to the dungeon's start, alive, instead of a graveyard release and a corpse run through cleared trash | Requested 16 October 2026; the mechanism was studied from `DungeonRespawn` in the shortlist | Warband server module | **Postponed, 16 October 2026** — the only reference is hacky: it hijacks the release teleport to cancel the graveyard move, resurrects outright at a stored anchor, and keeps a per-character row in a character-database table; the repository is archived. Revisit later; nothing else is designed around it |
+
+## Parked convenience work (fixes, not features)
+
+Kept so the decisions are not lost, but they are not goals and are not counted as features.
+
+| # | Work | Why it is parked |
 |---|---|---|
-| — | XP multiplier, 1x–10x, changeable live | Warband module: command, setting, `OnPlayerGiveXP` hook |
-| — | Follower catch-up XP: a follower behind its leader earns more, on top of the global rate | Warband module: same hook, `PlayerbotAI::GetMaster()` to find the leader, config plus `.warband catchup` commands. Panel controls for step, floor, cap and on/off |
-| — | Unrestricted race/class combinations: all 100 WotLK pairs, including Human Shaman and Undead Paladin | Warband-owned creation data: world SQL for creation, skills and starting spells; the server's `CharStartOutfit.dbc` for starting gear; the client's `CharBaseInfo.dbc` and `patch-z.mpq` for what the creation screen offers. Confirmed in game 16 October 2026 |
-| — | Follower gathering: companions receive the leader's Herbalism, Mining and Skinning values and rank spells, so they work the same nodes and skin the same corpses | Warband module: raise-only mirror applied on leader login, on group join, and on `OnPlayerUpdateSkill` / `OnPlayerSetSkill`; `.warband gather` plus a panel page. On-demand apply confirmed in game 16 October 2026; the automatic update paths are built but not yet verified |
-| — | Warband settings window: feature tree, detail pages, live server status, `/warband`, `/ww`, minimap icon | Warband client addon |
-| — | Follower party that follows and fights | Runtime baseline |
+| 15 | Nearby-corpse loot collection | Postponed 16 October 2026: the reference swallows every `CMSG_LOOT` and rewrites the loot table, too much surgery inside a pipeline still being tested. It is a fix for clicking each corpse |
+| 45 | Proximity gathering | Deferred 16 October 2026 until the loot pipeline has been played enough to judge. It is a fix for walking to each node; followers already gather the ordinary way |
 
-## Installed in the runtime but never verified in game
+Other conveniences were studied and are deliberately **not** tracked as features: auto-sort,
+one-key interact, quiet bot roll messages, a faster loot window, no hearthstone cooldown,
+flight-path unlocking, dual spec and remote talent reset, returning to the dungeon entrance after
+death, recovering lost boss loot, and panel conveniences. Trash auto-sell was one of these and is
+already built.
 
-No Warband code is involved; each is a test.
+## Not wanted
 
-| # | Feature | What to check |
-|---|---|---|
-| — | All 11 primary professions (`MaxPrimaryTradeSkill = 11`) | Confirm after the next worldserver start |
-| — | Playerbots quest synchronisation (`SyncQuestWithPlayer = 1`) | Follower completes when the leader turns in; reward behaviour |
-| — | Progression configuration (phase 18, enforced rules, damage x0.6, healing x0.5) | Intended effect in play |
-| — | `Progression.TradableBindsOnPickup.Enforced = 1` | What it actually permits. It is a baseline setting, not Warband's gear sharing, and it does not decide that work |
+| Item | Why |
+|---|---|
+| Open-world party scaling ([mod-open-world-party-scaling][open-world-party-scaling]) | It raises difficulty for a party; Warband needs downscaling for five |
+| Random-bot sync ([mod-rndbot-sync][rndbot-sync]) | It excludes a player's own party bots, so it cannot catch up a follower |
+| Conventional raid-bot support | Teaches bots ordinary raids; it does not make an encounter fit five members |
+| Assisted dungeon mode led by a tank follower | Shifts play from leading a party to supervising automation |
+| Account-wide sharing and alternative rate authorities | They skip the Warband's followers or compete with the module's own rules; the catch-up family already covers the need |
 
-## Gaps in Warband's own work, found while checking the tree
+## Decisions waiting
 
-1. **Resolved, 16 October 2026: binding is a core policy switch, not a cleared flag.** The
-   binding-free feature that erased the soulbound flag from almost everything is gone; it
-   contradicted binding itself. Gear sharing now lives where the core asks the question:
-   `Item::CanBeTraded()` and `Item::IsBindedNotWith()` consult
-   `WarbandIsItemBindingEnforced()` (`src/server/game/Entities/Item/Item.cpp`), defaulting to
-   the ordinary rule and set from `Warband.Binding.Enforced`. This is Warband's one deliberate
-   core change, and it exists because those two functions have no script hook.
-2. **Resolved, 16 October 2026: the Warband module has a runtime config under its own
-   name.** `conf/mod_warband.conf.dist` is installed as
-   `bin/RelWithDebInfo/configs/modules/mod_warband.conf`, that file name is compiled
-   into the server's config list, and all eight options are read from it. The rename
-   from `mod-warband-unbound-loot` needed a CMake configure, which has been run; the
-   pre-rename `mod_warband_unbound_loot.conf` and its `.dist` are now dead files that
-   nothing reads.
-
-## Feature backlog
-
-### Party and progression
-
-| # | Feature | Where we build it | State / waiting on |
-|---|---|---|---|
-| 1 | Follower catch-up XP: a recruit levels fast while behind the leader | Warband server module | **Live and verified** — `1 + 0.10 x levels behind` on top of the global rate; step, floor, cap and on/off are adjustable from the panel |
-| 1a | Catch-up tuning: the last few levels are the slowest, and the 70-80 stretch costs more than everything before it | Warband server module | Open — `Warband.CatchUp.MinMultiplier` exists for the tail and is still at 1.0 |
-| 1b | Catch-up scope: whether every experience source should receive the bonus, or only some | Warband server module | Open — currently kills, quests, exploration and battlegrounds all receive it |
-| 2 | Party growth to five members, complete around level 15 | Warband server module + addon | Designed — waiting on cadence and eligibility |
-| 3 | Recruitment flow: how a follower joins | Warband server module + addon | Waiting — no model selected |
-| 4 | Leader-paced questing: leader does objectives, followers complete at turn-in | Warband server module | Designed — verify the baseline sync first |
-| 5 | Follower reward delivery at turn-in | Warband server module | Waiting — direct reward or routed afterwards |
-| 6 | Shared campaign progress for late recruits | Warband server module | Waiting — four documented models, none chosen |
-| 7 | Companion quest state model | Warband server module | Waiting |
-| 8 | Party management: bench, swaps, saved compositions | Warband server module + addon | Waiting |
-| 9 | Five-member raid and world-event downscaling | Warband core + server module | Designed — largest item; research only rationale available |
-| 10 | New feature pages in the window as the above land | Warband client addon | Designed — one page per feature |
-
-### Items, loot and gear
-
-| # | Feature | Where we build it | State / waiting on |
-|---|---|---|---|
-| 11 | Gear sharing inside the Warband: any bound piece moves to any companion | Warband core (binding policy) + server module + addon | **Built, not yet verified in game** — the core's own two questions (`Item::CanBeTraded`, `Item::IsBindedNotWith`) consult a Warband policy switch, so trade, mail, auction, guild bank and the inventory transfer all let a bound item through. The panel's Item binding page turns the ordinary rule back on; the item keeps its soulbound flag either way |
-| 12 | Gear routing to the right follower | Warband server module + addon | Designed — waiting on the loot policy |
-| 13 | Loot ownership default | Warband server module | Waiting |
-| 14 | Auto-sell and protection rules for items | Warband server module | Waiting |
-| 15 | Loot collection convenience for nearby corpses | Warband server module (+ client) | Designed |
-| 16 | Companion equipment, talents and build control | Warband client addon + server module | Designed — equipment-first scope |
-| 17 | Boss loot recovery | Warband server module | Deferred |
-| 44 | Gold find: a multiplier on looted coin | Warband server module + addon | **Built, not yet verified in game** — the module owns the core `Rate.Drop.Money` and re-applies it on config load, so the panel can change it live. Default x3; covers creatures, chests, mines and containers, not vendoring or quest rewards |
-| 43 | Magic find: better gear, not more gear | Warband server module + addon | **Built, not yet verified in game** — `GlobalScript::OnItemRoll` scales a row's chance by a per-quality multiplier, capped at a guaranteed drop. Shipped defaults x2 green, x4 blue, x6 purple/orange/gold. No rows added, no extra rolls, no extra items; poor and normal untouched; Warband loot only |
-
-### Economy
-
-| # | Feature | Where we build it | State / waiting on |
-|---|---|---|---|
-| 18 | Normal Auction House buying and selling | Warband server module | Designed — research shows two candidate approaches, neither adopted |
-| 19 | Black Market Auction House | Warband server module + client UI | Deferred — recorded capability is bidding only, no player selling |
-| 20 | Companion gold brought to the leader | Warband server module | Designed |
-| 21 | Auction House client convenience | Warband client addon | Deferred |
-
-### World and convenience
-
-| # | Feature | Where we build it | State / waiting on |
-|---|---|---|---|
-| 22 | Gathering convenience for a solo party | Warband server module | **Live** — companions mirror the leader's gathering skills, raise-only. On-demand apply confirmed in game 16 October 2026; the automatic sync paths are built but not yet verified |
-| 23 | Junk auto-sell | Warband server module | Designed |
-| 24 | No creature respawns inside instances | Warband server module | Designed |
-| 25 | Return to the dungeon entrance after death | Warband server module | Designed |
-| 26 | Assisted dungeon mode led by a tank follower | Warband server module | Deferred — optional mode |
-| 27 | Conventional raid bot support | Warband server module | Deferred — does not deliver five-member raids |
-| 28 | Dual spec and remote talent reset | Warband server module | Deferred — preference |
-| 29 | Hearthstone cooldown, flight path unlocking | Warband server module | Deferred — travel pacing preference |
-| 30 | Warband camp services | Warband server module | Deferred |
-| 31 | Account-wide shared systems | Warband server module | Deferred — research shows the studied approach skips bots, so it is not catch-up |
-| 32 | Alternative XP and rate authorities | Warband server module | Deferred — research shows none implements leader-relative catch-up |
-| 33 | Faster loot window | Warband client addon | Deferred |
-| 34 | Quest planning or journal UI | Warband client addon | Deferred |
-
-### Character and professions
-
-| # | Feature | Where we build it | State / waiting on |
-|---|---|---|---|
-| 35 | Every race/class combination | Warband-owned creation data | **Live and verified**, 16 October 2026 |
-| 36 | All 11 primary professions | Runtime configuration already installed | Installed — confirm after next start |
-
-### Client panel
-
-| # | Feature | Where we build it | State / waiting on |
-|---|---|---|---|
-| 37 | Feature tabs with live state instead of placeholders | Warband client addon | Partly live |
-| 38 | Reset-to-default on the XP page | Warband client addon | Designed |
-| 39 | Announce changes in chat | Warband client addon | Designed |
-| 40 | Panel scale or size option | Warband client addon | Designed |
-| 41 | Remembered selection and expansion | Warband client addon | Live |
-| 42 | Window position memory, minimap icon, `/ww` | Warband client addon | Live |
-
-## Decisions waiting, gathered in one place
-
-1. Catch-up curve and cap, and which experience sources it applies to.
+1. Catch-up shape: the tail of the curve (`Warband.CatchUp.MinMultiplier` is still 1.0) and which
+   experience sources receive the bonus. Feature, already built; this is tuning.
 2. Catch-up trigger: automatic or player-controlled.
 3. Recruitment: how a follower joins, and whether a bench exists.
-4. Loot ownership policy and recipient choice.
-5. Quest reward delivery: direct or routed by the leader.
-6. Companion quest state model.
-7. Party management model.
-8. Settled: followers gather. Their Herbalism, Mining and Skinning values are mirrored from
-   the leader, so they can work the same nodes without owning the crafting professions.
-9. Settled: nothing unbinds. A bound item moves like any other while the binding policy is off,
-   and the panel switch restores the ordinary rule when it is on.
+4. Loot ownership policy: who owns ordinary drops, and which recipient rule applies.
+5. Quest reward delivery at turn-in: direct, or routed by the leader afterwards.
+6. Companion quest-state model: what a follower's quest log actually is.
+7. Party management model: bench, swaps, saved compositions.
+8. Auction House buying model and price rules; appearance scope for transmog; camp service list.
+9. Settled: followers gather. Their Herbalism, Mining and Skinning values are mirrored from the
+   leader, so they can work the same nodes without owning the crafting professions.
+10. Settled: nothing unbinds. A bound item moves like any other while the binding policy is off,
+    and the panel switch restores the ordinary rule when it is on.
+11. Settled, 16 October 2026: nearby-corpse loot collection is postponed (item 15) and proximity
+    gathering deferred (item 45); trash auto-sell is built. None of the three is a feature.
+12. Settled, 16 October 2026: the in-instance death respawn (item 47) is postponed as well, for the
+    same reason as 15 — the only reference is too hacky to build on. The creature-respawn rule
+    (item 24) is untouched by that and stays a wanted feature.
 
 ## Explicitly out of scope
 
-Recorded in the design and assessment documents as not fitting the current direction:
-individual character progression that conflicts with shared campaign progress, AuctionSim
-style economy simulation, LLM-driven bot chat, broad NPC convenience bundles,
-automation-led dungeon clearing, quest loot duplication that multiplies item supply,
-random-bot sync that excludes party bots, and open-world party scaling that raises
-difficulty instead of downscaling for five members.
+Individual character progression that conflicts with shared campaign progress, AuctionSim-style
+economy simulation, LLM-driven bot chat, broad NPC convenience bundles, automation-led dungeon
+clearing, quest loot duplication that multiplies item supply, random-bot sync that excludes party
+bots, and open-world party scaling that raises difficulty instead of downscaling for five members.
+
+[shared-loot]: https://github.com/maluramichael/mod-shared-loot
+[quest-loot-party]: https://github.com/nexartgroup/mod-quest-loot-party
+[bot-inventory-master]: https://github.com/TopHatMan/mod-bot-inventory-master
+[shared-gold]: https://github.com/maluramichael/mod-shared-gold
+[ah-bot]: https://github.com/azerothcore/mod-ah-bot
+[ah-bot-plus]: https://github.com/NathanHandley/mod-ah-bot-plus
+[bmah]: https://github.com/Youpeoples/Black-Market-Auction-House
+[warband-camp]: https://github.com/Ildourol/mod-warband-camp
+[transmog]: https://github.com/azerothcore/mod-transmog
+[retail-transmog-plus]: https://github.com/buildthehomelab/wow-mod-retail-transmog-plus
+[dead-means-dead]: https://github.com/kjack9/mod-dead-means-dead
+[open-world-party-scaling]: https://github.com/Stefan2102/mod-open-world-party-scaling
+[rndbot-sync]: https://github.com/Yuof/mod-rndbot-sync
