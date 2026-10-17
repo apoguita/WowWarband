@@ -28,6 +28,16 @@ build. See `doc/Warband-Implementation-Policy.md`.
   Shared-header changes can still rebuild affected Playerbots sources. Budget
   and approve any future full Playerbots compile separately. See
   `doc/Playerbots-Build-Validation.md` for scope and evidence.
+- **Touching a widely included core header costs a Playerbots rebuild, even if the
+  change is reverted.** Measured 16 October 2026: editing `Item.h` (and reverting it
+  minutes later) moved its timestamp, so every object that includes it through
+  `Player.h` became stale. The next build took **944.5 s** and recompiled the
+  Playerbots action sources alongside the core, against a 1-3 minute estimate.
+  Header-only timestamp churn is indistinguishable from a header change to the build
+  system, so: put a new core entry point in its **own small header** (for example
+  `src/server/game/Entities/Item/ItemBinding.h`) rather than appending to `Item.h` or
+  `Player.h`, and never edit one of those headers as a scratch step. Estimate a full
+  Playerbots rebuild for any change that does touch one, and say so before starting.
 
 ## Generic upstream build reference
 

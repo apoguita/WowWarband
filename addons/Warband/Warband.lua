@@ -30,6 +30,9 @@ local TEXT_SENDING = "Sending to the server..."
 local TEXT_NO_REPLY = "No reply from the server. Check that worldserver runs the Warband build."
 local TEXT_CATCHUP_NO_REPLY = "Unavailable: this worldserver does not answer .warband catchup yet."
 local TEXT_GATHER_NO_REPLY = "Unavailable: this worldserver does not answer .warband gather yet."
+local TEXT_BINDING_NO_REPLY = "Unavailable: this worldserver does not answer .warband binding yet."
+local TEXT_MAGIC_FIND_NO_REPLY = "Unavailable: this worldserver does not answer .warband magicfind yet."
+local TEXT_GOLD_FIND_NO_REPLY = "Unavailable: this worldserver does not answer .warband goldfind yet."
 
 local COLOR_GREEN = { 0.1, 1, 0.1 }
 local COLOR_AMBER = { 1, 0.7, 0 }
@@ -56,6 +59,9 @@ local Tree = {
         children = {
             { id = "xp", text = "XP Options", status = "live", page = "experience" },
             { id = "gathering", text = "Follower gathering", status = "live", page = "gathering" },
+            { id = "binding", text = "Item binding", status = "live", page = "binding" },
+            { id = "magicfind", text = "Magic find", status = "live", page = "magicfind" },
+            { id = "goldfind", text = "Gold find", status = "live", page = "goldfind" },
         },
     },
     {
@@ -111,6 +117,48 @@ local gather = {
 local gatherRequest = { pending = false, deadline = nil }
 local UpdateGatherDisplay
 local SetGatherStatus
+
+-- The binding policy as reported by the server: whether binding restricts item movement. Off is the
+-- Warband rule, where a bound piece moves like any other.
+local binding = {
+    known = false,
+    enforced = false,
+}
+
+local bindingRequest = { pending = false, deadline = nil }
+local UpdateBindingDisplay
+local SetBindingStatus
+
+-- Magic find as reported by the server: one multiplier per quality, x1 leaves the loot
+-- tables exactly as the game ships them.
+local MAGICFIND_TIERS = { "green", "blue", "purple", "orange", "gold" }
+local MAGICFIND_LABELS = {
+    green = "Green",
+    blue = "Blue",
+    purple = "Purple",
+    orange = "Orange",
+    gold = "Gold",
+}
+local MAGICFIND_STEP = 0.5
+local MAGICFIND_MIN = 1
+local MAGICFIND_MAX = 20
+
+local magicFind = { known = false, mult = {} }
+local magicFindRequest = { pending = false, deadline = nil }
+-- Gold find: one multiplier on looted coin, held by the module as the core Rate.Drop.Money.
+local GOLD_STEP = 0.5
+local GOLD_MIN = 1
+local GOLD_MAX = 20
+
+local goldFind = { known = false, mult = 3 }
+local goldFindRequest = { pending = false, deadline = nil }
+local UpdateGoldFindDisplay
+local SetGoldFindStatus
+local goldFindValue
+local UpdateMagicFindDisplay
+local SetMagicFindStatus
+local magicFindRows = {}
+
 local rowPool = {}
 local textLinePool = {}
 local minimapButton
@@ -164,6 +212,29 @@ local function RequestGatherState()
     end
 
     StartRequest(gatherRequest, ".warband gather status")
+end
+
+local function RequestBindingState()
+    if UpdateBindingDisplay then
+        UpdateBindingDisplay()
+    end
+
+    StartRequest(bindingRequest, ".warband binding")
+end
+
+local function RequestMagicFindState()
+    if UpdateMagicFindDisplay then
+        UpdateMagicFindDisplay()
+    end
+
+    StartRequest(magicFindRequest, ".warband magicfind")
+end
+local function RequestGoldFindState()
+    if UpdateGoldFindDisplay then
+        UpdateGoldFindDisplay()
+    end
+
+    StartRequest(goldFindRequest, ".warband goldfind")
 end
 
 -- Sends the value the panel shows. Repeating the last accepted value is skipped so a click that
@@ -225,6 +296,21 @@ function Warband_OnUpdate()
         ClearRequest(gatherRequest)
         SetGatherStatus(TEXT_GATHER_NO_REPLY, COLOR_GREY)
     end
+
+    if bindingRequest.pending and GetTime() >= bindingRequest.deadline then
+        ClearRequest(bindingRequest)
+        SetBindingStatus(TEXT_BINDING_NO_REPLY, COLOR_GREY)
+    end
+
+    if magicFindRequest.pending and GetTime() >= magicFindRequest.deadline then
+        ClearRequest(magicFindRequest)
+    ClearRequest(goldFindRequest)
+        SetMagicFindStatus(TEXT_MAGIC_FIND_NO_REPLY, COLOR_GREY)
+    end
+    if goldFindRequest.pending and GetTime() >= goldFindRequest.deadline then
+        ClearRequest(goldFindRequest)
+        SetGoldFindStatus(TEXT_GOLD_FIND_NO_REPLY, COLOR_GREY)
+    end
 end
 
 function Warband_OnEvent(self, event, ...)
@@ -264,6 +350,69 @@ function Warband_OnEvent(self, event, ...)
 
         if UpdateGatherDisplay then
             UpdateGatherDisplay()
+        end
+
+        if RefreshDynamicPage then
+            RefreshDynamicPage()
+        end
+        return
+    end
+
+    if string.find(message or "", "WARBAND_GOLDFIND=", 1, true) then
+        for key, value in string.gmatch(message, "([%a_]+)=([%d%.]+)") do
+            local number = tonumber(value)
+            if key == "WARBAND_GOLDFIND" and number then
+                goldFind.mult = number
+            end
+        end
+
+        ClearRequest(goldFindRequest)
+        goldFind.known = true
+
+        if UpdateGoldFindDisplay then
+            UpdateGoldFindDisplay()
+        end
+
+        if RefreshDynamicPage then
+            RefreshDynamicPage()
+        end
+        return
+    end
+    if string.find(message or "", "WARBAND_MAGICFIND=", 1, true) then
+        for key, value in string.gmatch(message, "([%a_]+)=([%d%.]+)") do
+            local number = tonumber(value)
+            if number and MAGICFIND_LABELS[key] then
+                magicFind.mult[key] = number
+            end
+        end
+
+        ClearRequest(magicFindRequest)
+    ClearRequest(goldFindRequest)
+        magicFind.known = true
+
+        if UpdateMagicFindDisplay then
+            UpdateMagicFindDisplay()
+        end
+
+        if RefreshDynamicPage then
+            RefreshDynamicPage()
+        end
+        return
+    end
+
+    if string.find(message or "", "WARBAND_BINDING=", 1, true) then
+        for key, value in string.gmatch(message, "([%a_]+)=([%d%.]+)") do
+            local number = tonumber(value)
+            if key == "enforced" then
+                binding.enforced = number == 1
+            end
+        end
+
+        ClearRequest(bindingRequest)
+        binding.known = true
+
+        if UpdateBindingDisplay then
+            UpdateBindingDisplay()
         end
 
         if RefreshDynamicPage then
@@ -694,6 +843,244 @@ function Warband_ApplyGathering()
     StartRequest(gatherRequest, ".warband gather")
 end
 
+-- Item binding: whether binding restricts item movement. The panel states the policy in words,
+-- because "binding off" is easy to mistake for "items are unbound".
+SetBindingStatus = function(text, color)
+    WarbandPageBindingStatus:SetText(text)
+    WarbandPageBindingStatus:SetTextColor(color[1], color[2], color[3])
+end
+
+UpdateBindingDisplay = function()
+    if not binding.known then
+        SetBindingStatus("Reading the binding policy...", COLOR_AMBER)
+    elseif binding.enforced then
+        SetBindingStatus("Binding enforced - the ordinary rule, a bound item stays with its owner",
+            COLOR_GREY)
+    else
+        SetBindingStatus("Binding off - a bound item can be traded, mailed, sold and handed on",
+            COLOR_GREEN)
+    end
+
+    local toggle = WarbandPageBindingToggle
+    if binding.known and not binding.enforced then
+        toggle:SetText("Turn binding on")
+    else
+        toggle:SetText("Turn binding off")
+    end
+end
+
+function Warband_ToggleBinding()
+    if not binding.known then
+        SetBindingStatus("Waiting for the server before changing this...", COLOR_AMBER)
+        StartRequest(bindingRequest, ".warband binding")
+        return
+    end
+
+    local wanted = not binding.enforced
+
+    if wanted then
+        SetBindingStatus("Enforcing binding...", COLOR_AMBER)
+        StartRequest(bindingRequest, ".warband binding on")
+    else
+        SetBindingStatus("Lifting the binding restriction...", COLOR_AMBER)
+        StartRequest(bindingRequest, ".warband binding off")
+    end
+end
+
+-- Magic find: one multiplier per quality, edited with a row of buttons each. The rows are built
+-- once, then only the values and the worked example change.
+SetMagicFindStatus = function(text, color)
+    WarbandPageMagicFindStatus:SetText(text)
+    WarbandPageMagicFindStatus:SetTextColor(color[1], color[2], color[3])
+end
+
+local function WorkedExample()
+    local parts = {}
+
+    for _, tier in ipairs(MAGICFIND_TIERS) do
+        local mult = magicFind.mult[tier] or 1
+        if mult > 1 then
+            table.insert(parts, string.format("%s %.0f%%", string.lower(MAGICFIND_LABELS[tier]),
+                math.min(100, 3 * mult)))
+        end
+    end
+
+    if #parts == 0 then
+        return ""
+    end
+
+    return "A 3% drop becomes: " .. table.concat(parts, ", ")
+end
+
+local function BuildMagicFindRows()
+    if magicFindRows[1] then
+        return
+    end
+
+    for index, tier in ipairs(MAGICFIND_TIERS) do
+        local y = -104 - (index - 1) * 28
+
+        local label = WarbandPageMagicFind:CreateFontString(nil, "ARTWORK", "GameFontNormal")
+        label:SetPoint("TOPLEFT", WarbandPageMagicFind, "TOPLEFT", 0, y)
+        label:SetWidth(120)
+        label:SetJustifyH("LEFT")
+        label:SetText(MAGICFIND_LABELS[tier])
+
+        local value = WarbandPageMagicFind:CreateFontString(nil, "ARTWORK", "GameFontHighlight")
+        value:SetPoint("TOPLEFT", WarbandPageMagicFind, "TOPLEFT", 130, y)
+        value:SetWidth(160)
+        value:SetJustifyH("LEFT")
+
+        local down = CreateFrame("Button", nil, WarbandPageMagicFind, "UIPanelButtonTemplate")
+        down:SetSize(28, 20)
+        down:SetPoint("TOPLEFT", WarbandPageMagicFind, "TOPLEFT", 300, y + 4)
+        down:SetText("-")
+        down:SetScript("OnClick", function() Warband_AdjustMagicFind(tier, -MAGICFIND_STEP) end)
+
+        local up = CreateFrame("Button", nil, WarbandPageMagicFind, "UIPanelButtonTemplate")
+        up:SetSize(28, 20)
+        up:SetPoint("TOPLEFT", WarbandPageMagicFind, "TOPLEFT", 334, y + 4)
+        up:SetText("+")
+        up:SetScript("OnClick", function() Warband_AdjustMagicFind(tier, MAGICFIND_STEP) end)
+
+        magicFindRows[index] = { value = value }
+    end
+
+    local reset = CreateFrame("Button", nil, WarbandPageMagicFind, "UIPanelButtonTemplate")
+    reset:SetSize(150, 22)
+    reset:SetPoint("TOPLEFT", WarbandPageMagicFind, "TOPLEFT", 0, -104 - #MAGICFIND_TIERS * 28 - 6)
+    reset:SetText("Reset to x1")
+    reset:SetScript("OnClick", function()
+        SetMagicFindStatus("Clearing the multipliers...", COLOR_AMBER)
+        StartRequest(magicFindRequest, ".warband magicfind reset")
+    end)
+end
+
+UpdateMagicFindDisplay = function()
+    BuildMagicFindRows()
+
+    local boosted = false
+    for _, tier in ipairs(MAGICFIND_TIERS) do
+        if (magicFind.mult[tier] or 1) > 1 then
+            boosted = true
+            break
+        end
+    end
+
+    if not magicFind.known then
+        SetMagicFindStatus("Reading the magic find values...", COLOR_AMBER)
+    elseif boosted then
+        SetMagicFindStatus("Live - better qualities drop more often, nothing else changes", COLOR_GREEN)
+    else
+        SetMagicFindStatus("Neutral - the loot tables are exactly as the game ships them", COLOR_GREY)
+    end
+
+    for index, tier in ipairs(MAGICFIND_TIERS) do
+        local row = magicFindRows[index]
+        if row then
+            row.value:SetText(string.format("x%.2f", magicFind.mult[tier] or 1))
+        end
+    end
+
+    WarbandPageMagicFindExample:SetText(WorkedExample())
+end
+
+function Warband_AdjustMagicFind(tier, delta)
+    local current = magicFind.mult[tier] or 1
+    local wanted = math.max(MAGICFIND_MIN, math.min(MAGICFIND_MAX, current + delta))
+
+    if wanted == current then
+        return
+    end
+
+    magicFind.mult[tier] = wanted
+    UpdateMagicFindDisplay()
+    SetMagicFindStatus("Applying the multiplier...", COLOR_AMBER)
+    StartRequest(magicFindRequest, string.format(".warband magicfind %s %.2f", tier, wanted))
+end
+
+-- Gold find: a single multiplier row, built once.
+SetGoldFindStatus = function(text, color)
+    WarbandPageGoldFindStatus:SetText(text)
+    WarbandPageGoldFindStatus:SetTextColor(color[1], color[2], color[3])
+end
+
+local function BuildGoldFindRow()
+    if goldFindValue then
+        return
+    end
+
+    local y = -104
+
+    local label = WarbandPageGoldFind:CreateFontString(nil, "ARTWORK", "GameFontNormal")
+    label:SetPoint("TOPLEFT", WarbandPageGoldFind, "TOPLEFT", 0, y)
+    label:SetWidth(120)
+    label:SetJustifyH("LEFT")
+    label:SetText("Coins")
+
+    goldFindValue = WarbandPageGoldFind:CreateFontString(nil, "ARTWORK", "GameFontHighlight")
+    goldFindValue:SetPoint("TOPLEFT", WarbandPageGoldFind, "TOPLEFT", 130, y)
+    goldFindValue:SetWidth(160)
+    goldFindValue:SetJustifyH("LEFT")
+
+    local down = CreateFrame("Button", nil, WarbandPageGoldFind, "UIPanelButtonTemplate")
+    down:SetSize(28, 20)
+    down:SetPoint("TOPLEFT", WarbandPageGoldFind, "TOPLEFT", 300, y + 4)
+    down:SetText("-")
+    down:SetScript("OnClick", function() Warband_AdjustGoldFind(-GOLD_STEP) end)
+
+    local up = CreateFrame("Button", nil, WarbandPageGoldFind, "UIPanelButtonTemplate")
+    up:SetSize(28, 20)
+    up:SetPoint("TOPLEFT", WarbandPageGoldFind, "TOPLEFT", 334, y + 4)
+    up:SetText("+")
+    up:SetScript("OnClick", function() Warband_AdjustGoldFind(GOLD_STEP) end)
+
+    local reset = CreateFrame("Button", nil, WarbandPageGoldFind, "UIPanelButtonTemplate")
+    reset:SetSize(150, 22)
+    reset:SetPoint("TOPLEFT", WarbandPageGoldFind, "TOPLEFT", 0, y - 34)
+    reset:SetText("Reset to x1")
+    reset:SetScript("OnClick", function()
+        SetGoldFindStatus("Clearing the multiplier...", COLOR_AMBER)
+        StartRequest(goldFindRequest, ".warband goldfind reset")
+    end)
+end
+
+UpdateGoldFindDisplay = function()
+    BuildGoldFindRow()
+
+    if not goldFind.known then
+        SetGoldFindStatus("Reading the gold find multiplier...", COLOR_AMBER)
+    elseif goldFind.mult > 1 then
+        SetGoldFindStatus(string.format("Live - looted coin is multiplied by x%.2f", goldFind.mult),
+            COLOR_GREEN)
+    else
+        SetGoldFindStatus("Neutral - coin is exactly as the loot drops it", COLOR_GREY)
+    end
+
+    goldFindValue:SetText(string.format("x%.2f", goldFind.mult or 1))
+
+    if (goldFind.mult or 1) > 1 then
+        WarbandPageGoldFindExample:SetText(string.format(
+            "A 50 silver pile becomes %.1f gold", 0.5 * goldFind.mult))
+    else
+        WarbandPageGoldFindExample:SetText("")
+    end
+end
+
+function Warband_AdjustGoldFind(delta)
+    local current = goldFind.mult or 1
+    local wanted = math.max(GOLD_MIN, math.min(GOLD_MAX, current + delta))
+
+    if wanted == current then
+        return
+    end
+
+    goldFind.mult = wanted
+    UpdateGoldFindDisplay()
+    SetGoldFindStatus("Applying the multiplier...", COLOR_AMBER)
+    StartRequest(goldFindRequest, string.format(".warband goldfind %.2f", wanted))
+end
+
 -- Pages whose content depends on live state rather than fixed text.
 local function DynamicLines(kind)
     if kind == "features" then
@@ -714,6 +1101,25 @@ local function DynamicLines(kind)
             (gather.herbalism > 0 or gather.mining > 0 or gather.skinning > 0) then
             table.insert(lines, "- Follower gathering: followers receive your Herbalism, Mining "
                 .. "and Skinning values")
+        end
+
+        if binding.known and not binding.enforced then
+            table.insert(lines, "- Gear sharing: any bound item can be traded, mailed, sold and "
+                .. "handed to a companion")
+        elseif binding.known then
+            table.insert(lines, "- Binding enforced: a bound item stays with the character that "
+                .. "bound it")
+        end
+
+        if goldFind.known then
+            table.insert(lines, string.format("%sGold find: looted coin x%.1f", "- ", goldFind.mult or 1))
+        end
+
+        if magicFind.known then
+            table.insert(lines, "- Magic find: green x" .. string.format("%.1f", magicFind.mult.green or 1)
+                .. ", blue x" .. string.format("%.1f", magicFind.mult.blue or 1)
+                .. ", purple x" .. string.format("%.1f", magicFind.mult.purple or 1)
+                .. ", orange x" .. string.format("%.1f", magicFind.mult.orange or 1))
         end
 
         table.insert(lines, " ")
@@ -753,6 +1159,9 @@ local function ShowNode(node)
     WarbandPageText:Hide()
     WarbandPageExperience:Hide()
     WarbandPageGathering:Hide()
+    WarbandPageBinding:Hide()
+    WarbandPageMagicFind:Hide()
+    WarbandPageGoldFind:Hide()
 
     if node.page == "experience" then
         WarbandPageExperience:Show()
@@ -765,6 +1174,32 @@ local function ShowNode(node)
         end
 
         WarbandPageGathering:Show()
+        return
+    end
+
+    if node.page == "binding" then
+        if UpdateBindingDisplay then
+            UpdateBindingDisplay()
+        end
+
+        WarbandPageBinding:Show()
+        return
+    end
+
+    if node.page == "goldfind" then
+        if UpdateGoldFindDisplay then
+            UpdateGoldFindDisplay()
+        end
+
+        WarbandPageGoldFind:Show()
+        return
+    end
+    if node.page == "magicfind" then
+        if UpdateMagicFindDisplay then
+            UpdateMagicFindDisplay()
+        end
+
+        WarbandPageMagicFind:Show()
         return
     end
 
@@ -795,11 +1230,18 @@ function Warband_OnShow()
     RequestServerRate()
     RequestCatchUpSettings()
     RequestGatherState()
+    RequestBindingState()
+    RequestMagicFindState()
+    RequestGoldFindState()
 end
 
 function Warband_OnHide()
     ClearRequest(xpRequest)
     ClearRequest(catchUpRequest)
+    ClearRequest(gatherRequest)
+    ClearRequest(bindingRequest)
+    ClearRequest(magicFindRequest)
+    ClearRequest(goldFindRequest)
 end
 
 function Warband_OnCloseClick()

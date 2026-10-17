@@ -18,6 +18,7 @@
  */
 
 #include "Config.h"
+#include "ItemBinding.h"
 #include "Player.h"
 #include "ScriptMgr.h"
 #include "WarbandPlayerRoles.h"
@@ -229,6 +230,11 @@ public:
 
         catchUpCap = configuredCap;
 
+        // The binding policy lives in the core, because the core is what asks whether an item may
+        // move; the module owns the setting behind it and pushes it in. Default is the Warband rule:
+        // binding does not restrict gear.
+        WarbandSetItemBindingEnforced(sConfigMgr->GetOption<bool>("Warband.Binding.Enforced", false));
+
         LOG_INFO("server.loading", "Warband XP multiplier set to {}x", xpRate);
         LOG_INFO(
             "server.loading",
@@ -237,6 +243,12 @@ public:
             catchUpPerLevel,
             catchUpFloor,
             catchUpCap > 0.0f ? std::to_string(catchUpCap) : std::string("uncapped"));
+        LOG_INFO(
+            "server.loading",
+            "Warband item binding {}",
+            WarbandIsItemBindingEnforced()
+                ? "enforced: bound items stay put"
+                : "not enforced: bound items can be traded, mailed and sold");
     }
 
     void OnPlayerGiveXP(Player* player, uint32& amount, Unit* /*victim*/, uint8 /*xpSource*/) override

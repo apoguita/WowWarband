@@ -2,13 +2,14 @@
 
 The in-house server module for WoW Warband. Everything Warband-specific that
 needs the server lives here: today the XP multiplier, follower catch-up
-experience, follower gathering and binding-free items. The client panel in
-`addons/Warband` drives the runtime settings through this module's `.warband`
-chat commands.
+experience, follower gathering, and bound gear moving inside the Warband. The
+client panel in `addons/Warband` drives the runtime settings through this module's
+`.warband` chat commands.
 
 The directory used to be called `mod-warband-unbound-loot`, after the first
-feature it happened to carry. Binding-free loot is one feature of the Warband
-module, not its identity, and the name now says so.
+feature it happened to carry. That feature is gone - it cleared the soulbound flag
+from everything, which broke items that are meant to be bound - and the name no
+longer refers to it.
 
 ## Feature status
 
@@ -16,17 +17,19 @@ module, not its identity, and the name now says so.
 | --- | --- | --- |
 | XP multiplier | Live and verified in game | `WarbandSettings.cpp`, `WarbandCommands.cpp` |
 | Follower catch-up XP | Live and verified in game | `WarbandSettings.cpp`, `WarbandCommands.cpp` |
-| Binding-free items | Compiled in; behaviour not verified in game | `WarbandUnboundLoot.cpp` |
 | Follower gathering | On-demand apply verified; automatic sync not yet verified | `WarbandGathering.cpp` |
+| Bound gear inside the Warband | Registered; not yet verified in game | `Item.cpp` (core), `WarbandTrading.cpp` |
+| Magic find | Registered; not yet verified in game | `WarbandMagicFind.cpp`, `WarbandCommands.cpp` |
+| Gold find | Registered; not yet verified in game | `WarbandGoldFind.cpp`, `WarbandCommands.cpp` |
 
 Keeping the two kinds of bot apart is what `WarbandPlayerRoles.h` is for:
 `WarbandFollowerMaster()` returns a leader only for a bot piloted by a real
-player, so the XP, catch-up and gathering code never mistakes the world's random
-bots for Warband followers.
+player, so the XP, catch-up, gathering and trading code never mistake the world's
+random bots for Warband followers.
 
-There is **no in-house core patch**. Binding-free items are implemented entirely
-in this module: nothing under `src/` was changed for them, so the module alone is
-the whole mechanism.
+There is exactly **one in-house core change**, and it is deliberate: the item binding
+policy. Everything else the module does is implemented with public core API and needs
+no `src/` change at all.
 
 ## Entry point and build
 
@@ -106,26 +109,125 @@ active values, for example:
     Warband XP multiplier set to 3x
     Warband catch-up enabled: +0.1 per level behind, floor 1, cap uncapped
 
-## Binding-free items
+## Bound gear inside the Warband
 
-`WarbandUnboundLoot.cpp` clears the soulbound flag so that binding stops being a
-barrier to moving equipment around the Warband. It clears
-`ITEM_FIELD_FLAG_SOULBOUND` for:
+Warband is a single-player party game: a bound item is bound to the party, not to one
+character, so binding is not treated as a barrier to moving gear. That rule lives in
+the **core**, because the core is what asks whether an item may move:
 
-- stored items at login: equipped slots, bags, bank and bank bags, keyring, and
-  currency tokens;
-- items arriving through the normal paths: stored in the inventory (loot,
-  creation, quest rewards, rolls), moved into the inventory, taken from mail, or
-  equipped.
+| Question | Function |
+| --- | --- |
+| May this item be moved at all? | `Item::CanBeTraded()` |
+| May it move to this player? | `Item::IsBindedNotWith()` |
 
-Quest-bond items (`BIND_QUEST_ITEM`, `BIND_QUEST_ITEM1`) are deliberately left
-alone, since clearing those would break the quests relying on them.
+Both are in `src/server/game/Entities/Item/Item.cpp`, and both now consult
+`WarbandIsItemBindingEnforced()`, declared in `Item.h` and defined in `Item.cpp`. It
+defaults to the ordinary game rule, so a build without this module behaves exactly as
+AzerothCore does; the module sets it from `Warband.Binding.Enforced` when it loads
+its configuration.
 
-The core still sets the flag in the ordinary way, so the module clears it after
-the fact rather than preventing it, and only on the paths listed above. The addon
-lists this feature without runtime controls: there is no enable/disable command
-yet, and the in-game behaviour still needs a focused verification pass.
+With the restriction off - the Warband default - a soulbound item can be traded,
+mailed, auctioned, put in a guild bank and handed to a companion like any other item,
+and an enchant that would bind it does not stop it either. The item itself is
+untouched: it keeps its soulbound flag, so what the game displays about it stays
+true. What changes is only who may take it. With it on, all of that reverts to the
+ordinary rule.
 
+This is the one place Warband changes the core rather than working around it, and the
+reason is that a module cannot answer those two questions: the trade handler, the mail
+handler, the auction house and the inventory transfer paths all ask the core directly,
+and none of them has a script hook.
+
+### The client half
+
+The core cannot decide what the client already believes. The client greys out items it
+thinks are bound, and it decides that from the same tradeable flag the game uses for
+the two hour loot-trade window. `WarbandTrading.cpp` sets that flag on the bound items
+a Warband member is carrying, so the trade window offers them the way it offers any
+other item. It does nothing at all while binding is enforced, which is what keeps the
+panel's toggle honest: the flag mirrors the rule, it never bypasses it.
+
+The grant is transient by design. It is never written to `item_soulbound_trade_data`,
+the core strips the flag again on the next login, and the next grant re-applies it. It
+is scoped to one Warband - a leader and its own followers, or two followers of the
+same leader - so the world's random bots never carry a granted item, and a player with
+no party is left alone entirely.
+
+### The toggle
+
+    .warband binding            read whether binding is enforced
+    .warband binding on | off   on is the ordinary rule, off is the Warband rule
+
+The reply is `WARBAND_BINDING=enforced=0`. The panel's Item binding page states the
+policy in words and flips it, and the toggle is runtime only, like the other Warband
+settings: a worldserver restart or `.reload config` returns it to
+`Warband.Binding.Enforced`.
+
+## Magic find
+
+Better gear, not more gear. This is the same mechanism the core already has as
+`Rate.Drop.Item.*`, but scoped to the Warband and settable while playing: a multiplier on
+the drop chance of the rows that drop an item of that quality.
+
+    new chance = min(chance * multiplier, 100)
+
+So `x4` turns a 20% blue into 80%, `x6` turns a 3% legendary into 18%, and a row whose
+result passes 100% simply becomes a guaranteed drop. Nothing else changes - no rows added
+or removed, no extra rolls, no extra items, no duplicates, no table edits, and poor and
+normal are never touched, so the junk distribution stays exactly as the game ships it.
+
+The hook is `GlobalScript::OnItemRoll`, which hands the row's chance over by reference
+once per row per loot generation, for ungrouped and grouped rows alike (`LootMgr.cpp:315`
+and `:1276`). It runs before the core's own `Rate.Drop.Item.*` multiplier, so the two
+compose, and before the `>= 100` shortcut, so a multiplier can legitimately make a row
+guaranteed. Scope is the Warband's own loot - the character being played and its followers
+- so random bots keep the ordinary tables and the core rates stay as configured.
+
+| Key | Quality | Default |
+| --- | --- | --- |
+| `green` | uncommon (2) | x2 |
+| `blue` | rare (3) | x4 |
+| `purple` | epic (4) | x6 |
+| `orange` | legendary (5) | x6 |
+| `gold` | artifact (6) | x6 |
+
+    .warband magicfind                        read all five multipliers
+    .warband magicfind <tier> <multiplier>   for example .warband magicfind blue 4
+    .warband magicfind reset                  every multiplier back to x1
+
+The reply is `WARBAND_MAGICFIND=green=2.00;blue=4.00;purple=6.00;orange=6.00;gold=6.00`. The
+panel's Magic find page shows each multiplier, steps it in halves with minus and plus,
+and prints a worked example that updates live ("a 3% drop becomes: green 6%, blue 12%,
+purple 18% ..."). The values live in `Warband.MagicFind.*` and are runtime only, like the other
+Warband settings.
+
+Two shapes a multiplier cannot reach, because there is no chance number to multiply: rows
+with `Chance = 0` inside a loot group, which the game picks from at random instead of
+rolling (boss gear pools are often built this way), and reference rows, whose quality lives
+on the rows inside the referenced table and which are multiplied normally.
+## Gold find
+
+The companion of magic find, and simpler. The core already multiplies looted coin by
+`Rate.Drop.Money` inside `Loot::generateMoneyLoot` (`LootMgr.cpp:808`), which covers the money on
+creatures, chests, mines and containers. This module owns that rate - it sets it at configuration
+load and again on every reload - so the panel can change it while playing instead of editing
+`worldserver.conf`.
+
+    .warband goldfind                read the multiplier
+    .warband goldfind <multiplier>   x1 to x20, for example .warband goldfind 3
+    .warband goldfind reset          back to x1
+
+The reply is `WARBAND_GOLDFIND=3.00`, the shipped default is x3, and the panel's Gold find page
+shows the multiplier with minus/plus buttons and a worked example ("a 50 silver pile becomes 1.5
+gold").
+
+Scope, stated plainly: `Rate.Drop.Money` is a world rate, so it applies to every coin pile the loot
+system generates rather than to the Warband alone. On this single-player server that is the same
+thing, and unlike magic find there is no per-looter hook to hang a narrower rule on. Gold from
+vendoring, quest rewards, mail and the auction house is a different path and stays untouched; quest
+money has its own `Rate.RewardQuestMoney` and `Rate.RewardBonusMoney` in `worldserver.conf`.
+
+Because the module owns the rate, its value wins over `Rate.Drop.Money` in `worldserver.conf`.
 ## Follower gathering
 
 The leader keeps the crafting professions; followers only need to gather for the

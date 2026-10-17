@@ -13,6 +13,12 @@ AzerothCore is a C++ MMORPG server emulator for World of Warcraft 3.3.5a (WotLK)
 - Formatting follows `.editorconfig`: UTF-8, LF, max 120 cols, trailing newline, no trailing whitespace; 4-space indent for C++ (tabs forbidden), 2-space for JSON/YAML/sh/ts/js.
 - **Do not write or add live-stack e2e tests unless the user explicitly asks.** Do not create `e2e/local/` scratch tests to validate a fix. Existing `e2e/` tests that break after a change may be updated. Do not mention missing coverage unless the user asked about it.
 - Planning docs go in `.agents/plans/<task-slug>/` (gitignored), named `<task-slug>.<TYPE>.md` (`PLAN`, `REQUIREMENTS`, `ANALYSIS`, …).
+- **The project README lives in two places, and both must say the same thing.** `README.md` is the
+  source of truth; `.github/README.md` is the same document with `../` on every relative link, and
+  GitHub can render either. Never update one without the other: run `.\Sync-ProjectReadme.ps1` to
+  check, or `.\Sync-ProjectReadme.ps1 -Fix` to regenerate the copy, in the same change that touches
+  a README or the feature backlog. A status fixed in one copy and left stale in the other is a wrong
+  answer about the project.
 - **Credit upstream authors.** Code, a mechanism, or data mirrored from another core (TrinityCore, cMaNGOS, …) is committed with `--author` naming the original commit's author (extra sources as `Co-authored-by`), even when rewritten against AC or confirmed by own sniffs; find them in the upstream file's commit history.
 
 ## Mandatory reading per task

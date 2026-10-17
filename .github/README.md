@@ -28,18 +28,28 @@ build, and an addon is deployed to the client under
 | `mod-progression` | Third-party module | Content gating by progression phase. |
 | `mod-ale` | Third-party module | Lua scripting support. |
 
+Modules that were only *researched* are not installed and are not part of the
+build. That research lives in
+[the server-module shortlist](../doc/Warband-Server-Module-Shortlist.md),
+[the module assessment](../doc/Warband-Module-Assessment.md) and
+[the AzerothCore module catalogue](../doc/AzerothCore-Server-Module-Catalogue.md);
+appearing there means a module was evaluated, nothing more.
+
 ## The in-house Warband module
 
 `modules/mod-warband` is project-owned code and the home for new server-side
-Warband features. It needs no core patch: the implementation, including its
-Playerbots integration, lives entirely in the module.
+Warband features. It carries one small core change - the item binding policy in
+`Item.cpp` - and nothing else outside the module; the reason is documented in the
+[module README](../modules/mod-warband/README.md).
 
 | Feature | State |
 | --- | --- |
 | XP multiplier | Live and verified in game |
 | Follower catch-up XP | Live and verified in game |
-| Binding-free items | Compiled in; behaviour not yet verified in game |
-| Follower gathering | Work in progress in source; not active |
+| Follower gathering | Live; the on-demand apply is verified in game, the automatic sync is not yet |
+| Bound gear inside the Warband | Built; not yet verified in game |
+| Magic find | Built; not yet verified in game |
+| Gold find | Built; not yet verified in game |
 
 - **XP multiplier** scales every experience gain - kills, quests, exploration and
   battlegrounds - for every character, followers included. It is a whole number
@@ -48,15 +58,36 @@ Playerbots integration, lives entirely in the module.
   its leader, so a new recruit becomes useful without replaying the leader's
   history. Only bots piloted for a real player are affected; the random bots that
   populate the world are left alone.
-- **Binding-free items** clears the soulbound flag from stored items at login and
-  after the normal acquisition paths, so binding stops being a barrier to moving
-  equipment around the Warband. Quest-bond items are left as they are.
-- **Follower gathering** is being built now and is not registered in the module
-  entry point yet, so it is not active on the server.
+- **Bound gear inside the Warband** treats a bound item as bound to the party rather
+  than to one character. With binding off, which is the default here, a soulbound
+  piece can be traded, mailed, auctioned and handed to a companion like any other
+  item, and the item keeps its soulbound flag throughout. A switch on the panel's
+  Item binding page turns the ordinary rule back on, and the server enforces whatever
+  the switch says - this is the one Warband feature that changes the core, because the
+  trade, mail and auction paths ask the core directly and none of them has a hook.
+- **Magic find** raise the odds of the better qualities without touching
+  the tables or the item count: a multiplier per quality, shipped as x2 greens, x4 blues,
+  x6 purple and above. A 3% legendary row becomes 18%, a 20% blue becomes 80%, and
+  anything past 100% simply becomes a guaranteed drop. No extra rolls, no duplicates, no
+  extra items, and poor and normal are never touched. It applies to the Warband's own
+  loot only, and the panel's Magic find page sets the five multipliers live.
+- **Gold find** is the same idea for money: a multiplier on the coin that loot generates,
+  shipped at x3, so a 50 silver pile becomes 1 gold 50. It covers creatures, chests,
+  mines and containers, and it leaves vendoring, quest rewards, mail and the auction
+  house alone.
+- **Follower gathering** gives every companion in the party the leader's Herbalism,
+  Mining and Skinning values, so they can work the same nodes and skin the same
+  corpses without owning a crafting profession. It is a floor, never a ceiling:
+  companions are only ever raised, so a member that was trained further, or that
+  was the character the player logged in as in an earlier session, keeps its own
+  progress. The mirror applies on leader login, when a companion joins the party,
+  and whenever a gathering skill changes while playing. Whether the companions
+  could gather at all was the open question in the backlog; this is the answer.
 
 The client panel in `addons/Warband` is the player-facing side of the module: its
 XP Options page reads and sets the live values through the module's `.warband`
-chat commands, and its Features list reports what the server answers.
+chat commands, its Follower gathering page reports the mirror and can apply it on
+demand, and its Features list reports what the server answers.
 
 Configuration is `modules/mod-warband/conf/mod_warband.conf.dist`, installed as
 `bin/RelWithDebInfo/configs/modules/mod_warband.conf`. The options, the command
@@ -107,6 +138,7 @@ client patch. Bringing it into version control is tracked in
 | `Warband-Server.ps1` with the start/stop bats | Load and unload the local stack one component at a time. |
 | `Build-WowWarband.bat`, `modules/CMakeLists.txt` | Incremental builds, with Playerbots compiled separately. |
 | `Backup-WowWarband.ps1`, `Deploy-WarbandAddon.ps1` | Database backup and client addon deployment. |
+| `Sync-ProjectReadme.ps1` | Keeps `.github/README.md`, the copy GitHub renders, in step with this file. |
 | `doc/` | Design record, implementation policy, module research, backlog. |
 
 `Warband-Server.ps1 start all` brings the database, login server and world server

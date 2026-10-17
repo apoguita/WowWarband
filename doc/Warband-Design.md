@@ -52,26 +52,38 @@ primary professions; both the project template and local runtime configuration
 now allow all 11. The runtime setting takes effect on the next worldserver
 start and has not yet been tested after restart.
 
-### Binding-Free Item Ownership
+### Gear Sharing Inside the Warband
 
-Item binding is not part of the intended single-player experience. The leader
-must be able to pass items among the Warband roster as they see fit. Bind on
-Pickup, Bind on Equip, Bind on Use, enchant-caused binding, and existing
-soulbound state must not prevent that transfer.
+Item binding stays what the game says it is: a soulbound piece is soulbound. What
+the single-player experience needs is for gear to circulate inside the Warband,
+because the leader and the four companions are one party - a piece looted by any
+of them should end up on whichever of them it fits. Binding must not obstruct that
+movement, and it must not be erased either: the items that are meant to be bound
+depend on it being real.
+
+The rule is therefore that bound items move freely among the Warband and nowhere
+else. BoP, BoE and BoU, binding caused by enchanting, and binding that has already
+happened are all irrelevant *inside the party*; outside it the ordinary rules stand
+unchanged.
+
+The mechanism is the server's own answer to "may this item move": one policy switch in
+the core, consulted by `Item::CanBeTraded()` and `Item::IsBindedNotWith()`, which every
+transfer path already asks. With it off - the Warband default - a soulbound item can be
+traded, mailed, auctioned, banked in a guild bank and handed to a companion like any
+other item, and an enchant that would bind it does not stop it. The item keeps its
+soulbound flag throughout: what changes is who may take it, not what it is.
+
+The switch is on the client panel, so it can be flipped while playing, and it is runtime
+only, like the other Warband settings.
 
 This is an item-ownership decision, not a decision to expose follower bags as a
-player-management system. The player directs equipment to the appropriate
-follower; the underlying item movement may be handled by a UI or automation.
-
-The core item layer has no Warband context, so the implementation applies this
-binding-free rule to the entire local realm. That matches the project's
-single-player scope; it must be revisited if the realm ever permits unrelated
-human players.
+player-management system. The player directs equipment to the appropriate follower;
+the underlying item movement may be handled by a UI or automation.
 
 Quest ownership, unique-item limits, keys, inventory capacity, equipment
-requirements, Auction House rules, and reward choice are separate mechanics.
-They must be handled deliberately where relevant, but they are not reasons to
-retain an item-binding barrier.
+requirements, Auction House rules, and reward choice are separate mechanics. They
+must be handled deliberately where relevant, but none of them is a reason to erase
+binding.
 
 ### Companion Model Under Exploration
 
@@ -201,30 +213,43 @@ These alternatives have different implications for quest choices, repeatable
 content, reputation, experience, rewards, and the amount of hidden companion
 state. None has been selected.
 
-## Binding-Free Items: Implementation Boundary
+## Gear Sharing: Implementation Boundary
 
-The binding-free ownership policy removes BoP as a reason to give a follower an
-independent quest history. A quest reward received by the leader can be routed
-to the appropriate follower, so internal companion quest state is needed only
-where access or reward delivery itself requires it.
+Gear sharing inside the Warband removes BoP as a reason to give a follower an
+independent quest history. A quest reward received by the leader can be handed to
+the follower it suits, so internal companion quest state is needed only where
+access or reward delivery itself requires it.
 
-This requires server-side work; a client addon cannot change binding behavior.
-The catalogue has no maintained module that covers every AzerothCore binding
-path.
+This requires server-side work; a client addon cannot change binding behaviour, and
+the catalogue has no maintained module that covers the paths involved.
 
-The in-repository `modules/mod-warband` module clears existing soulbound flags
-when a character logs in and after normal item-acquisition paths. There is no
-in-house core change: nothing in this repository prevents the core from setting a
-soulbound flag, and no in-house patch removes soulbound or enchant binding as a
-transfer restriction. The module clears the flag after the fact instead, and it
-is compiled into the current build; the behaviour itself has not been verified in
-game.
+`modules/mod-warband` implements it with one small core change and no realm-wide
+unbinding. The two questions the core asks before an item moves are
+`Item::CanBeTraded()` and `Item::IsBindedNotWith()` (`src/server/game/Entities/Item/Item.cpp`),
+and both now consult `WarbandIsItemBindingEnforced()`, declared in `Item.h`. It defaults to
+the ordinary game rule, so the core behaves normally on its own, and the module sets it from
+`Warband.Binding.Enforced` at configuration load and again whenever the panel toggles it.
 
-The implementation still needs focused in-game validation for newly acquired,
-already-owned, quest, equipped, enchanted, mailed, and group-roll items. It
-must also define non-binding behavior such as unique limits, keys, inventory
-space, equipment restrictions, mailing, and Auction House eligibility. Those
-questions constrain the transfer workflow; they do not reintroduce binding.
+With binding unenforced, the trade handler, the mail handler, the auction house, the guild
+bank and the inventory transfer paths all let a bound item through, because they all ask
+those two functions. The item keeps its soulbound flag, so nothing about what the game
+displays changes.
+
+A small module piece remains for the client's benefit: `WarbandTrading.cpp` sets the
+client-visible tradeable flag on bound items carried by a Warband member, because the client
+greys out items it believes are bound and decides that from the same flag the two hour
+loot-trade window uses. It does nothing while binding is enforced, so the flag mirrors the
+policy rather than bypassing it.
+
+An earlier implementation of this section cleared the soulbound flag from almost
+everything on login and after each acquisition path. It has been removed. Erasing
+binding is not the same feature as letting a Warband share, and it broke the items
+that binding exists for.
+
+What still needs in-game validation: the switch in both positions, a piece moving between
+leader and companion in both directions, companion to companion, an equipped item, an item
+bound by an enchant, and that mail, vendor, auction and guild bank behave as the switch says
+they should.
 
 ## Technical Findings to Validate
 
@@ -361,9 +386,11 @@ rewards.
 
 ### How Loot Works
 
-Binding-free transfer within the Warband is confirmed. Useful items can be
-assigned to the roster without BoP/BoE or other binding rules deciding their
-destination.
+Bound items move freely inside the Warband, through the ordinary trade window, so a
+useful item can be handed to the companion it suits without BoP, BoE or any other
+binding rule deciding its destination. Binding itself is not removed: the same piece
+is still refused to anyone outside the Warband, and to mail, vendors, the auction
+house and the guild bank.
 
 Open workflow alternatives are:
 
@@ -374,7 +401,7 @@ Open workflow alternatives are:
 
 These approaches differ in their treatment of unique items, quest rewards,
 duplication, item choices, and the amount of party inventory management they
-create. They do not change the binding-free ownership rule.
+create. They do not change the gear-sharing rule above.
 
 ### How the Party Is Managed
 

@@ -89,7 +89,7 @@ in-game verification or authorize additional integration work.
 | Profession availability | The tracked worldserver template, local runtime config, and its generated `.conf.dist` now set `MaxPrimaryTradeSkill = 11`, allowing all WotLK primary professions; secondary professions are not limited by this setting. | Confirm in-game after the next worldserver start. |
 | BMAH script and client UI | Intentionally held inactive per current direction. Its Lua source and client addon are present only under `extras/Black-Market-Auction-House`. The local ALE API has matching principal function names, but compatibility is not verified. | Add/support player buying and selling before activation; then resolve NPC/client setup and review its character-DB table/timer side effects. |
 | Shortlisted C++ modules | Source is pinned, but none of the new C++ modules is enabled in the current runtime. | If a specific candidate is later selected, review its SQL/configuration and prepare a scoped build estimate for explicit user approval before compiling or enabling it. Candidates include AoE Loot, Auto Gather, Bot Inventory Master, Junk to Gold Plus, Shared Gold, Dead Means Dead, DungeonRespawn, and normal-AH `mod-ah-bot`. |
-| `mod-warband`: binding-free items | Implemented in the module and compiled into the current build. There is no core item-layer change: nothing under `src/` was modified for it, and the earlier documents that described accompanying core changes were describing a layer that does not exist in this repository. | Verify the behaviour in game: newly acquired, already-owned, quest, equipped, enchanted, mailed and group-roll items. |
+| `mod-warband`: gear sharing | The one Warband feature with a core change: `Item::CanBeTraded()` and `Item::IsBindedNotWith()` consult a Warband binding policy, defaulting to the ordinary rule. The module sets it from `Warband.Binding.Enforced`, and the panel toggles it at runtime. The earlier binding-free behaviour, which cleared the soulbound flag from almost everything, has been removed. | Verify in game: the switch in both positions, a piece moving between leader and companion in both directions, companion to companion, an equipped item, an enchant-bound item, and mail, vendor, auction and guild bank behaving as the switch says. |
 
 The BMAH Lua script is a possible no-C++-build integration, but the user has
 chosen to hold it inactive until it supports both buying and selling. Its
@@ -177,9 +177,9 @@ candidate config or SQL has been copied/imported into the runtime.
   the remaining price/quota defaults alone until they prove unsuitable. The
   seller seeds listings and the buyer can purchase player listings; this is an
   evaluation profile, not applied configuration or a final economy decision.
-- **`mod-warband` binding-free items:** no config or SQL is needed and no core
-  change is involved: the behaviour is implemented entirely in the module, so any
-  build that contains `mod-warband` already has it.
+- **`mod-warband` gear sharing:** no config or SQL is needed. It is the only Warband feature
+  that touches the core - two item functions in `Item.cpp` consult a binding policy - and the
+  module sets that policy from its configuration and from the panel's toggle.
 - **BMAH backport:** deployment requires the server Lua script and its matching
   3.3.5 client addon. The Lua creates its character DB table and starts timers
   when loaded. A dedicated NPC entry/placement is still missing, and the source

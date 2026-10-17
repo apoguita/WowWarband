@@ -19,6 +19,7 @@
 #include "Common.h"
 #include "DatabaseEnv.h"
 #include "GameTime.h"
+#include "ItemBinding.h"
 #include "ItemEnchantmentMgr.h"
 #include "ObjectMgr.h"
 #include "Player.h"
@@ -792,9 +793,31 @@ bool Item::IsEquipped() const
     return !IsInBag() && m_slot < EQUIPMENT_SLOT_END;
 }
 
+// Warband item binding policy, see Item.h. Defaults to the ordinary game rule so the core behaves
+// normally on its own; the Warband module owns the setting behind it.
+namespace
+{
+bool itemBindingEnforced = true;
+}
+
+bool WarbandIsItemBindingEnforced()
+{
+    return itemBindingEnforced;
+}
+
+void WarbandSetItemBindingEnforced(bool enforced)
+{
+    itemBindingEnforced = enforced;
+}
+
 bool Item::CanBeTraded(bool mail, bool trade) const
 {
-    if ((!mail || !IsBoundAccountWide()) && (IsSoulBound() && (!IsBOPTradable() || !trade)))
+    // Warband: with binding unenforced, a soulbound item is as movable as any other, and an enchant
+    // that binds it does not stop it either. The rest of this function still applies - bags, items
+    // that cannot be unequipped, and an item being looted right now.
+    bool const bindingEnforced = WarbandIsItemBindingEnforced();
+
+    if (bindingEnforced && (!mail || !IsBoundAccountWide()) && (IsSoulBound() && (!IsBOPTradable() || !trade)))
         return false;
 
     if (IsBag() && (Player::IsBagPos(GetPos()) || !((Bag const*)this)->IsEmpty()))
@@ -810,10 +833,10 @@ bool Item::CanBeTraded(bool mail, bool trade) const
             return false;
     }
 
-    if (IsBoundByTempEnchant()) // pussywizard
+    if (bindingEnforced && IsBoundByTempEnchant()) // pussywizard
         return false;
 
-    if ((!mail || !IsBoundAccountWide()) && IsBoundByEnchant())
+    if (bindingEnforced && (!mail || !IsBoundAccountWide()) && IsBoundByEnchant())
         return false;
 
     return true;
@@ -1141,6 +1164,12 @@ Item* Item::CloneItem(uint32 count, Player const* player) const
 
 bool Item::IsBindedNotWith(Player const* player) const
 {
+    // Warband: with binding unenforced, nothing is ever bound away from another player. This is the
+    // second question the core asks before an item moves - the trade handler and the inventory
+    // transfer paths in PlayerStorage - so answering it here is what lets a bound piece change hands.
+    if (!WarbandIsItemBindingEnforced())
+        return false;
+
     // not binded item
     if (!IsSoulBound())
         return false;

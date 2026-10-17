@@ -12,16 +12,28 @@
  *   .warband gather status                       report the state without applying it
  *   .warband gather on | off                     enable or disable the mirror
  *   .warband gather auto on | off                apply it automatically on join and login
+ *   .warband binding                             read whether item binding is enforced
+ *   .warband binding on | off                    on is the ordinary rule, off lets bound gear move
+ *   .warband magicfind                             read the magic find multipliers
+ *   .warband magicfind <tier> <multiplier>         x1 to x20 on one quality, by colour or quality
+ *   .warband magicfind reset                       every multiplier back to x1
+ *   .warband goldfind                              read the coin multiplier
+ *   .warband goldfind <multiplier>                 x1 to x20 on looted coin
+ *   .warband goldfind reset                        back to x1
  *
  * Every reply is a single machine-readable line, which is how the Warband addon reads state:
  *   WARBAND_XP=3
  *   WARBAND_CATCHUP=enabled=1;step=0.10;floor=1.00;cap=0.00;applied=0
  *   WARBAND_GATHER=enabled=1;automatic=1;herbalism=450;mining=450;skinning=0;updated=2;applied=7
+ *   WARBAND_BINDING=enforced=0
+ *   WARBAND_MAGICFIND=green=2.00;blue=4.00;purple=6.00;orange=6.00;gold=6.00
+ *   WARBAND_GOLDFIND=3.00
  */
 
 #include "Chat.h"
 #include "CommandScript.h"
 #include "DBCEnums.h"
+#include "ItemBinding.h"
 #include "Player.h"
 #include "RBAC.h"
 #include "ScriptMgr.h"
@@ -29,6 +41,7 @@
 #include <cmath>
 #include <cstdlib>
 #include <cstring>
+#include <string>
 
 float GetWarbandXpRate();
 bool SetWarbandXpRate(float rate);
@@ -47,6 +60,15 @@ uint32 GetWarbandGatherApplications();
 bool SetWarbandGatherMirrorEnabled(bool enabled);
 bool SetWarbandGatherAutomatic(bool automatic);
 uint32 MirrorGatheringToParty(Player* leader);
+uint8 WarbandMagicFindTierCount();
+char const* WarbandMagicFindTierKey(uint8 tier);
+char const* WarbandMagicFindTierAlias(uint8 tier);
+float WarbandMagicFindTierMultiplier(uint8 tier);
+bool SetWarbandMagicFindTierMultiplier(uint8 tier, float multiplier);
+void ResetWarbandMagicFindMultipliers();
+float GetWarbandGoldFindMultiplier();
+bool SetWarbandGoldFindMultiplier(float multiplier);
+void ResetWarbandGoldFindMultiplier();
 
 using namespace Acore::ChatCommands;
 
@@ -57,6 +79,15 @@ char const* const CatchUpUsage =
 
 char const* const GatherUsage =
     "Usage: .warband gather [status] [on|off] [auto on|off]";
+
+char const* const BindingUsage =
+    "Usage: .warband binding [on|off] - on is the ordinary rule, off lets bound gear move";
+
+char const* const MagicFindUsage =
+    "Usage: .warband magicfind [<green|blue|purple|orange|gold> <multiplier 1-20>] [reset]";
+
+char const* const GoldFindUsage =
+    "Usage: .warband goldfind [<multiplier 1-20>] [reset]";
 
 // Parses the single numeric argument that may follow a keyword.
 bool ParseValue(char const* args, size_t keywordLength, float& value)
@@ -82,6 +113,11 @@ public:
             {"xp",      HandleXpCommand,      SEC_PLAYER, Console::No},
             {"catchup", HandleCatchUpCommand, SEC_PLAYER, Console::No},
             {"gather",  HandleGatherCommand,  SEC_PLAYER, Console::No},
+            {"binding", HandleBindingCommand, SEC_PLAYER, Console::No},
+            {"magicfind", HandleMagicFindCommand, SEC_PLAYER, Console::No},
+            {"mf",        HandleMagicFindCommand, SEC_PLAYER, Console::No},
+            {"goldfind", HandleGoldFindCommand,   SEC_PLAYER, Console::No},
+            {"gf",       HandleGoldFindCommand,   SEC_PLAYER, Console::No},
         };
 
         static ChatCommandTable commandTable =
@@ -182,6 +218,43 @@ private:
         return false;
     }
 
+    // Binding policy. "on" is the ordinary game rule, where a bound item stays with its owner;
+    // "off" is the Warband rule, where a bound item can be traded, mailed, auctioned and handed to
+    // a companion. The value lives in the core (Item.h), because the core is what asks.
+    static bool HandleBindingCommand(ChatHandler* handler, char const* args)
+    {
+        while (*args == ' ')
+            ++args;
+
+        if (strncmp(args, "on", 2) == 0 && (args[2] == '\0' || args[2] == ' '))
+        {
+            WarbandSetItemBindingEnforced(true);
+            SendBinding(handler);
+            return true;
+        }
+
+        if (strncmp(args, "off", 3) == 0 && (args[3] == '\0' || args[3] == ' '))
+        {
+            WarbandSetItemBindingEnforced(false);
+            SendBinding(handler);
+            return true;
+        }
+
+        if (*args)
+        {
+            handler->SendSysMessage(BindingUsage);
+            return false;
+        }
+
+        SendBinding(handler);
+        return true;
+    }
+
+    static void SendBinding(ChatHandler* handler)
+    {
+        handler->PSendSysMessage("WARBAND_BINDING=enforced={}", WarbandIsItemBindingEnforced() ? 1 : 0);
+    }
+
     static bool HandleGatherCommand(ChatHandler* handler, char const* args)
     {
         while (*args == ' ')
@@ -267,6 +340,139 @@ private:
             GetWarbandCatchUpFloor(),
             GetWarbandCatchUpCap(),
             GetWarbandCatchUpApplications());
+    }
+
+    // Magic find. "green" is ITEM_QUALITY_UNCOMMON and the ladder continues up to
+    // "gold" for artifact; the quality names are accepted as aliases by the setter.
+    static bool HandleMagicFindCommand(ChatHandler* handler, char const* args)
+    {
+        while (*args == ' ')
+            ++args;
+
+        if (strncmp(args, "reset", 5) == 0 && (args[5] == '\0' || args[5] == ' '))
+        {
+            ResetWarbandMagicFindMultipliers();
+            SendMagicFind(handler);
+            return true;
+        }
+
+        if (!*args)
+        {
+            SendMagicFind(handler);
+            return true;
+        }
+
+        char tierName[32] = { 0 };
+        size_t const tierLength = strcspn(args, " ");
+        if (tierLength == 0 || tierLength >= sizeof(tierName))
+        {
+            handler->SendSysMessage(MagicFindUsage);
+            return false;
+        }
+
+        std::strncpy(tierName, args, tierLength);
+
+        uint8 tier = WarbandMagicFindTierCount();
+        for (uint8 i = 0; i < WarbandMagicFindTierCount(); ++i)
+        {
+            if (std::strcmp(tierName, WarbandMagicFindTierKey(i)) == 0 ||
+                std::strcmp(tierName, WarbandMagicFindTierAlias(i)) == 0)
+            {
+                tier = i;
+                break;
+            }
+        }
+
+        if (tier == WarbandMagicFindTierCount())
+        {
+            handler->SendSysMessage(MagicFindUsage);
+            return false;
+        }
+
+        char const* multiplierText = args + tierLength;
+        while (*multiplierText == ' ')
+            ++multiplierText;
+
+        if (!*multiplierText)
+        {
+            handler->SendSysMessage(MagicFindUsage);
+            return false;
+        }
+
+        char* end = nullptr;
+        float const multiplier = std::strtof(multiplierText, &end);
+
+        if (end == multiplierText || (*end != '\0' && *end != ' ') || !std::isfinite(multiplier) ||
+            !SetWarbandMagicFindTierMultiplier(tier, multiplier))
+        {
+            handler->SendSysMessage(MagicFindUsage);
+            return false;
+        }
+
+        SendMagicFind(handler);
+        return true;
+    }
+
+    static void SendMagicFind(ChatHandler* handler)
+    {
+        std::string line = "WARBAND_MAGICFIND=";
+
+        for (uint8 tier = 0; tier < WarbandMagicFindTierCount(); ++tier)
+        {
+            if (tier)
+                line += ';';
+
+            line += WarbandMagicFindTierKey(tier);
+            line += '=';
+
+            char value[16] = { 0 };
+            std::snprintf(value, sizeof(value), "%.2f", WarbandMagicFindTierMultiplier(tier));
+            line += value;
+        }
+
+        handler->SendSysMessage(line);
+    }
+
+    // Gold find: one multiplier on looted coin. The module owns the core's Rate.Drop.Money and
+    // pushes the value in, so the change is live.
+    static bool HandleGoldFindCommand(ChatHandler* handler, char const* args)
+    {
+        while (*args == ' ')
+            ++args;
+
+        if (strncmp(args, "reset", 5) == 0 && (args[5] == '\0' || args[5] == ' '))
+        {
+            ResetWarbandGoldFindMultiplier();
+            SendGoldFind(handler);
+            return true;
+        }
+
+        if (!*args)
+        {
+            SendGoldFind(handler);
+            return true;
+        }
+
+        char* end = nullptr;
+        float const multiplier = std::strtof(args, &end);
+
+        if (end == args || (*end != '\0' && *end != ' ') || !std::isfinite(multiplier) ||
+            !SetWarbandGoldFindMultiplier(multiplier))
+        {
+            handler->SendSysMessage(GoldFindUsage);
+            return false;
+        }
+
+        SendGoldFind(handler);
+        return true;
+    }
+
+    static void SendGoldFind(ChatHandler* handler)
+    {
+        char value[16] = { 0 };
+        std::snprintf(value, sizeof(value), "%.2f", GetWarbandGoldFindMultiplier());
+
+        handler->SendSysMessage(std::string("WARBAND_GOLDFIND=") + value);
     }
 };
 

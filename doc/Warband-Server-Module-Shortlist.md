@@ -15,10 +15,11 @@ alternatives remain undecided, they stay documented as options rather than
 being installed together. This status does not authorize a future install or
 build.
 
-`mod-warband` is project-owned code, not a catalogue candidate. Its binding-free
-item policy lives entirely in the module: there is no in-house core change. The
-module is compiled into the current build, and its binding behaviour still needs
-an in-game verification pass.
+`mod-warband` is project-owned code, not a catalogue candidate. Its gear sharing is the one
+Warband feature with a core change: `Item::CanBeTraded()` and `Item::IsBindedNotWith()` consult
+a binding policy that the module sets from `Warband.Binding.Enforced` and the panel toggles.
+Binding itself is left alone, and the module is compiled into the current build; its trading
+behaviour still needs an in-game verification pass.
 
 ## Requested foundation
 

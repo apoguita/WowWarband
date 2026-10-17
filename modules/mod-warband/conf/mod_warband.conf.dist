@@ -102,3 +102,72 @@ Warband.Gather.Enabled = 1
 #        Default: 1 - Enabled
 #
 Warband.Gather.Automatic = 1
+
+###################################################################################################
+#  Item binding
+#
+#  Warband is a single-player party game: a bound item is bound to the party, not to one character,
+#  so binding is not treated as a barrier to moving gear. With this off, a soulbound item can be
+#  traded, mailed, auctioned, put in a guild bank and handed to a companion exactly like an unbound
+#  one, and an enchant that would bind an item does not stop it either. The item itself is untouched:
+#  it keeps its soulbound flag, so what the game displays about it stays true.
+#
+#  Turning it on restores the ordinary game rule, where a bound item stays with the character that
+#  bound it. That is what the client panel toggles, and the toggle is runtime only, like the other
+#  Warband settings: a worldserver restart or .reload config returns it to this value.
+#
+#     Warband.Binding.Enforced
+#        Enforce binding as a restriction on item movement. 0 is the Warband rule.
+#        Default: 0 - Not enforced
+#
+Warband.Binding.Enforced = 0
+
+###################################################################################################
+#  Magic find
+#
+#  The same mechanism the core has as Rate.Drop.Item.*, but scoped to the Warband and settable while
+#  playing. A multiplier applies to the drop chance of the rows that drop an item of that quality:
+#
+#      new chance = min(chance * multiplier, 100)
+#
+#  So x4 on a blue line with 20% makes it 80%, x6 on a 3% legendary makes it 18%, and a row whose
+#  result passes 100% simply becomes a guaranteed drop. Nothing else changes: no rows are added or
+#  removed, no extra rolls, no extra items, no duplicates, no table edits. Poor and normal are never
+#  touched, so the junk distribution stays exactly as the game ships it.
+#
+#  Scope: the Warband's own loot - the character being played and its followers. The random bots in
+#  the world keep the untouched tables, and the core's own Rate.Drop.Item.* rates stay as configured
+#  and compose with these.
+#
+#  Two shapes a multiplier cannot reach, because there is no chance number to multiply: rows with
+#  Chance = 0 inside a loot group (the game picks one of them at random instead of rolling), and
+#  reference rows, whose quality lives on the rows inside the referenced table.
+#
+#  Values are 1.0 (no change) to 20.0. The panel's Loot quality page edits them live; the command is
+#  .warband magicfind <green|blue|purple|orange|gold> <multiplier>, and .warband magicfind reset returns
+#  everything to x1.
+#
+Warband.MagicFind.Green = 2.0
+Warband.MagicFind.Blue = 4.0
+Warband.MagicFind.Purple = 6.0
+Warband.MagicFind.Orange = 6.0
+Warband.MagicFind.Gold = 6.0
+
+###################################################################################################
+#  Gold find
+#
+#  The companion of magic find: a multiplier on the coin that loot generates. The module owns the
+#  core's Rate.Drop.Money and re-applies this value whenever the configuration is loaded or reloaded,
+#  so this setting wins over Rate.Drop.Money in worldserver.conf.
+#
+#  It covers every coin pile the loot system produces - creatures, chests, mines and containers. It
+#  does not touch gold from vendoring, quest rewards, mail or the auction house; the two reward rates
+#  govern quest money separately.
+#
+#  Rate.Drop.Money is a world rate, so unlike magic find this applies to every player rather than to
+#  the Warband's loot alone. On a single-player server that is the same thing.
+#
+#  Values are 1.0 (no change) to 20.0. The panel's Gold find page edits it live; the command is
+#  .warband goldfind <multiplier>, and .warband goldfind reset returns it to x1.
+#
+Warband.GoldFind.Multiplier = 3.0

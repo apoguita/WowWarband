@@ -49,6 +49,7 @@ features. They are listed separately below.
 | — | XP multiplier, 1x–10x, changeable live | Warband module: command, setting, `OnPlayerGiveXP` hook |
 | — | Follower catch-up XP: a follower behind its leader earns more, on top of the global rate | Warband module: same hook, `PlayerbotAI::GetMaster()` to find the leader, config plus `.warband catchup` commands. Panel controls for step, floor, cap and on/off |
 | — | Unrestricted race/class combinations: all 100 WotLK pairs, including Human Shaman and Undead Paladin | Warband-owned creation data: world SQL for creation, skills and starting spells; the server's `CharStartOutfit.dbc` for starting gear; the client's `CharBaseInfo.dbc` and `patch-z.mpq` for what the creation screen offers. Confirmed in game 16 October 2026 |
+| — | Follower gathering: companions receive the leader's Herbalism, Mining and Skinning values and rank spells, so they work the same nodes and skin the same corpses | Warband module: raise-only mirror applied on leader login, on group join, and on `OnPlayerUpdateSkill` / `OnPlayerSetSkill`; `.warband gather` plus a panel page. On-demand apply confirmed in game 16 October 2026; the automatic update paths are built but not yet verified |
 | — | Warband settings window: feature tree, detail pages, live server status, `/warband`, `/ww`, minimap icon | Warband client addon |
 | — | Follower party that follows and fights | Runtime baseline |
 
@@ -61,20 +62,24 @@ No Warband code is involved; each is a test.
 | — | All 11 primary professions (`MaxPrimaryTradeSkill = 11`) | Confirm after the next worldserver start |
 | — | Playerbots quest synchronisation (`SyncQuestWithPlayer = 1`) | Follower completes when the leader turns in; reward behaviour |
 | — | Progression configuration (phase 18, enforced rules, damage x0.6, healing x0.5) | Intended effect in play |
-| — | `Progression.TradableBindsOnPickup.Enforced = 1` | What it actually permits. It is a baseline setting, not Warband's binding-free feature, and it does not decide that work |
+| — | `Progression.TradableBindsOnPickup.Enforced = 1` | What it actually permits. It is a baseline setting, not Warband's gear sharing, and it does not decide that work |
 
 ## Gaps in Warband's own work, found while checking the tree
 
-1. **The binding-free core item layer is not in `src/`.** Searching `src/` for `Warband`
-   returns nothing. The module source exists; the core changes the earlier documents
-   describe as accompanying it do not. Either that layer gets written or the module alone
-   is accepted as the mechanism.
-2. **Resolved, 16 October 2026: the Warband module now has a runtime config.** Its
-   `conf/mod_warband.conf.dist` is installed as
+1. **Resolved, 16 October 2026: binding is a core policy switch, not a cleared flag.** The
+   binding-free feature that erased the soulbound flag from almost everything is gone; it
+   contradicted binding itself. Gear sharing now lives where the core asks the question:
+   `Item::CanBeTraded()` and `Item::IsBindedNotWith()` consult
+   `WarbandIsItemBindingEnforced()` (`src/server/game/Entities/Item/Item.cpp`), defaulting to
+   the ordinary rule and set from `Warband.Binding.Enforced`. This is Warband's one deliberate
+   core change, and it exists because those two functions have no script hook.
+2. **Resolved, 16 October 2026: the Warband module has a runtime config under its own
+   name.** `conf/mod_warband.conf.dist` is installed as
    `bin/RelWithDebInfo/configs/modules/mod_warband.conf`, that file name is compiled
-   into the server's config list, and all six options are read from it. (The installed
-   file still carries the pre-rename name `mod_warband_unbound_loot.conf` until the next
-   CMake configure copies the renamed file.)
+   into the server's config list, and all eight options are read from it. The rename
+   from `mod-warband-unbound-loot` needed a CMake configure, which has been run; the
+   pre-rename `mod_warband_unbound_loot.conf` and its `.dist` are now dead files that
+   nothing reads.
 
 ## Feature backlog
 
@@ -99,13 +104,15 @@ No Warband code is involved; each is a test.
 
 | # | Feature | Where we build it | State / waiting on |
 |---|---|---|---|
-| 11 | Binding-free item ownership across the Warband | Warband server module + core layer | **Source only** — module unbuilt, core layer absent |
+| 11 | Gear sharing inside the Warband: any bound piece moves to any companion | Warband core (binding policy) + server module + addon | **Built, not yet verified in game** — the core's own two questions (`Item::CanBeTraded`, `Item::IsBindedNotWith`) consult a Warband policy switch, so trade, mail, auction, guild bank and the inventory transfer all let a bound item through. The panel's Item binding page turns the ordinary rule back on; the item keeps its soulbound flag either way |
 | 12 | Gear routing to the right follower | Warband server module + addon | Designed — waiting on the loot policy |
 | 13 | Loot ownership default | Warband server module | Waiting |
 | 14 | Auto-sell and protection rules for items | Warband server module | Waiting |
 | 15 | Loot collection convenience for nearby corpses | Warband server module (+ client) | Designed |
 | 16 | Companion equipment, talents and build control | Warband client addon + server module | Designed — equipment-first scope |
 | 17 | Boss loot recovery | Warband server module | Deferred |
+| 44 | Gold find: a multiplier on looted coin | Warband server module + addon | **Built, not yet verified in game** — the module owns the core `Rate.Drop.Money` and re-applies it on config load, so the panel can change it live. Default x3; covers creatures, chests, mines and containers, not vendoring or quest rewards |
+| 43 | Magic find: better gear, not more gear | Warband server module + addon | **Built, not yet verified in game** — `GlobalScript::OnItemRoll` scales a row's chance by a per-quality multiplier, capped at a guaranteed drop. Shipped defaults x2 green, x4 blue, x6 purple/orange/gold. No rows added, no extra rolls, no extra items; poor and normal untouched; Warband loot only |
 
 ### Economy
 
@@ -120,7 +127,7 @@ No Warband code is involved; each is a test.
 
 | # | Feature | Where we build it | State / waiting on |
 |---|---|---|---|
-| 22 | Gathering convenience for a solo party | Warband server module | Built and registered 16 October 2026 — followers mirror the leader's gathering skills; in-game verification pending |
+| 22 | Gathering convenience for a solo party | Warband server module | **Live** — companions mirror the leader's gathering skills, raise-only. On-demand apply confirmed in game 16 October 2026; the automatic sync paths are built but not yet verified |
 | 23 | Junk auto-sell | Warband server module | Designed |
 | 24 | No creature respawns inside instances | Warband server module | Designed |
 | 25 | Return to the dungeon entrance after death | Warband server module | Designed |
@@ -163,7 +170,8 @@ No Warband code is involved; each is a test.
 7. Party management model.
 8. Settled: followers gather. Their Herbalism, Mining and Skinning values are mirrored from
    the leader, so they can work the same nodes without owning the crafting professions.
-9. Binding-free: module plus a core layer, or something narrower.
+9. Settled: nothing unbinds. A bound item moves like any other while the binding policy is off,
+   and the panel switch restores the ordinary rule when it is on.
 
 ## Explicitly out of scope
 
