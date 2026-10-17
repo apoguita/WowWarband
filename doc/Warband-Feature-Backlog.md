@@ -54,7 +54,7 @@ combinations, the 11 primary professions, and trash auto-sell.
 |---|---|---|---|---|
 | 13 | Loot ownership: who is entitled to ordinary drops | Shortlist: [mod-shared-loot][shared-loot] and [mod-quest-loot-party][quest-loot-party] both attack it | Warband server module | Waiting on decision 4 |
 | 12 | Gear routing: an item goes to the follower it suits | Shortlist: [mod-quest-loot-party][quest-loot-party] personal mode, which duplicating loot does not solve | Warband server module + addon | Waiting on 13 |
-| 16 | Companion equipment, talents and builds under the player's control | Shortlist: [mod-bot-inventory-master][bot-inventory-master] | Warband client addon + server module | Designed — equipment first, bags as the engine underneath |
+| 16 | Companion bags and character sheet: see what each follower carries, its gear and its stats, from the windows the player already uses | Shortlist: [mod-bot-inventory-master][bot-inventory-master] — not used in the end, because MultiBot already carries the windows | Warband client addon (+ server module if item transfer is built) | **Partly built, pending another revision** — a companion strip on the bag frame and on the character sheet opens MultiBot's existing follower windows (click for bags, shift-click for the sheet, and the reverse). The next revision decides whether MultiBot's list view is good enough or a real bag grid is needed; item transfer between members is **not** built |
 | 20 | Companion gold reaches the leader's purse | Shortlist: [mod-shared-gold][shared-gold] | Warband server module | Designed |
 
 ### Economy and world
@@ -113,6 +113,10 @@ already built.
 12. Settled, 16 October 2026: the in-instance death respawn (item 47) is postponed as well, for the
     same reason as 15 — the only reference is too hacky to build on. The creature-respawn rule
     (item 24) is untouched by that and stays a wanted feature.
+13. Pending another revision, 16 October 2026: the companion-strip access (item 16) and the
+    draggable windows work well enough to use and not well enough to keep. Two questions carry into
+    the next pass: whether a follower's inventory needs a real bag grid instead of MultiBot's list,
+    and whether items should move between members directly rather than through a manual trade.
 
 ## Explicitly out of scope
 

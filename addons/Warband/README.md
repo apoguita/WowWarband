@@ -12,6 +12,11 @@ The tree as it stands:
     Server
       XP Options          live - the multiplier and the follower catch-up controls
       Follower gathering  live - the skill mirror, with an Apply button
+      Item binding        live - the party binding policy switch
+      Magic find          live - one multiplier per quality
+      Gold find           live - the coin multiplier
+      Trash sell          live - grey loot sold on pickup, with a sweep button
+      Auction house       live - the auction bot's settings, and Restock now
     Features              what this Warband adds, listed live
     About                 author and project description
 
@@ -91,11 +96,43 @@ Files:
 
     Warband.lua     behaviour: tree model, page rendering, chat protocol, minimap button,
                     slash commands, window plumbing
-    Warband.xml     layout: window chrome, tree pane, detail pane, the XP and gathering pages
+    Warband.xml     layout: window chrome, tree pane, detail pane, the feature pages
+    PartyAccess.lua member strips on the bag frame and the character sheet
+    Layout.lua      makes the bags and the character sheet draggable, and remembers where
     Bindings.xml    the WARBANDTOGGLE key binding entry, unbound by default
 
 Adding a feature means adding a node to the Tree table in Warband.lua. Use status "live" only for
 something that actually works, and "placeholder" for anything unfinished.
+
+## Party access and window layout — pending another revision
+
+Two client features were added on 16 October 2026 and are deliberately left in a revisitable state.
+
+**Party access (`PartyAccess.lua`).** A strip of companion buttons rides above the bag frame and
+above the character sheet. Clicking one opens that companion's window in MultiBot — the bags strip
+opens the inventory, the sheet strip opens the character sheet, and shift-click flips to the other.
+No protocol of our own is involved: it calls `MultiBot.RequestBotInventory(name)` and
+`MultiBot.OpenCharacterInfo(name)`, so MultiBot keeps owning the traffic. The player is deliberately
+*not* on the strip: MultiBot's windows are bot windows and show an empty list for a real account,
+so the player's own items stay in the client's real bag frame and real character sheet.
+
+Open questions for the next revision:
+
+- MultiBot renders a follower's inventory as a list, not as a bag grid. If that is not good enough,
+  the alternative is Warband's own bag frame (server data via the module, or the bridge's
+  `INVENTORY_V1` payload), which is a much larger build.
+- Item transfer between members is **not** built. Trading still works the ordinary way: open a trade
+  on a companion and it accepts. A direct move (see `mod-bot-inventory-master` for the technique)
+  would need Warband server code.
+- The strip only appears when companions are in the group; there is no per-member configuration.
+
+**Window layout (`Layout.lua`).** The container frames and the character sheet are anchored by the
+client and are not flagged movable, which is why dragging them did nothing. The addon now sets that
+flag once at load and saves the result, so the windows move whenever they are dragged. The
+character sheet needs a 10-pixel grip strip above its top edge to be grabbed at all: its body is a
+full-size child frame, so every click otherwise lands on a child. The grip is functional but not
+handsome; a real grip texture, or moving the grab area inside the border, is the next revision.
+
 
 XP controls require a worldserver executable built with the Warband module and started after that
 build. The panel is client-only: changing it needs no server build, just a client restart for the

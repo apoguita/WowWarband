@@ -7,4 +7,6 @@
 
 Warband.lua
 Warband.xml
+PartyAccess.lua
+Layout.lua
 Bindings.xml
