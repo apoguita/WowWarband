@@ -162,6 +162,17 @@ recorded only so the research is not lost.
     so the Warband runtime seeds its configuration with `AOELoot.Enable = 0`. The panel owns the
     whole module configuration — enable, login message, group looting, merge radius, corpse count
     and mail fallback — in one page; the module's own per-character `.aoeloot on|off` remains.
+16. Settled, 18 October 2026: with binding off, the client tradeable grant is **not scoped to the
+    Warband party** — a bound piece can be handed to a follower, an alt outside the group or any
+    other character. The request was explicit: no mechanic may restrict trading items. The played
+    character's carried items are granted at login and when a piece arrives, and a trade window
+    grants both sides; random bots' loot is still skipped because they never offer bound gear of
+    their own, which keeps the grant off their loot path. **Refinement, 18 October 2026:** the
+    tradeable flag alone was not enough — the client still refused a soulbound item that carried
+    both flags (verified in game with a Smooth Walking Staff). So while binding is off the module
+    also removes the soulbound bit from carried items; the client offers trade for items it thinks
+    are unbound, and the tooltip accordingly loses its Soulbound line. The panel switch still
+    governs everything: binding on restores the ordinary rule.
 
 ## Explicitly out of scope
 

@@ -113,10 +113,12 @@ something that actually works, and "placeholder" for anything unfinished.
 
 Server > Item binding reads the policy with `.warband binding` — the reply is
 `WARBAND_BINDING=enforced=0` — and one button flips it. With binding **off**, which is the default,
-a soulbound piece can be traded, mailed, auctioned, put in a guild bank and handed to a companion
-like any other item; the item keeps its soulbound flag, so the tooltip stays honest. Turning it
-**on** restores the ordinary rule. The page states the policy in words rather than in yes/no,
-because "binding off" is easy to misread as "items are unbound".
+a soulbound piece can be traded, mailed, auctioned, put in a guild bank and handed to any character
+— a follower, an alt outside the group or anybody else — like any other item; the soulbound bit is
+removed from the carried item while the rule is off, so the client offers it in every trade window
+(it no longer reads "Soulbound"). Turning it **on** restores the ordinary rule. The page states the
+policy in words rather than in yes/no, because "binding off" is easy to misread as "items are
+unbound".
 
 ## Magic find
 

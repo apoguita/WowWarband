@@ -141,10 +141,11 @@ its configuration.
 
 With the restriction off - the Warband default - a soulbound item can be traded,
 mailed, auctioned, put in a guild bank and handed to a companion like any other item,
-and an enchant that would bind it does not stop it either. The item itself is
-untouched: it keeps its soulbound flag, so what the game displays about it stays
-true. What changes is only who may take it. With it on, all of that reverts to the
-ordinary rule.
+and an enchant that would bind it does not stop it either. The server rule is only
+half of it: the client refuses a soulbound item in the trade window before any
+tradeable flag is considered, so the module also removes the soulbound bit from the
+carried items while binding is off (see *The client half* below). What changes is who
+may take the item; with the restriction on, the ordinary rule comes back.
 
 This is the one place Warband changes the core rather than working around it, and the
 reason is that a module cannot answer those two questions: the trade handler, the mail
@@ -154,17 +155,23 @@ and none of them has a script hook.
 ### The client half
 
 The core cannot decide what the client already believes. The client greys out items it
-thinks are bound, and it decides that from the same tradeable flag the game uses for
-the two hour loot-trade window. `WarbandTrading.cpp` sets that flag on the bound items
-a Warband member is carrying, so the trade window offers them the way it offers any
-other item. It does nothing at all while binding is enforced, which is what keeps the
+thinks are bound, and it refuses a soulbound item in the trade window before the
+tradeable flag is considered - that was verified in game on 18 October 2026, where a
+soulbound item with both flags set was still refused. So `WarbandTrading.cpp` removes
+the soulbound bit from the carried items while binding is unenforced: the client only
+offers trade for items it thinks are unbound. It also sets the tradeable flag, which
+keeps the mail, auction and trade-finalize paths in step with the same state. It does
+nothing at all while binding is enforced, which is what keeps the
 panel's toggle honest: the flag mirrors the rule, it never bypasses it.
 
 The grant is transient by design. It is never written to `item_soulbound_trade_data`,
 the core strips the flag again on the next login, and the next grant re-applies it. It
-is scoped to one Warband - a leader and its own followers, or two followers of the
-same leader - so the world's random bots never carry a granted item, and a player with
-no party is left alone entirely.
+is not scoped to a party: the played character's carried items are granted at login and
+when a piece arrives, and a trade window is granted on both sides the moment it opens,
+so a bound piece can be handed to a follower, an alt outside the group or any other
+character. That is deliberate - the Warband has no rule that needs a recipient - and
+the only skip is random bots' constant loot, which never needs a grant because nobody
+trades their own bound gear out of it.
 
 ### The toggle
 

@@ -45,7 +45,7 @@ on the client. Each option can be changed while the server runs — no rebuild, 
 | XP multiplier | 1x–10x on every experience gain, followers included. Default 3x | Panel → XP Options, or `.warband xp set <1-10>` |
 | Follower catch-up XP | extra experience for a companion that is behind its leader, so a new recruit catches up | Panel → XP Options, or `.warband catchup step/floor/cap/on/off` |
 | Follower gathering | companions receive the leader's Herbalism, Mining and Skinning, so they work the same nodes and skin the same corpses. Raise-only | Panel → Follower gathering, or `.warband gather [on\|off\|auto on\|auto off]` |
-| Bound gear inside the Warband | with binding off, a soulbound piece trades, mails, auctions and moves to a companion like any other item; the switch puts the ordinary rule back | Panel → Item binding, or `.warband binding [on\|off]` |
+| Bound gear inside the Warband | with binding off, a soulbound piece trades, mails, auctions and moves to a companion or any other character like any other item; the switch puts the ordinary rule back | Panel → Item binding, or `.warband binding [on\|off]` |
 | Magic find | a multiplier per quality on drop chance — shipped x2 green, x4 blue, x6 purple and above. No extra rolls or items | Panel → Magic find, or `.warband magicfind <tier> <multiplier>` |
 | Gold find | a multiplier on looted coin. Default x3 | Panel → Gold find, or `.warband goldfind <multiplier>` |
 | Trash auto-sell | grey loot is sold the moment it is picked up, for the leader and every companion, so bags stay empty; the vendor price goes to the leader's purse and the page counts only this Warband's sales. `.warband trash sell` empties what is already in the bags | Panel → Trash sell, or `.warband trash [on\|off\|sell]` |

@@ -8,134 +8,113 @@
  * inventory transfer.
  *
  * What the core cannot decide is what the client already believes. The client greys out items it
- * thinks are bound, and it decides that from the same tradeable flag the game uses for the two hour
- * loot-trade window. This module sets that flag on the bound items a Warband member is carrying, so
- * the trade window offers them the way it offers any other item, and the panel's toggle still
- * governs everything: with binding enforced, nothing here does anything.
+ * thinks are bound, and it refuses a soulbound item in the trade window before any tradeable flag
+ * is considered. So while binding is unenforced this module removes the soulbound bit itself from
+ * the bound items a player is carrying (the client only offers trade for items it thinks are
+ * unbound) and also sets the tradeable flag, which keeps the other paths in step. The panel's
+ * toggle still governs everything: with binding enforced, nothing here does anything and items keep
+ * their ordinary binding.
+ *
+ * The grant is not scoped to a party. The played character's carried items are granted at login
+ * and when a piece arrives, and a trade window is granted on both sides the moment it opens, so a
+ * bound piece can be handed to a follower, an alt outside the group or any other character: the
+ * Warband has no rule that needs a recipient. Random bots are skipped on the loot path, because
+ * they loot constantly and never offer bound gear of their own - that keeps this off the hundreds
+ * of bots' loot path - but a trade window opened with a real player grants both sides.
  *
  * The grant is transient by design. It is never written to item_soulbound_trade_data, the core
  * strips the flag again on the next login, and the next grant re-applies it.
  */
 
 #include "Bag.h"
-#include "Group.h"
 #include "ItemBinding.h"
+#include "Log.h"
 #include "Player.h"
 #include "ScriptMgr.h"
 #include "WarbandPlayerRoles.h"
 
 namespace
 {
-// True when both players belong to the same Warband: a leader and its own follower, or two
-// followers of the same leader. Random bots, and anyone else's followers, are never a pair.
-bool IsWarbandPair(Player* first, Player* second)
+// The grant is for the character being played: a real player with a session, not a bot. Random
+// bots use it too through the trade window, where the pair is explicit, but their endless loot is
+// not walked.
+bool IsPlayedCharacter(Player* player)
 {
-    if (!first || !second || first == second)
-        return false;
-
-    Player* firstMaster = WarbandFollowerMaster(first);
-    Player* secondMaster = WarbandFollowerMaster(second);
-
-    if (firstMaster && firstMaster == second)
-        return true;
-
-    if (secondMaster && secondMaster == first)
-        return true;
-
-    return firstMaster && firstMaster == secondMaster;
+    return player && !sPlayerbotsMgr.GetPlayerbotAI(player);
 }
 
-// The leader a follower follows, or the player itself when it is the leader being played.
-Player* WarbandOwner(Player* player)
-{
-    if (Player* master = WarbandFollowerMaster(player))
-        return master;
-
-    return player;
-}
-
-// Everyone in this player's Warband: the leader being played plus the followers in its group. A
-// bound item carried by any of them may be handed to any other, which is the whole rule.
-void CollectWarband(Player* leader, Group* group, AllowedLooterSet& allowed)
-{
-    allowed.insert(leader->GetGUID());
-
-    for (GroupReference* ref = group->GetFirstMember(); ref; ref = ref->next())
-    {
-        Player* member = ref->GetSource();
-        if (!member || member == leader)
-            continue;
-
-        if (WarbandOwner(member) == leader)
-            allowed.insert(member->GetGUID());
-    }
-}
-
-// The set to grant, or false when there is nobody to share with. A lone player - a random bot, or a
-// real player whose companions have not joined yet - is left completely alone, which is also what
-// keeps this off the loot path of the hundreds of random bots in the world.
-bool BuildWarbandSet(Player* player, AllowedLooterSet& allowed)
-{
-    if (!player)
-        return false;
-
-    Player* leader = WarbandOwner(player);
-    Group* group = leader->GetGroup();
-    if (!group)
-        return false;
-
-    CollectWarband(leader, group, allowed);
-    return allowed.size() > 1;
-}
-
-void GrantTradeOnItem(Item* item, AllowedLooterSet& allowed)
+// Grants the trade on one item. Returns true when the item was soulbound and has now been
+// unbound for the client.
+//
+// The 2h tradeable flag (ITEM_FIELD_FLAG_BOP_TRADEABLE) is not enough for this client: a soulbound
+// item is refused in the trade window before the flag is considered (observed in game, 18 October
+// 2026). So while binding is unenforced the soulbound bit itself is removed from the carried item -
+// the client only offers trade for items it thinks are unbound. The tradeable flag is set as well,
+// which keeps the other paths (mail, auction, the trade finalize checks) in step with the same
+// state. With binding enforced none of this runs and items keep their ordinary binding.
+bool GrantTradeOnItem(Item* item, AllowedLooterSet& allowed)
 {
     if (!item || !item->IsSoulBound())
-        return;
+        return false;
 
+    item->SetBinding(false);
     item->SetSoulboundTradeable(allowed);
+    return true;
 }
 
-// Opens the trade window on every bound item this player is carrying. Only the bags and the
-// equipped slots matter: nothing in the bank can be dragged into a trade window, and nothing in the
-// bank can be handed to a follower either.
-void GrantTradeOnCarriedItems(Player* owner, AllowedLooterSet& allowed)
+// Opens the trade, mail and auction windows on every bound item this player is carrying. Only the
+// bags and the equipped slots matter: nothing in the bank can be dragged into a trade window, and
+// nothing in the bank can be handed to another character either. Returns how many items now carry
+// the flag.
+uint32 GrantTradeOnCarriedItems(Player* owner, AllowedLooterSet& allowed)
 {
+    if (!owner)
+        return 0;
+
+    uint32 granted = 0;
+
     for (uint8 slot = EQUIPMENT_SLOT_START; slot < INVENTORY_SLOT_ITEM_END; ++slot)
-        GrantTradeOnItem(owner->GetItemByPos(INVENTORY_SLOT_BAG_0, slot), allowed);
+        if (GrantTradeOnItem(owner->GetItemByPos(INVENTORY_SLOT_BAG_0, slot), allowed))
+            ++granted;
 
     for (uint8 bagSlot = INVENTORY_SLOT_BAG_START; bagSlot < INVENTORY_SLOT_BAG_END; ++bagSlot)
     {
-        GrantTradeOnItem(owner->GetItemByPos(INVENTORY_SLOT_BAG_0, bagSlot), allowed);
+        if (GrantTradeOnItem(owner->GetItemByPos(INVENTORY_SLOT_BAG_0, bagSlot), allowed))
+            ++granted;
 
         if (Bag* bag = owner->GetBagByPos(bagSlot))
             for (uint8 slot = 0; slot < bag->GetBagSize(); ++slot)
-                GrantTradeOnItem(bag->GetItemByPos(slot), allowed);
+                if (GrantTradeOnItem(bag->GetItemByPos(slot), allowed))
+                    ++granted;
     }
+
+    return granted;
 }
 
 void GrantWarbandTradeOnCarriedItems(Player* player)
 {
     // With binding enforced there is nothing to keep in step: the client already treats a bound item
     // as bound, because that is what it is.
-    if (WarbandIsItemBindingEnforced())
+    if (WarbandIsItemBindingEnforced() || !IsPlayedCharacter(player))
         return;
 
     AllowedLooterSet allowed;
-    if (!BuildWarbandSet(player, allowed))
-        return;
+    allowed.insert(player->GetGUID());
 
-    GrantTradeOnCarriedItems(player, allowed);
+    uint32 const granted = GrantTradeOnCarriedItems(player, allowed);
+
+    if (granted)
+        LOG_INFO("server.loading", "Warband trading: granted {} carried item(s) at login ({})", granted,
+            player->GetName());
 }
 
 void GrantWarbandTradeOnItem(Player* player, Item* item)
 {
-    if (WarbandIsItemBindingEnforced())
+    if (WarbandIsItemBindingEnforced() || !IsPlayedCharacter(player))
         return;
 
     AllowedLooterSet allowed;
-    if (!BuildWarbandSet(player, allowed))
-        return;
+    allowed.insert(player->GetGUID());
 
     GrantTradeOnItem(item, allowed);
 }
@@ -165,20 +144,22 @@ public:
         GrantWarbandTradeOnItem(player, item);
     }
 
-    // Opening a trade names the exact pair, so the allowed set is narrowed to the two players
-    // involved for the duration, and both directions are granted so a follower can hand a piece
-    // back just as easily.
+    // Opening a trade names the exact pair, so both sides are granted unconditionally: a bound
+    // piece can be handed to a follower, an alt outside the group or any other character. The core
+    // keeps its own checks - distance, bags, items being looted right now.
     bool OnPlayerCanInitTrade(Player* player, Player* target) override
     {
-        if (!WarbandIsItemBindingEnforced() && IsWarbandPair(player, target) &&
-            player->GetMap() == target->GetMap())
+        if (!WarbandIsItemBindingEnforced() && player && target)
         {
             AllowedLooterSet allowed;
             allowed.insert(player->GetGUID());
             allowed.insert(target->GetGUID());
 
-            GrantTradeOnCarriedItems(player, allowed);
-            GrantTradeOnCarriedItems(target, allowed);
+            uint32 const first = GrantTradeOnCarriedItems(player, allowed);
+            uint32 const second = GrantTradeOnCarriedItems(target, allowed);
+
+            LOG_INFO("server.loading", "Warband trading: trade {} <-> {}: granted {} / {} item(s)",
+                player->GetName(), target->GetName(), first, second);
         }
 
         // Never refuse a trade here: this is a grant, not a gate, and the core keeps its own checks.

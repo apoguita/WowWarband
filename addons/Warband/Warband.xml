@@ -817,7 +817,7 @@
                                 </FontString>
                                 <FontString name="$parentHint" inherits="GameFontDisableSmall"
                                     justifyH="LEFT"
-                                    text="This server treats a bound item as bound to the party rather than to one character. With binding off, a soulbound piece can be traded, mailed, sold on the auction house and handed to a companion like any other item, and an enchant that would bind it does not stop it either. The item keeps its soulbound flag, so what the game shows about it stays true. Turning binding on restores the ordinary rule, where a bound item stays with the character that bound it.">
+                                    text="This server treats a bound item as bound to the party rather than to one character. With binding off, a soulbound piece can be traded, mailed, sold on the auction house and handed to a companion like any other item, and an enchant that would bind it does not stop it either. While the rule is off the soulbound bit is removed from carried items, so the client offers them in every trade window. Turning binding on restores the ordinary rule, where a bound item stays with the character that bound it.">
                                     <Size>
                                         <AbsDimension x="620" y="86"/>
                                     </Size>

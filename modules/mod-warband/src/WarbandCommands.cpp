@@ -53,6 +53,7 @@
  *   WARBAND_PETS=enabled=1
  */
 
+#include "Bag.h"
 #include "Chat.h"
 #include "CommandScript.h"
 #include "DatabaseEnv.h"
@@ -145,7 +146,8 @@ char const* const GatherUsage =
     "Usage: .warband gather [status] [on|off] [auto on|off]";
 
 char const* const BindingUsage =
-    "Usage: .warband binding [on|off] - on is the ordinary rule, off lets bound gear move";
+    "Usage: .warband binding [on|off] - on is the ordinary rule, off lets bound gear move;"
+    " .warband binding items lists each carried item's flags";
 
 char const* const MagicFindUsage =
     "Usage: .warband magicfind [<green|blue|purple|orange|gold> <multiplier 1-20>] [reset]";
@@ -372,6 +374,9 @@ private:
             return true;
         }
 
+        if (strncmp(args, "items", 5) == 0 && (args[5] == '\0' || args[5] == ' '))
+            return SendBindingItems(handler);
+
         if (*args)
         {
             handler->SendSysMessage(BindingUsage);
@@ -385,6 +390,40 @@ private:
     static void SendBinding(ChatHandler* handler)
     {
         handler->PSendSysMessage("WARBAND_BINDING=enforced={}", WarbandIsItemBindingEnforced() ? 1 : 0);
+    }
+
+    // Debug aid: the flags the client reads, one line per carried item. A refused trade shows
+    // exactly which flag the item is missing.
+    static bool SendBindingItems(ChatHandler* handler)
+    {
+        Player* player = handler->GetSession() ? handler->GetSession()->GetPlayer() : nullptr;
+        if (!player)
+            return false;
+
+        auto report = [&handler](Item* item)
+        {
+            if (!item)
+                return;
+
+            handler->PSendSysMessage("WARBAND_ITEM={} soul={} trade={} bag={} slot={}",
+                item->GetEntry(), item->IsSoulBound() ? 1 : 0, item->IsBOPTradable() ? 1 : 0,
+                static_cast<uint32>(item->GetBagSlot()), static_cast<uint32>(item->GetSlot()));
+        };
+
+        for (uint8 slot = EQUIPMENT_SLOT_START; slot < INVENTORY_SLOT_ITEM_END; ++slot)
+            report(player->GetItemByPos(INVENTORY_SLOT_BAG_0, slot));
+
+        for (uint8 bagSlot = INVENTORY_SLOT_BAG_START; bagSlot < INVENTORY_SLOT_BAG_END; ++bagSlot)
+        {
+            report(player->GetItemByPos(INVENTORY_SLOT_BAG_0, bagSlot));
+
+            if (Bag* bag = player->GetBagByPos(bagSlot))
+                for (uint8 slot = 0; slot < bag->GetBagSize(); ++slot)
+                    report(bag->GetItemByPos(slot));
+        }
+
+        handler->PSendSysMessage("WARBAND_BINDING=enforced={}", WarbandIsItemBindingEnforced() ? 1 : 0);
+        return true;
     }
 
     static bool HandleGatherCommand(ChatHandler* handler, char const* args)
