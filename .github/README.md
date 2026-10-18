@@ -31,6 +31,10 @@ inventory: which modules run on the server, what Warband itself adds, and how to
 | `mod-autobalance` | Third-party, added | Instance difficulty scaling: five members can fight a raid built for forty, and a dungeon scales up once the party outlevels it |
 | `mod-item-level-scaling` | Third-party, added | Loot scaling: the same items with their stats moved to the party's level, never downward |
 
+Two client addons come from those modules: `addons/MultiBot` (companion commands, inventory and
+character windows) and `addons/PlayerbotManager` (companion management UI). Research material for
+other modules lives in `doc/` and is not installed.
+
 ## What Warband adds
 
 Everything here is Warband's own code, in `modules/mod-warband` on the server and `addons/Warband`
@@ -44,9 +48,11 @@ on the client. Each option can be changed while the server runs — no rebuild, 
 | Bound gear inside the Warband | with binding off, a soulbound piece trades, mails, auctions and moves to a companion like any other item; the switch puts the ordinary rule back | Panel → Item binding, or `.warband binding [on\|off]` |
 | Magic find | a multiplier per quality on drop chance — shipped x2 green, x4 blue, x6 purple and above. No extra rolls or items | Panel → Magic find, or `.warband magicfind <tier> <multiplier>` |
 | Gold find | a multiplier on looted coin. Default x3 | Panel → Gold find, or `.warband goldfind <multiplier>` |
-| Trash auto-sell | grey loot is sold the moment it is picked up, for the leader and every companion, so bags stay empty. `.warband trash sell` empties what is already in the bags | Panel → Trash sell, or `.warband trash [on\|off\|sell]` |
+| Trash auto-sell | grey loot is sold the moment it is picked up, for the leader and every companion, so bags stay empty; the vendor price goes to the leader's purse and the page counts only this Warband's sales. `.warband trash sell` empties what is already in the bags | Panel → Trash sell, or `.warband trash [on\|off\|sell]` |
 | Instances stop restocking | a creature killed inside a dungeon or raid stays dead for the run, across logging out and server restarts; an instance reset still restores the dungeon | Panel → Instances, or `.warband instance [on\|off]` |
 | Auction house control | reads and writes the auction bot's settings — seller and buyer on/off, listings per cycle, buy candidates, stock targets | Panel → Auction house, or `.warband ah seller/buyer/items/candidates/stock/repopulate` |
+| World scaling | open-world creatures, quest rewards and loot at each character's own level; the switch flips `mod-zone-scaling`, which is installed and off by default, and only zones the server opted in change | Panel → World scaling, or `.warband worldscale [on\|off]` |
+| AoE loot | one loot window holds the nearby corpses' items and gold; the panel exposes the module's whole configuration — switch, group, login message, radius, corpse count, mail fallback — installed and off by default, with `.aoeloot on\|off` per character | Panel → AoE loot, or `.warband aoeloot [on\|off\|message\|group\|mail\|range <5-100>\|corpses <1-50>]` |
 | Hearthstone without cooldown | the hearthstone is ready again the moment it is used | `.warband hearthstone [on\|off]` |
 | Pets always happy | every hunter pet stays at full happiness, follower pets included | `.warband pets [on\|off]` |
 | Party roster | every character on the account listed with level, class and online state, each with an Invite or Dismiss button | **Friends frame → Party tab** (`O`) |

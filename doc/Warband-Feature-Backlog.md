@@ -30,6 +30,8 @@ A shortlist link in the Origin column is a citation of where the behaviour was s
 | `mod-ale` | Lua scripting path used by local scripts |
 | `mod-multibot-bridge` | Server side of the MultiBot controls |
 | `mod-progression` | Installed and configured at phase 18; supplies phase gating and its own rules |
+| `mod-zone-scaling` | Open-world per-player level scaling (pinned dependency, pre-release upstream); installed disabled and controlled only through the Warband panel's World scaling switch |
+| `mod-aoe-loot` | Area looting: one loot window merges the nearby corpses (pinned dependency); installed disabled and controlled only through the Warband panel's AoE loot switch |
 | MultiBot and Playerbot Manager addons | Existing client-side companion controls |
 
 Delivered and verified separately, documented in the README: XP multiplier, follower catch-up,
@@ -67,6 +69,7 @@ Loot itself is not on this list: the game's mechanics stay as they are (see *Not
 | 19 | Black Market Auction House | Shortlist: [Black-Market-Auction-House][bmah] — bid-only as it stands | Warband server module + client UI | Waiting on: player listing and selling support |
 | 24 | Instances stop restocking: a creature that dies inside an instance does not come back for the rest of the run | Shortlist: [mod-dead-means-dead][dead-means-dead], read in full — the mechanism is its, minus the multiplier model | Warband server module + addon panel | **Built, not yet verified in game** — `WarbandInstances.cpp`: `UnitScript::OnUnitDeath` pushes the respawn ten years out and saves it, so a cleared corridor survives an unload and a restart; an instance reset still restores everything. Dungeons and raids only, party kills only, with `NeverAdjust` lists. `.warband instance` and the panel's Instances page switch it live |
 | 47 | Dying inside an instance returns the party to the dungeon's start, alive, instead of a graveyard release and a corpse run through cleared trash | Requested 16 October 2026; the mechanism was studied from `DungeonRespawn` in the shortlist | Warband server module | **Postponed, 16 October 2026** — the only reference is hacky: it hijacks the release teleport to cancel the graveyard move, resurrects outright at a stored anchor, and keeps a per-character row in a character-database table; the repository is archived. Revisit later; nothing else is designed around it |
+| 51 | Open-world scaling switch: world creatures, quest rewards and loot at each character's own level, with a panel switch and a safe default | **Decision, 18 October 2026: not built in-house.** The only in-tree scalers (AutoBalance, item-level scaling) are instance-only, and upstream AutoBalance refuses base maps outright (open issue azerothcore/mod-autobalance#199), so `mod-zone-scaling` is installed as the pinned dependency and Warband builds only the control surface. That is the second recorded exception to the in-house rule, named here as the rule requires | `mod-zone-scaling` (dependency) + Warband addon panel | **Built, not yet verified in game** — `.warband worldscale [on\|off]` and the panel's World scaling page flip the module's `ZoneScaling.Enable`; zones, bands and direction stay in `mod_zone_scaling.conf`. **Default off**: the module ships disabled and, with its `DefaultBehaviour = "off"`, an enabled switch alone changes nothing until a zone is opted in. Missing module → `installed=0` |
 
 ## Parked convenience work (fixes, not features)
 
@@ -74,7 +77,7 @@ Kept so the decisions are not lost, but they are not goals and are not counted a
 
 | # | Work | Why it is parked |
 |---|---|---|
-| 15 | Nearby-corpse loot collection | Postponed 16 October 2026: the reference swallows every `CMSG_LOOT` and rewrites the loot table, too much surgery inside a pipeline still being tested. It is a fix for clicking each corpse |
+| 15 | Nearby-corpse loot collection | **Delivered, 18 October 2026** — the module was studied and rejected as surgery, so it is installed instead: `mod-aoe-loot` is the third recorded dependency, one loot window merges the nearby corpses (items and gold, respecting rolls and master loot, optional mail on full bags), and the Warband panel's AoE loot switch owns its enable option, **off by default**. The trash auto-sell sweeps the bags after an AoE store so the two features compose. It is still a fix, not a feature |
 
 **Proximity gathering (item 45) was closed as not wanted on 16 October 2026.** It was never a
 leader-only feature: it meant a node or skinnable corpse being worked *without walking to it and
@@ -147,6 +150,18 @@ recorded only so the research is not lost.
     it is — it opens MultiBot's windows and that is enough for now. Two later improvements are
     recorded, not scheduled: a real bag grid instead of MultiBot's list, and moving items directly
     between members instead of through a manual trade.
+14. Settled, 18 October 2026: the open world stays unscaled unless the panel's World scaling switch
+    is turned on. `mod-zone-scaling` is installed as the pinned dependency so the switch has
+    something behind it; with the module's own `DefaultBehaviour = "off"`, enabling the switch alone
+    still changes nothing until a zone is opted in. The item 51 switch was requested explicitly for
+    this shape — on-demand, off by default.
+15. Settled, 18 October 2026: area looting is delivered by the installed `mod-aoe-loot` dependency
+    (item 15, re-opened and delivered) rather than rebuilt in-house; the Warband panel's AoE loot
+    switch owns the module's enable option and defaults it to off, and the trash auto-sell sweeps
+    the bags after an AoE store so the two features compose. `mod-aoe-loot` ships enabled upstream,
+    so the Warband runtime seeds its configuration with `AOELoot.Enable = 0`. The panel owns the
+    whole module configuration — enable, login message, group looting, merge radius, corpse count
+    and mail fallback — in one page; the module's own per-character `.aoeloot on|off` remains.
 
 ## Explicitly out of scope
 

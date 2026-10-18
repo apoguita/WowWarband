@@ -66,6 +66,8 @@ local Tree = {
             { id = "trashsell", text = "Trash sell", status = "live", page = "trashsell" },
             { id = "auctionhouse", text = "Auction house", status = "live", page = "auctionhouse" },
             { id = "instances", text = "Instances", status = "live", page = "instances" },
+            { id = "worldscale", text = "World scaling", status = "live", page = "worldscale" },
+            { id = "aoeloot", text = "AoE loot", status = "live", page = "aoeloot" },
             { id = "convenience", text = "Convenience", status = "live", page = "convenience" },
         },
     },
@@ -164,6 +166,24 @@ local trashSell = { known = false, enabled = true, sold = 0, copper = 0, swept =
 local trashSellRequest = { pending = false, deadline = nil }
 local UpdateTrashSellDisplay
 local SetTrashSellStatus
+
+-- Open-world scaling: the switch flips mod-zone-scaling's own enable option, off in the shipped
+-- state. "installed" reports whether the module is present at all, so the page never pretends to
+-- offer a switch that has nothing behind it.
+local worldScale = { known = false, installed = false, enabled = false }
+local worldScaleRequest = { pending = false, deadline = nil }
+local UpdateWorldScaleDisplay
+local SetWorldScaleStatus
+
+-- Area looting: the switch flips mod-aoe-loot's own enable option, off in the shipped state. The
+-- page also owns the module's other knobs: login message, group looting, merge radius, corpse
+-- count and the mail fallback. The module keeps a per-character toggle (.aoeloot on/off) as well;
+-- this is the server-wide configuration.
+local aoeLoot = { known = false, installed = false, enabled = false, message = true, group = true,
+    mail = false, range = 55, corpses = 20 }
+local aoeLootRequest = { pending = false, deadline = nil }
+local UpdateAoeLootDisplay
+local SetAoeLootStatus
 
 -- Auction house: the market is run by the auction bot, which has no user front end. This page is
 -- its only interface: on/off for its seller and buyer sides, and how busy each cycle is.
@@ -318,6 +338,22 @@ local function RequestInstanceState()
     StartRequest(instanceRequest, ".warband instance")
 end
 
+local function RequestWorldScaleState()
+    if UpdateWorldScaleDisplay then
+        UpdateWorldScaleDisplay()
+    end
+
+    StartRequest(worldScaleRequest, ".warband worldscale")
+end
+
+local function RequestAoeLootState()
+    if UpdateAoeLootDisplay then
+        UpdateAoeLootDisplay()
+    end
+
+    StartRequest(aoeLootRequest, ".warband aoeloot")
+end
+
 local function RequestConvenienceState()
     if UpdateConvenienceDisplay then
         UpdateConvenienceDisplay()
@@ -405,6 +441,18 @@ function Warband_OnUpdate()
     if trashSellRequest.pending and GetTime() >= trashSellRequest.deadline then
         ClearRequest(trashSellRequest)
         SetTrashSellStatus(TEXT_TRASH_SELL_NO_REPLY, COLOR_GREY)
+    end
+
+    if worldScaleRequest.pending and GetTime() >= worldScaleRequest.deadline then
+        ClearRequest(worldScaleRequest)
+        SetWorldScaleStatus("Unavailable: this worldserver does not answer .warband worldscale yet.",
+            COLOR_GREY)
+    end
+
+    if aoeLootRequest.pending and GetTime() >= aoeLootRequest.deadline then
+        ClearRequest(aoeLootRequest)
+        SetAoeLootStatus("Unavailable: this worldserver does not answer .warband aoeloot yet.",
+            COLOR_GREY)
     end
 
     if auctionRequest.pending and GetTime() >= auctionRequest.deadline then
@@ -612,6 +660,62 @@ function Warband_OnEvent(self, event, ...)
 
         if UpdateTrashSellDisplay then
             UpdateTrashSellDisplay()
+        end
+
+        if RefreshDynamicPage then
+            RefreshDynamicPage()
+        end
+        return
+    end
+
+    if string.find(message or "", "WARBAND_WORLDSCALE=", 1, true) then
+        for key, value in string.gmatch(message, "([%a_]+)=([%d%.]+)") do
+            local number = tonumber(value)
+            if key == "installed" then
+                worldScale.installed = number == 1
+            elseif key == "enabled" then
+                worldScale.enabled = number == 1
+            end
+        end
+
+        ClearRequest(worldScaleRequest)
+        worldScale.known = true
+
+        if UpdateWorldScaleDisplay then
+            UpdateWorldScaleDisplay()
+        end
+
+        if RefreshDynamicPage then
+            RefreshDynamicPage()
+        end
+        return
+    end
+
+    if string.find(message or "", "WARBAND_AOELOOT=", 1, true) then
+        for key, value in string.gmatch(message, "([%a_]+)=([%d%.]+)") do
+            local number = tonumber(value)
+            if key == "installed" then
+                aoeLoot.installed = number == 1
+            elseif key == "enabled" then
+                aoeLoot.enabled = number == 1
+            elseif key == "message" then
+                aoeLoot.message = number == 1
+            elseif key == "group" then
+                aoeLoot.group = number == 1
+            elseif key == "mail" then
+                aoeLoot.mail = number == 1
+            elseif key == "range" then
+                aoeLoot.range = number or 55
+            elseif key == "corpses" then
+                aoeLoot.corpses = number or 20
+            end
+        end
+
+        ClearRequest(aoeLootRequest)
+        aoeLoot.known = true
+
+        if UpdateAoeLootDisplay then
+            UpdateAoeLootDisplay()
         end
 
         if RefreshDynamicPage then
@@ -1352,7 +1456,7 @@ UpdateTrashSellDisplay = function()
     if not trashSell.known then
         SetTrashSellStatus("Reading the trash auto-sell state...", COLOR_AMBER)
     elseif trashSell.enabled then
-        SetTrashSellStatus("Live - grey loot is sold on pickup and never takes a bag slot", COLOR_GREEN)
+        SetTrashSellStatus("Live - grey loot is sold on pickup, and the coin goes to the leader's purse", COLOR_GREEN)
     else
         SetTrashSellStatus("Off - grey loot stays in the bags", COLOR_GREY)
     end
@@ -1364,7 +1468,7 @@ UpdateTrashSellDisplay = function()
         return
     end
 
-    local detail = string.format("Cleared so far: %d item(s) for %s", trashSell.sold,
+    local detail = string.format("Cleared by our Warband: %d item(s) for %s", trashSell.sold,
         FormatCopper(trashSell.copper))
 
     if trashSell.swept and trashSell.swept > 0 then
@@ -1394,6 +1498,215 @@ end
 function Warband_SellJunkNow()
     SetTrashSellStatus("Selling the junk in the bags...", COLOR_AMBER)
     StartRequest(trashSellRequest, ".warband trash sell")
+end
+
+-- World scaling: one switch over mod-zone-scaling's own enable option. Off unless turned on, and
+-- the page says so plainly when the module is not in the server's build at all.
+SetWorldScaleStatus = function(text, color)
+    WarbandPageWorldScaleStatus:SetText(text)
+    WarbandPageWorldScaleStatus:SetTextColor(color[1], color[2], color[3])
+end
+
+UpdateWorldScaleDisplay = function()
+    if not worldScale.known then
+        SetWorldScaleStatus("Reading the world scaling state...", COLOR_AMBER)
+    elseif not worldScale.installed then
+        SetWorldScaleStatus("Not installed - mod-zone-scaling is not in this server's build",
+            COLOR_GREY)
+    elseif worldScale.enabled then
+        SetWorldScaleStatus(
+            "Live - open-world creatures, XP and loot scale to each character's level", COLOR_GREEN)
+    else
+        SetWorldScaleStatus("Off - the open world plays exactly as the base game", COLOR_GREY)
+    end
+
+    WarbandPageWorldScaleToggle:SetText(worldScale.enabled
+        and "World scaling: on" or "World scaling: off")
+
+    if not worldScale.known then
+        WarbandPageWorldScaleDetail:SetText("Waiting for the server...")
+        return
+    end
+
+    if not worldScale.installed then
+        WarbandPageWorldScaleDetail:SetText(
+            "This worldserver was built without mod-zone-scaling, so there is nothing to switch. "
+            .. "Ask the server owner to install the module.")
+        return
+    end
+
+    if worldScale.enabled then
+        WarbandPageWorldScaleDetail:SetText(
+            "Scaling is on. Only the zones the server has opted in are affected; everything else "
+            .. "keeps its normal levels.")
+    else
+        WarbandPageWorldScaleDetail:SetText(
+            "Scaling is off. .warband worldscale on turns it on; the module's zone list decides "
+            .. "what actually changes.")
+    end
+end
+
+function Warband_ToggleWorldScale()
+    if not worldScale.known then
+        SetWorldScaleStatus("Waiting for the server before changing this...", COLOR_AMBER)
+        StartRequest(worldScaleRequest, ".warband worldscale")
+        return
+    end
+
+    if not worldScale.installed then
+        SetWorldScaleStatus("mod-zone-scaling is not installed on this server.", COLOR_GREY)
+        return
+    end
+
+    if worldScale.enabled then
+        SetWorldScaleStatus("Switching world scaling off...", COLOR_AMBER)
+        StartRequest(worldScaleRequest, ".warband worldscale off")
+    else
+        SetWorldScaleStatus("Switching world scaling on...", COLOR_AMBER)
+        StartRequest(worldScaleRequest, ".warband worldscale on")
+    end
+end
+
+-- AoE loot: the master switch plus the other knobs mod-aoe-loot reads - login message, group
+-- looting, merge radius, corpse count and the mail fallback. Off unless turned on, and the page
+-- says so plainly when the module is not in the server's build at all.
+SetAoeLootStatus = function(text, color)
+    WarbandPageAoeLootStatus:SetText(text)
+    WarbandPageAoeLootStatus:SetTextColor(color[1], color[2], color[3])
+end
+
+UpdateAoeLootDisplay = function()
+    if not aoeLoot.known then
+        SetAoeLootStatus("Reading the area looting state...", COLOR_AMBER)
+    elseif not aoeLoot.installed then
+        SetAoeLootStatus("Not installed - mod-aoe-loot is not in this server's build", COLOR_GREY)
+    elseif aoeLoot.enabled then
+        SetAoeLootStatus("Live - loot windows include the nearby corpses' contents", COLOR_GREEN)
+    else
+        SetAoeLootStatus("Off - the base game's one-corpse window", COLOR_GREY)
+    end
+
+    WarbandPageAoeLootToggle:SetText(aoeLoot.enabled and "AoE loot: on" or "AoE loot: off")
+    WarbandPageAoeLootGroupToggle:SetText(aoeLoot.group and "In group: on" or "In group: off")
+    WarbandPageAoeLootMessageToggle:SetText(aoeLoot.message and "Login message: on"
+        or "Login message: off")
+    WarbandPageAoeLootMailToggle:SetText(aoeLoot.mail and "Mail when full: on" or "Mail when full: off")
+    WarbandPageAoeLootRangeValue:SetText(string.format("%d", math.floor(aoeLoot.range + 0.5)))
+    WarbandPageAoeLootCorpsesValue:SetText(string.format("%d", aoeLoot.corpses))
+
+    if not aoeLoot.known then
+        WarbandPageAoeLootDetail:SetText("Waiting for the server...")
+        return
+    end
+
+    if not aoeLoot.installed then
+        WarbandPageAoeLootDetail:SetText(
+            "This worldserver was built without mod-aoe-loot, so there is nothing to switch. "
+            .. "Ask the server owner to install the module.")
+        return
+    end
+
+    if aoeLoot.enabled then
+        WarbandPageAoeLootDetail:SetText(string.format(
+            "Area looting is on: one window covers up to %d corpses within %d yards. "
+            .. "When the bags are full, the item is mailed instead of lost%s.",
+            aoeLoot.corpses, math.floor(aoeLoot.range + 0.5),
+            aoeLoot.mail and "" or " (mail fallback is off, so a full bag stops the pickup)"))
+    else
+        WarbandPageAoeLootDetail:SetText(
+            "Area looting is off. .warband aoeloot on turns it on for the whole server.")
+    end
+end
+
+-- Shared by every control on the page: refuse when there is nothing to talk to, otherwise send.
+local function AoeLootAction(command, status)
+    if not aoeLoot.known then
+        SetAoeLootStatus("Waiting for the server before changing this...", COLOR_AMBER)
+        StartRequest(aoeLootRequest, ".warband aoeloot")
+        return
+    end
+
+    if not aoeLoot.installed then
+        SetAoeLootStatus("mod-aoe-loot is not installed on this server.", COLOR_GREY)
+        return
+    end
+
+    SetAoeLootStatus(status, COLOR_AMBER)
+    StartRequest(aoeLootRequest, command)
+end
+
+function Warband_ToggleAoeLoot()
+    if not aoeLoot.known then
+        SetAoeLootStatus("Waiting for the server before changing this...", COLOR_AMBER)
+        StartRequest(aoeLootRequest, ".warband aoeloot")
+        return
+    end
+
+    if not aoeLoot.installed then
+        SetAoeLootStatus("mod-aoe-loot is not installed on this server.", COLOR_GREY)
+        return
+    end
+
+    if aoeLoot.enabled then
+        SetAoeLootStatus("Switching area looting off...", COLOR_AMBER)
+        StartRequest(aoeLootRequest, ".warband aoeloot off")
+    else
+        SetAoeLootStatus("Switching area looting on...", COLOR_AMBER)
+        StartRequest(aoeLootRequest, ".warband aoeloot on")
+    end
+end
+
+function Warband_ToggleAoeMessage()
+    AoeLootAction(aoeLoot.message and ".warband aoeloot message off" or ".warband aoeloot message on",
+        "Changing the login message...")
+end
+
+function Warband_ToggleAoeGroup()
+    AoeLootAction(aoeLoot.group and ".warband aoeloot group off" or ".warband aoeloot group on",
+        "Changing group looting...")
+end
+
+function Warband_ToggleAoeMail()
+    AoeLootAction(aoeLoot.mail and ".warband aoeloot mail off" or ".warband aoeloot mail on",
+        "Changing the mail fallback...")
+end
+
+local function StepAoeRange(delta)
+    local range = math.floor(aoeLoot.range + 0.5) + delta
+    if range < 5 then
+        range = 5
+    elseif range > 100 then
+        range = 100
+    end
+
+    if range == math.floor(aoeLoot.range + 0.5) then
+        return
+    end
+
+    AoeLootAction(".warband aoeloot range " .. range, "Changing the merge radius...")
+end
+
+local function StepAoeCorpses(delta)
+    local corpses = aoeLoot.corpses + delta
+    if corpses < 1 then
+        corpses = 1
+    elseif corpses > 50 then
+        corpses = 50
+    end
+
+    if corpses == aoeLoot.corpses then
+        return
+    end
+
+    AoeLootAction(".warband aoeloot corpses " .. corpses, "Changing the corpse count...")
+end
+
+function Warband_StepAoeRange(delta)
+    StepAoeRange(delta)
+end
+
+function Warband_StepAoeCorpses(delta)
+    StepAoeCorpses(delta)
 end
 
 -- Auction house: the bot has no interface of its own, so this page is it.
@@ -1678,6 +1991,8 @@ local function ShowNode(node)
     WarbandPageTrashSell:Hide()
     WarbandPageAuctionHouse:Hide()
     WarbandPageInstance:Hide()
+    WarbandPageWorldScale:Hide()
+    WarbandPageAoeLoot:Hide()
     WarbandPageConvenience:Hide()
 
     if node.page == "experience" then
@@ -1747,6 +2062,24 @@ local function ShowNode(node)
         return
     end
 
+    if node.page == "worldscale" then
+        if UpdateWorldScaleDisplay then
+            UpdateWorldScaleDisplay()
+        end
+
+        WarbandPageWorldScale:Show()
+        return
+    end
+
+    if node.page == "aoeloot" then
+        if UpdateAoeLootDisplay then
+            UpdateAoeLootDisplay()
+        end
+
+        WarbandPageAoeLoot:Show()
+        return
+    end
+
     if node.page == "convenience" then
         if UpdateConvenienceDisplay then
             UpdateConvenienceDisplay()
@@ -1789,6 +2122,8 @@ function Warband_OnShow()
     RequestTrashSellState()
     RequestAuctionState()
     RequestInstanceState()
+    RequestWorldScaleState()
+    RequestAoeLootState()
     RequestConvenienceState()
 end
 
@@ -1802,6 +2137,8 @@ function Warband_OnHide()
     ClearRequest(trashSellRequest)
     ClearRequest(auctionRequest)
     ClearRequest(instanceRequest)
+    ClearRequest(worldScaleRequest)
+    ClearRequest(aoeLootRequest)
     ClearRequest(hearthstoneRequest)
     ClearRequest(petsRequest)
 end

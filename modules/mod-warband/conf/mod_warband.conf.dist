@@ -177,9 +177,10 @@ Warband.GoldFind.Multiplier = 3.0
 #
 #  A Warband of five loots five bags' worth of grey junk, and a follower's bags cannot be opened by
 #  hand the way the leader's can. With this enabled, a grey item is sold the moment it is picked up:
-#  it never stays in any bag, the vendor price is paid to whoever looted it, and the item is gone.
-#  The coin is not the point of the feature - bag space is - so it does not matter which purse it
-#  lands in.
+#  it never stays in any bag, the vendor price is paid into the leader's purse, and the item is
+#  gone. The leader is the one purse you can see, so the party's junk money stays in one place
+#  instead of filling follower purses nobody can open. The panel counts only this Warband's sales,
+#  keyed by the leader and starting again at zero when the leader logs in.
 #
 #  It covers the leader and every follower, because the follower is the one filling a bag nobody can
 #  clean out. It does not touch quest items, items that start a quest, or anything an accepted quest

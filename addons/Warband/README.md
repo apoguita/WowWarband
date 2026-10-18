@@ -18,6 +18,8 @@ The tree as it stands:
       Trash sell          live - grey loot sold on pickup, with a sweep button
       Auction house       live - the auction bot's settings, and Restock now
       Instances           live - killed instance creatures stay dead, with a counter
+      World scaling       live - the open-world scaler switch, off by default
+      AoE loot            live - the area looting switch, off by default
       Convenience         live - hearthstone without a cooldown, pets always happy
     Features              what this Warband adds, listed live
     About                 author and project description
@@ -135,10 +137,11 @@ and containers — and leaves vendoring, quest rewards, mail and the auction hou
 ## Trash sell
 
 Server > Trash sell has the switch and a **Sell the junk in our bags now** button. The switch sells
-grey loot at the moment it is picked up, for the leader and every companion; the button sweeps what
-is already in the bags, which is the only way to clear a companion that filled up before the feature
-was on. The reply is `WARBAND_TRASHSELL=enabled=1;sold=12;copper=3456;swept=0`, and the page shows
-the session totals plus how many items the last sweep collected.
+grey loot at the moment it is picked up, for the leader and every companion, and the vendor price
+is paid into the leader's purse - the one purse the party can see. The button sweeps what is
+already in the bags, which is the only way to clear a companion that filled up before the feature
+was on. The reply is `WARBAND_TRASHSELL=enabled=1;sold=12;copper=3456;swept=0`; the page shows this
+Warband's totals since the leader logged in, plus how many items the last sweep collected.
 
 ## Auction house
 
@@ -157,6 +160,27 @@ dead for the run, and the counter shows how many that session has kept down. The
 `WARBAND_INSTANCE=enabled=1;kept=42`. The hint on the page says the part people get wrong — an
 instance reset (manual, or the daily one) still restores the whole dungeon, which is what a reset
 means.
+
+## World scaling
+
+Server > World scaling is one switch over the open-world scaler, `mod-zone-scaling`. The reply is
+`WARBAND_WORLDSCALE=installed=1;enabled=0`, and the switch flips the module's own
+`ZoneScaling.Enable` option without touching anything else in its file. It is **off by default**:
+the module ships disabled, and even enabled it only scales zones the server has opted in — so the
+page's hint says the switch alone does not change the world. When the server was built without the
+module the reply is `installed=0` and the page says so instead of offering a dead button.
+
+## AoE loot
+
+Server > AoE loot is the full configuration surface over the looting module, `mod-aoe-loot`. The
+page carries the master switch, **Login message** (announce on login), **In group** (merge inside a
+party too), **Mail when full** (mail an item when the bags are full instead of losing it), a merge
+radius stepper (5–100 yards, step 5) and a corpse-count stepper (1–50, step 1). The reply is
+`WARBAND_AOELOOT=installed=1;enabled=0;message=1;group=1;mail=0;range=55.0;corpses=20`. Everything
+is **off by default** for the master switch: the module ships enabled, so the Warband runtime seeds
+its configuration with 0 and the base game's one-corpse window stays the default until you turn it
+on. Each character can additionally toggle the feature with `.aoeloot on/off`. When the server was
+built without the module the reply is `installed=0` and the page says so.
 
 ## Convenience
 

@@ -1402,6 +1402,332 @@
                             </Button>
                         </Frames>
                     </Frame>
+                    <Frame name="WarbandPageWorldScale" parent="WarbandDetailPane" hidden="true">
+                        <Size>
+                            <AbsDimension x="732" y="470"/>
+                        </Size>
+                        <Anchors>
+                            <Anchor point="TOPLEFT" relativeTo="WarbandDetailPane"
+                                relativePoint="TOPLEFT">
+                                <Offset>
+                                    <AbsDimension x="24" y="-80"/>
+                                </Offset>
+                            </Anchor>
+                        </Anchors>
+                        <Layers>
+                            <Layer level="ARTWORK">
+                                <FontString name="$parentCaption" inherits="GameFontNormalSmall"
+                                    justifyH="LEFT" text="WORLD SCALING">
+                                    <Size>
+                                        <AbsDimension x="300" y="12"/>
+                                    </Size>
+                                    <Anchors>
+                                        <Anchor point="TOPLEFT"/>
+                                    </Anchors>
+                                    <Color r="1" g="0.82" b="0"/>
+                                </FontString>
+                                <FontString name="$parentStatus" inherits="GameFontHighlightSmall"
+                                    justifyH="LEFT" text="Reading the world scaling state...">
+                                    <Size>
+                                        <AbsDimension x="620" y="14"/>
+                                    </Size>
+                                    <Anchors>
+                                        <Anchor point="TOPLEFT">
+                                            <Offset>
+                                                <AbsDimension x="0" y="-24"/>
+                                            </Offset>
+                                        </Anchor>
+                                    </Anchors>
+                                </FontString>
+                                <FontString name="$parentHint" inherits="GameFontDisableSmall"
+                                    justifyH="LEFT"
+                                    text="Open-world creatures, quest rewards and loot present at each character's own level. The switch turns the mod-zone-scaling module on or off; it does not create zones - the server's own zone list decides where scaling applies, and with the module's DefaultBehaviour = off an enabled module still changes nothing until a zone is opted in. Off is the shipped state, so the world plays exactly as the base game until you turn it on.">
+                                    <Size>
+                                        <AbsDimension x="620" y="86"/>
+                                    </Size>
+                                    <Anchors>
+                                        <Anchor point="TOPLEFT">
+                                            <Offset>
+                                                <AbsDimension x="0" y="-48"/>
+                                            </Offset>
+                                        </Anchor>
+                                    </Anchors>
+                                </FontString>
+                                <FontString name="$parentDetail" inherits="GameFontNormalSmall"
+                                    justifyH="LEFT" text="">
+                                    <Size>
+                                        <AbsDimension x="620" y="34"/>
+                                    </Size>
+                                    <Anchors>
+                                        <Anchor point="TOPLEFT">
+                                            <Offset>
+                                                <AbsDimension x="0" y="-146"/>
+                                            </Offset>
+                                        </Anchor>
+                                    </Anchors>
+                                    <Color r="1" g="0.82" b="0"/>
+                                </FontString>
+                            </Layer>
+                        </Layers>
+                        <Frames>
+                            <Button name="$parentToggle" inherits="UIPanelButtonTemplate"
+                                text="World scaling: off">
+                                <Size>
+                                    <AbsDimension x="220" y="22"/>
+                                </Size>
+                                <Anchors>
+                                    <Anchor point="TOPLEFT">
+                                        <Offset>
+                                            <AbsDimension x="0" y="-186"/>
+                                        </Offset>
+                                    </Anchor>
+                                </Anchors>
+                                <Scripts>
+                                    <OnClick>
+                                        Warband_ToggleWorldScale();
+                                    </OnClick>
+                                </Scripts>
+                            </Button>
+                        </Frames>
+                    </Frame>
+                    <Frame name="WarbandPageAoeLoot" parent="WarbandDetailPane" hidden="true">
+                        <Size>
+                            <AbsDimension x="732" y="470"/>
+                        </Size>
+                        <Anchors>
+                            <Anchor point="TOPLEFT" relativeTo="WarbandDetailPane"
+                                relativePoint="TOPLEFT">
+                                <Offset>
+                                    <AbsDimension x="24" y="-80"/>
+                                </Offset>
+                            </Anchor>
+                        </Anchors>
+                        <Layers>
+                            <Layer level="ARTWORK">
+                                <FontString name="$parentCaption" inherits="GameFontNormalSmall"
+                                    justifyH="LEFT" text="AOE LOOT">
+                                    <Size>
+                                        <AbsDimension x="300" y="12"/>
+                                    </Size>
+                                    <Anchors>
+                                        <Anchor point="TOPLEFT"/>
+                                    </Anchors>
+                                    <Color r="1" g="0.82" b="0"/>
+                                </FontString>
+                                <FontString name="$parentStatus" inherits="GameFontHighlightSmall"
+                                    justifyH="LEFT" text="Reading the area looting state...">
+                                    <Size>
+                                        <AbsDimension x="620" y="14"/>
+                                    </Size>
+                                    <Anchors>
+                                        <Anchor point="TOPLEFT">
+                                            <Offset>
+                                                <AbsDimension x="0" y="-24"/>
+                                            </Offset>
+                                        </Anchor>
+                                    </Anchors>
+                                </FontString>
+                                <FontString name="$parentHint" inherits="GameFontDisableSmall"
+                                    justifyH="LEFT"
+                                    text="Loot one corpse and the window also holds what the other nearby corpses carry - gold included - so a cleared pack is emptied from one place. Everything here is server-wide configuration for mod-aoe-loot; each character can additionally toggle it with .aoeloot on/off. Off is the shipped state, so the base game's one-corpse window stays the default until you turn it on.">
+                                    <Size>
+                                        <AbsDimension x="620" y="60"/>
+                                    </Size>
+                                    <Anchors>
+                                        <Anchor point="TOPLEFT">
+                                            <Offset>
+                                                <AbsDimension x="0" y="-44"/>
+                                            </Offset>
+                                        </Anchor>
+                                    </Anchors>
+                                </FontString>
+                                <FontString name="$parentRangeValue" inherits="GameFontNormalSmall"
+                                    justifyH="LEFT" text="55">
+                                    <Size>
+                                        <AbsDimension x="64" y="16"/>
+                                    </Size>
+                                    <Anchors>
+                                        <Anchor point="TOPLEFT">
+                                            <Offset>
+                                                <AbsDimension x="30" y="-128"/>
+                                            </Offset>
+                                        </Anchor>
+                                    </Anchors>
+                                    <Color r="1" g="0.82" b="0"/>
+                                </FontString>
+                                <FontString name="$parentCorpsesValue" inherits="GameFontNormalSmall"
+                                    justifyH="LEFT" text="20">
+                                    <Size>
+                                        <AbsDimension x="64" y="16"/>
+                                    </Size>
+                                    <Anchors>
+                                        <Anchor point="TOPLEFT">
+                                            <Offset>
+                                                <AbsDimension x="330" y="-128"/>
+                                            </Offset>
+                                        </Anchor>
+                                    </Anchors>
+                                    <Color r="1" g="0.82" b="0"/>
+                                </FontString>
+                                <FontString name="$parentDetail" inherits="GameFontNormalSmall"
+                                    justifyH="LEFT" text="">
+                                    <Size>
+                                        <AbsDimension x="620" y="52"/>
+                                    </Size>
+                                    <Anchors>
+                                        <Anchor point="TOPLEFT">
+                                            <Offset>
+                                                <AbsDimension x="0" y="-200"/>
+                                            </Offset>
+                                        </Anchor>
+                                    </Anchors>
+                                    <Color r="1" g="0.82" b="0"/>
+                                </FontString>
+                            </Layer>
+                        </Layers>
+                        <Frames>
+                            <Button name="$parentToggle" inherits="UIPanelButtonTemplate"
+                                text="AoE loot: off">
+                                <Size>
+                                    <AbsDimension x="220" y="22"/>
+                                </Size>
+                                <Anchors>
+                                    <Anchor point="TOPLEFT">
+                                        <Offset>
+                                            <AbsDimension x="0" y="-162"/>
+                                        </Offset>
+                                    </Anchor>
+                                </Anchors>
+                                <Scripts>
+                                    <OnClick>
+                                        Warband_ToggleAoeLoot();
+                                    </OnClick>
+                                </Scripts>
+                            </Button>
+                            <Button name="$parentGroupToggle" inherits="UIPanelButtonTemplate"
+                                text="In group: on">
+                                <Size>
+                                    <AbsDimension x="220" y="22"/>
+                                </Size>
+                                <Anchors>
+                                    <Anchor point="TOPLEFT">
+                                        <Offset>
+                                            <AbsDimension x="300" y="-90"/>
+                                        </Offset>
+                                    </Anchor>
+                                </Anchors>
+                                <Scripts>
+                                    <OnClick>
+                                        Warband_ToggleAoeGroup();
+                                    </OnClick>
+                                </Scripts>
+                            </Button>
+                            <Button name="$parentMessageToggle" inherits="UIPanelButtonTemplate"
+                                text="Login message: on">
+                                <Size>
+                                    <AbsDimension x="220" y="22"/>
+                                </Size>
+                                <Anchors>
+                                    <Anchor point="TOPLEFT">
+                                        <Offset>
+                                            <AbsDimension x="0" y="-90"/>
+                                        </Offset>
+                                    </Anchor>
+                                </Anchors>
+                                <Scripts>
+                                    <OnClick>
+                                        Warband_ToggleAoeMessage();
+                                    </OnClick>
+                                </Scripts>
+                            </Button>
+                            <Button name="$parentMailToggle" inherits="UIPanelButtonTemplate"
+                                text="Mail when full: off">
+                                <Size>
+                                    <AbsDimension x="220" y="22"/>
+                                </Size>
+                                <Anchors>
+                                    <Anchor point="TOPLEFT">
+                                        <Offset>
+                                            <AbsDimension x="300" y="-162"/>
+                                        </Offset>
+                                    </Anchor>
+                                </Anchors>
+                                <Scripts>
+                                    <OnClick>
+                                        Warband_ToggleAoeMail();
+                                    </OnClick>
+                                </Scripts>
+                            </Button>
+                            <Button name="$parentRangeDown" inherits="UIPanelButtonTemplate" text="-">
+                                <Size>
+                                    <AbsDimension x="24" y="22"/>
+                                </Size>
+                                <Anchors>
+                                    <Anchor point="TOPLEFT">
+                                        <Offset>
+                                            <AbsDimension x="0" y="-126"/>
+                                        </Offset>
+                                    </Anchor>
+                                </Anchors>
+                                <Scripts>
+                                    <OnClick>
+                                        Warband_StepAoeRange(-5);
+                                    </OnClick>
+                                </Scripts>
+                            </Button>
+                            <Button name="$parentRangeUp" inherits="UIPanelButtonTemplate" text="+">
+                                <Size>
+                                    <AbsDimension x="24" y="22"/>
+                                </Size>
+                                <Anchors>
+                                    <Anchor point="TOPLEFT">
+                                        <Offset>
+                                            <AbsDimension x="96" y="-126"/>
+                                        </Offset>
+                                    </Anchor>
+                                </Anchors>
+                                <Scripts>
+                                    <OnClick>
+                                        Warband_StepAoeRange(5);
+                                    </OnClick>
+                                </Scripts>
+                            </Button>
+                            <Button name="$parentCorpsesDown" inherits="UIPanelButtonTemplate" text="-">
+                                <Size>
+                                    <AbsDimension x="24" y="22"/>
+                                </Size>
+                                <Anchors>
+                                    <Anchor point="TOPLEFT">
+                                        <Offset>
+                                            <AbsDimension x="300" y="-126"/>
+                                        </Offset>
+                                    </Anchor>
+                                </Anchors>
+                                <Scripts>
+                                    <OnClick>
+                                        Warband_StepAoeCorpses(-1);
+                                    </OnClick>
+                                </Scripts>
+                            </Button>
+                            <Button name="$parentCorpsesUp" inherits="UIPanelButtonTemplate" text="+">
+                                <Size>
+                                    <AbsDimension x="24" y="22"/>
+                                </Size>
+                                <Anchors>
+                                    <Anchor point="TOPLEFT">
+                                        <Offset>
+                                            <AbsDimension x="396" y="-126"/>
+                                        </Offset>
+                                    </Anchor>
+                                </Anchors>
+                                <Scripts>
+                                    <OnClick>
+                                        Warband_StepAoeCorpses(1);
+                                    </OnClick>
+                                </Scripts>
+                            </Button>
+                        </Frames>
+                    </Frame>
                     <Frame name="WarbandPageConvenience" parent="WarbandDetailPane" hidden="true">
                         <Size>
                             <AbsDimension x="732" y="470"/>

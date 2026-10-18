@@ -97,9 +97,25 @@ bool SetWarbandGoldFindMultiplier(float multiplier);
 void ResetWarbandGoldFindMultiplier();
 bool GetWarbandTrashSellEnabled();
 bool SetWarbandTrashSellEnabled(bool enabled);
-uint32 GetWarbandTrashSoldItems();
-uint64 GetWarbandTrashSoldCopper();
+uint32 GetWarbandTrashSoldItems(Player* leader);
+uint64 GetWarbandTrashSoldCopper(Player* leader);
 uint32 WarbandSellTrashInParty(Player* leader);
+bool WarbandZoneScalingInstalled();
+bool GetWarbandZoneScalingEnabled();
+bool SetWarbandZoneScalingEnabled(bool enabled);
+bool WarbandAoeLootInstalled();
+bool GetWarbandAoeLootEnabled();
+bool GetWarbandAoeLootMessageEnabled();
+bool GetWarbandAoeLootGroupEnabled();
+bool GetWarbandAoeLootMailEnabled();
+float GetWarbandAoeLootRange();
+uint32 GetWarbandAoeLootMaxCorpses();
+bool SetWarbandAoeLootEnabled(bool enabled);
+bool SetWarbandAoeLootMessageEnabled(bool enabled);
+bool SetWarbandAoeLootGroupEnabled(bool enabled);
+bool SetWarbandAoeLootMailEnabled(bool enabled);
+bool SetWarbandAoeLootRange(float range);
+bool SetWarbandAoeLootMaxCorpses(uint32 corpses);
 bool WarbandAuctionBotInstalled();
 bool GetWarbandAuctionBotSetting(std::string const& key, bool fallback);
 uint32 GetWarbandAuctionBotNumber(std::string const& key, uint32 fallback);
@@ -139,6 +155,13 @@ char const* const GoldFindUsage =
 
 char const* const TrashUsage =
     "Usage: .warband trash [on|off|sell] - sell sells the grey loot already in the party's bags";
+
+char const* const WorldScaleUsage =
+    "Usage: .warband worldscale [on|off] - open-world scaling via mod-zone-scaling, off by default";
+
+char const* const AoeLootUsage =
+    "Usage: .warband aoeloot [on|off] [message|group|mail on|off] [range <5-100>] [corpses <1-50>]"
+    " - area looting via mod-aoe-loot, off by default";
 
 char const* const AuctionHouseUsage =
     "Usage: .warband ah [seller|buyer on|off] [items <10-5000>] [candidates <1-50>]"
@@ -220,6 +243,8 @@ public:
             {"goldfind", HandleGoldFindCommand,   SEC_PLAYER, Console::No},
             {"gf",       HandleGoldFindCommand,   SEC_PLAYER, Console::No},
             {"trash",    HandleTrashCommand,      SEC_PLAYER, Console::No},
+            {"worldscale", HandleWorldScaleCommand, SEC_PLAYER, Console::No},
+            {"aoeloot",  HandleAoeLootCommand,    SEC_PLAYER, Console::No},
             {"ah",       HandleAuctionHouseCommand, SEC_PLAYER, Console::No},
             {"instance", HandleInstanceCommand,   SEC_PLAYER, Console::No},
             {"hearthstone", HandleHearthstoneCommand, SEC_PLAYER, Console::No},
@@ -590,33 +615,33 @@ private:
         while (*args == ' ')
             ++args;
 
+        Player* player = handler->GetSession() ? handler->GetSession()->GetPlayer() : nullptr;
+        if (!player)
+            return false;
+
         if (strncmp(args, "on", 2) == 0 && (args[2] == '\0' || args[2] == ' '))
         {
             SetWarbandTrashSellEnabled(true);
-            SendTrashSell(handler);
+            SendTrashSell(handler, player);
             return true;
         }
 
         if (strncmp(args, "off", 3) == 0 && (args[3] == '\0' || args[3] == ' '))
         {
             SetWarbandTrashSellEnabled(false);
-            SendTrashSell(handler);
+            SendTrashSell(handler, player);
             return true;
         }
 
         if (strncmp(args, "sell", 4) == 0 && (args[4] == '\0' || args[4] == ' '))
         {
-            Player* player = handler->GetSession() ? handler->GetSession()->GetPlayer() : nullptr;
-            if (!player)
-                return false;
-
-            SendTrashSell(handler, WarbandSellTrashInParty(player));
+            SendTrashSell(handler, player, WarbandSellTrashInParty(player));
             return true;
         }
 
         if (!*args)
         {
-            SendTrashSell(handler);
+            SendTrashSell(handler, player);
             return true;
         }
 
@@ -624,16 +649,200 @@ private:
         return false;
     }
 
-    // "swept" is how many items this particular command sold; "sold" and "copper" are the running
-    // totals for the session, so the page can show what the feature has done since the last start.
-    static void SendTrashSell(ChatHandler* handler, uint32 swept = 0)
+    // "swept" is how many items this particular command sold; "sold" and "copper" are this
+    // Warband's totals since its leader logged in, so the page never shows another player's or a
+    // random bot's transactions.
+    static void SendTrashSell(ChatHandler* handler, Player* leader, uint32 swept = 0)
     {
         handler->PSendSysMessage(
             "WARBAND_TRASHSELL=enabled={};sold={};copper={};swept={}",
             GetWarbandTrashSellEnabled() ? 1 : 0,
-            GetWarbandTrashSoldItems(),
-            GetWarbandTrashSoldCopper(),
+            GetWarbandTrashSoldItems(leader),
+            GetWarbandTrashSoldCopper(leader),
             swept);
+    }
+
+    // Open-world scaling: the scaling itself is mod-zone-scaling, which has no panel of its own.
+    // This surface reports whether it is installed and flips its single enable option; everything
+    // else - zones, direction, bands - stays in the module's own configuration file. Off unless
+    // someone turns it on: the module ships disabled and, even enabled, only scales zones the
+    // server has explicitly opted in.
+    static bool HandleWorldScaleCommand(ChatHandler* handler, char const* args)
+    {
+        while (*args == ' ')
+            ++args;
+
+        if (!WarbandZoneScalingInstalled())
+        {
+            handler->PSendSysMessage("WARBAND_WORLDSCALE=installed=0");
+            return true;
+        }
+
+        if (!*args)
+        {
+            SendWorldScale(handler);
+            return true;
+        }
+
+        if (strncmp(args, "on", 2) == 0 && (args[2] == '\0' || args[2] == ' '))
+        {
+            if (!SetWarbandZoneScalingEnabled(true))
+            {
+                handler->SendSysMessage(WorldScaleUsage);
+                return false;
+            }
+
+            SendWorldScale(handler);
+            return true;
+        }
+
+        if (strncmp(args, "off", 3) == 0 && (args[3] == '\0' || args[3] == ' '))
+        {
+            if (!SetWarbandZoneScalingEnabled(false))
+            {
+                handler->SendSysMessage(WorldScaleUsage);
+                return false;
+            }
+
+            SendWorldScale(handler);
+            return true;
+        }
+
+        handler->SendSysMessage(WorldScaleUsage);
+        return false;
+    }
+
+    static void SendWorldScale(ChatHandler* handler)
+    {
+        handler->PSendSysMessage(
+            "WARBAND_WORLDSCALE=installed=1;enabled={}",
+            GetWarbandZoneScalingEnabled() ? 1 : 0);
+    }
+
+    // Area looting: the looting itself is mod-aoe-loot, which has no Warband surface. This reports
+    // whether it is installed and exposes the whole configuration the module reads: the master
+    // switch, the login message, whether it also works in a group, the merge radius, how many
+    // corpses one window may cover, and the mail fallback for a full bag. Off unless someone turns
+    // it on, so the base game's one-corpse window stays the default.
+    static bool HandleAoeLootCommand(ChatHandler* handler, char const* args)
+    {
+        while (*args == ' ')
+            ++args;
+
+        if (!WarbandAoeLootInstalled())
+        {
+            handler->PSendSysMessage("WARBAND_AOELOOT=installed=0");
+            return true;
+        }
+
+        if (!*args)
+        {
+            SendAoeLoot(handler);
+            return true;
+        }
+
+        bool value = false;
+
+        if (strncmp(args, "on", 2) == 0 && (args[2] == '\0' || args[2] == ' '))
+        {
+            if (!SetWarbandAoeLootEnabled(true))
+            {
+                handler->SendSysMessage(AoeLootUsage);
+                return false;
+            }
+
+            SendAoeLoot(handler);
+            return true;
+        }
+
+        if (strncmp(args, "off", 3) == 0 && (args[3] == '\0' || args[3] == ' '))
+        {
+            if (!SetWarbandAoeLootEnabled(false))
+            {
+                handler->SendSysMessage(AoeLootUsage);
+                return false;
+            }
+
+            SendAoeLoot(handler);
+            return true;
+        }
+
+        if (strncmp(args, "message", 7) == 0 && (args[7] == '\0' || args[7] == ' '))
+        {
+            if (!ParseToggle(args + 7, value) || !SetWarbandAoeLootMessageEnabled(value))
+            {
+                handler->SendSysMessage(AoeLootUsage);
+                return false;
+            }
+
+            SendAoeLoot(handler);
+            return true;
+        }
+
+        if (strncmp(args, "group", 5) == 0 && (args[5] == '\0' || args[5] == ' '))
+        {
+            if (!ParseToggle(args + 5, value) || !SetWarbandAoeLootGroupEnabled(value))
+            {
+                handler->SendSysMessage(AoeLootUsage);
+                return false;
+            }
+
+            SendAoeLoot(handler);
+            return true;
+        }
+
+        if (strncmp(args, "mail", 4) == 0 && (args[4] == '\0' || args[4] == ' '))
+        {
+            if (!ParseToggle(args + 4, value) || !SetWarbandAoeLootMailEnabled(value))
+            {
+                handler->SendSysMessage(AoeLootUsage);
+                return false;
+            }
+
+            SendAoeLoot(handler);
+            return true;
+        }
+
+        if (strncmp(args, "range", 5) == 0 && (args[5] == '\0' || args[5] == ' '))
+        {
+            float range = 0.0f;
+            if (!ParseValue(args, 5, range) || !SetWarbandAoeLootRange(range))
+            {
+                handler->SendSysMessage(AoeLootUsage);
+                return false;
+            }
+
+            SendAoeLoot(handler);
+            return true;
+        }
+
+        if (strncmp(args, "corpses", 7) == 0 && (args[7] == '\0' || args[7] == ' '))
+        {
+            uint32 corpses = 0;
+            if (!ParseCount(args + 7, corpses) || !SetWarbandAoeLootMaxCorpses(corpses))
+            {
+                handler->SendSysMessage(AoeLootUsage);
+                return false;
+            }
+
+            SendAoeLoot(handler);
+            return true;
+        }
+
+        handler->SendSysMessage(AoeLootUsage);
+        return false;
+    }
+
+    static void SendAoeLoot(ChatHandler* handler)
+    {
+        handler->PSendSysMessage(
+            "WARBAND_AOELOOT=installed=1;enabled={};message={};group={};mail={};range={:.1f};corpses={}",
+            GetWarbandAoeLootEnabled() ? 1 : 0,
+            GetWarbandAoeLootMessageEnabled() ? 1 : 0,
+            GetWarbandAoeLootGroupEnabled() ? 1 : 0,
+            GetWarbandAoeLootMailEnabled() ? 1 : 0,
+            GetWarbandAoeLootRange(),
+            GetWarbandAoeLootMaxCorpses());
     }
 
     // Auction house: the market itself is mod-ah-bot-plus, which has no user front end at all, so

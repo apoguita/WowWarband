@@ -3,18 +3,24 @@
  *
  * The point is bag space, not money. A Warband of five characters loots five times as much junk,
  * and a follower's bags cannot be opened and emptied by hand the way the leader's can, so grey
- * loot is sold the moment it is picked up: the vendor price is credited to whoever looted it, and
- * the item is destroyed before it has a chance to accumulate. Nobody has to care which purse the
- * copper lands in, because the copper is not the feature.
+ * loot is sold the moment it is picked up: the vendor price is credited to the leader's purse and
+ * the item is destroyed before it has a chance to accumulate. The leader is the only purse the
+ * player can see, so routing the copper there makes the feature honest: the panel reports what the
+ * party's own junk actually paid, and the party's coin stays in one place instead of filling bags
+ * of followers nobody can open.
  *
  * Where it hangs: PlayerScript::OnPlayerLootItem, which the core raises at the end of the ordinary
  * pickup path (Player.cpp, after StoreNewItem and SendNewItem) for every Player, followers
  * included. The item is already in the bags at that point, so an item that fits is sold
  * immediately, and a bag that is already full still refuses the pickup - which is what
- * .warband trash sell is for.
+ * .warband trash sell is for. The sweep pays the leader as well, whoever held the item.
+ *
+ * The counters are per Warband, keyed by the leader's GUID and reset when that leader logs in, so
+ * the panel never mixes the party's sales with random bots looting somewhere else in the world.
  *
  * What is never sold: quest-class items, items that start a quest, and anything an accepted quest
- * still needs. A grey with no vendor price is left alone rather than deleted for nothing.
+ * still needs. A grey with no vendor price is left alone rather than deleted for nothing, and an
+ * item whose price cannot be credited (gold cap) stays in the bag instead of disappearing.
  *
  * Not copied from the module that inspired this (mod-junk-to-gold-plus): its "keep grey armour and
  * weapons that beat what is equipped" rule, which never fires for vendor trash here, and its
@@ -33,16 +39,39 @@
 #include "WarbandPlayerRoles.h"
 
 #include <algorithm>
+#include <unordered_map>
 #include <utility>
 #include <vector>
+
+// Provided by WarbandAoeLoot.cpp: the looting module's own on/off state.
+bool WarbandAoeLootInstalled();
+bool GetWarbandAoeLootEnabled();
 
 namespace
 {
 bool trashSellEnabled = true;
 
-// Session counters, reported by .warband trash and shown on the panel page.
-uint32 trashSoldItems = 0;
-uint64 trashSoldCopper = 0;
+// One Warband's ledger: what its own grey sales paid since the leader logged in.
+struct TrashLedger
+{
+    uint32 items = 0;
+    uint64 copper = 0;
+};
+
+// Keyed by the leader's GUID. The panel only ever asks for the character running the command, so
+// a random bot's ledger (or another Warband's) never shows up there.
+std::unordered_map<ObjectGuid, TrashLedger> warbandLedgers;
+
+// The player whose purse receives the vendor price: the leader for a follower's sale, the looter
+// otherwise. A real player is the Warband's leader; a follower is its master.
+Player* WarbandTrashPayee(Player* looter)
+{
+    if (!looter)
+        return nullptr;
+
+    Player* master = WarbandFollowerMaster(looter);
+    return master ? master : looter;
+}
 
 // A grey item is sellable when nothing about it is worth keeping: it is not quest-bound, no active
 // quest wants it, and a vendor would actually pay for it. A worthless grey is left in the bags,
@@ -76,25 +105,38 @@ bool SetWarbandTrashSellEnabled(bool enabled)
     return true;
 }
 
-uint32 GetWarbandTrashSoldItems()
+uint32 GetWarbandTrashSoldItems(Player* leader)
 {
-    return trashSoldItems;
+    if (!leader)
+        return 0;
+
+    auto it = warbandLedgers.find(leader->GetGUID());
+    return it == warbandLedgers.end() ? 0 : it->second.items;
 }
 
-uint64 GetWarbandTrashSoldCopper()
+uint64 GetWarbandTrashSoldCopper(Player* leader)
 {
-    return trashSoldCopper;
+    if (!leader)
+        return 0;
+
+    auto it = warbandLedgers.find(leader->GetGUID());
+    return it == warbandLedgers.end() ? 0 : it->second.copper;
 }
 
-// Sells one item, paying its vendor price to the character holding it. Returns the copper paid, or
-// zero when the item is not trash and was left alone.
-uint64 WarbandSellTrash(Player* player, Item* item)
+// Sells one item from the holder's bags, paying the vendor price to the Warband's leader. Returns
+// the copper paid, or zero when the item is not trash, or when the payment was refused and the
+// item was left where it is.
+uint64 WarbandSellTrash(Player* holder, Item* item)
 {
-    if (!player || !item)
+    if (!holder || !item)
         return 0;
 
     ItemTemplate const* proto = item->GetTemplate();
-    if (!IsSellableTrash(player, proto))
+    if (!IsSellableTrash(holder, proto))
+        return 0;
+
+    Player* payee = WarbandTrashPayee(holder);
+    if (!payee)
         return 0;
 
     uint32 const count = std::max<uint32>(item->GetCount(), 1);
@@ -105,42 +147,47 @@ uint64 WarbandSellTrash(Player* player, Item* item)
     uint8 const bagSlot = item->GetBagSlot();
     uint8 const slot = item->GetSlot();
 
-    player->ModifyMoney(int32(copper));
-    player->DestroyItem(bagSlot, slot, true);
+    // A refused credit (gold cap) must not delete the item: sell only what the purse accepted.
+    if (!payee->ModifyMoney(int32(copper)))
+        return 0;
 
-    ++trashSoldItems;
-    trashSoldCopper += copper;
+    holder->DestroyItem(bagSlot, slot, true);
+
+    TrashLedger& ledger = warbandLedgers[payee->GetGUID()];
+    ++ledger.items;
+    ledger.copper += copper;
 
     return copper;
 }
 
-// Sweeps one character's bags, backpack and equipped bags alike. Positions are collected first so
-// that destroying an item cannot disturb the walk, and then sold one by one; removing an item from
-// a bag does not shift its neighbours, so the collected positions stay valid.
-uint32 WarbandSellTrashInBags(Player* player)
+// Sweeps one character's bags, backpack and equipped bags alike, paying the Warband's leader for
+// every sale. Positions are collected first so that destroying an item cannot disturb the walk,
+// and then sold one by one; removing an item from a bag does not shift its neighbours, so the
+// collected positions stay valid.
+uint32 WarbandSellTrashInBags(Player* holder)
 {
-    if (!player)
+    if (!holder)
         return 0;
 
     std::vector<std::pair<uint8, uint8>> positions;
 
     for (uint8 slot = INVENTORY_SLOT_ITEM_START; slot < INVENTORY_SLOT_ITEM_END; ++slot)
     {
-        Item* item = player->GetItemByPos(INVENTORY_SLOT_BAG_0, slot);
-        if (item && IsSellableTrash(player, item->GetTemplate()))
+        Item* item = holder->GetItemByPos(INVENTORY_SLOT_BAG_0, slot);
+        if (item && IsSellableTrash(holder, item->GetTemplate()))
             positions.emplace_back(INVENTORY_SLOT_BAG_0, slot);
     }
 
     for (uint8 bagSlot = INVENTORY_SLOT_BAG_START; bagSlot < INVENTORY_SLOT_BAG_END; ++bagSlot)
     {
-        Bag* bag = player->GetBagByPos(bagSlot);
+        Bag* bag = holder->GetBagByPos(bagSlot);
         if (!bag)
             continue;
 
         for (uint8 slot = 0; slot < bag->GetBagSize(); ++slot)
         {
             Item* item = bag->GetItemByPos(slot);
-            if (item && IsSellableTrash(player, item->GetTemplate()))
+            if (item && IsSellableTrash(holder, item->GetTemplate()))
                 positions.emplace_back(bagSlot, slot);
         }
     }
@@ -148,8 +195,8 @@ uint32 WarbandSellTrashInBags(Player* player)
     uint32 sold = 0;
     for (std::pair<uint8, uint8> const& position : positions)
     {
-        Item* item = player->GetItemByPos(position.first, position.second);
-        if (item && WarbandSellTrash(player, item))
+        Item* item = holder->GetItemByPos(position.first, position.second);
+        if (item && WarbandSellTrash(holder, item))
             ++sold;
     }
 
@@ -178,7 +225,7 @@ uint32 WarbandSellTrashInParty(Player* leader)
         if (member->GetMap() != leader->GetMap())
             continue;
 
-        if (!WarbandFollowerMaster(member))
+        if (WarbandFollowerMaster(member) != leader)
             continue;
 
         sold += WarbandSellTrashInBags(member);
@@ -190,7 +237,9 @@ uint32 WarbandSellTrashInParty(Player* leader)
 class WarbandTrashSell final : public PlayerScript, public WorldScript
 {
 public:
-    WarbandTrashSell() : PlayerScript("WarbandTrashSell", { PLAYERHOOK_ON_LOOT_ITEM }),
+    WarbandTrashSell() : PlayerScript(
+                             "WarbandTrashSell",
+                             { PLAYERHOOK_ON_LOOT_ITEM, PLAYERHOOK_ON_LOGIN, PLAYERHOOK_ON_AFTER_CREATURE_LOOT }),
         WorldScript("WarbandTrashSell") { }
 
     void OnAfterConfigLoad(bool /*reload*/) override
@@ -208,6 +257,26 @@ public:
             return;
 
         WarbandSellTrash(player, item);
+    }
+
+    // mod-aoe-loot merges nearby corpses' loot and stores the chosen item on its own path, which
+    // does not raise OnPlayerLootItem - so a grey taken from a merged window would sit in the bags
+    // until the next sweep. When area looting is enabled, sweep the bags once after that store,
+    // which sells exactly the same grey to the same leader purse. When it is off, the ordinary
+    // pickup hook above already does the work and this does nothing.
+    void OnPlayerAfterCreatureLoot(Player* player) override
+    {
+        if (!trashSellEnabled || !WarbandAoeLootInstalled() || !GetWarbandAoeLootEnabled())
+            return;
+
+        WarbandSellTrashInBags(player);
+    }
+
+    // A Warband's ledger belongs to one play session: the leader's panel starts at zero on login.
+    void OnPlayerLogin(Player* player) override
+    {
+        if (player)
+            warbandLedgers.erase(player->GetGUID());
     }
 };
 

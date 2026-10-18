@@ -2,9 +2,10 @@
 
 The in-house server module for WoW Warband. Everything Warband-specific that
 needs the server lives here: today the XP multiplier, follower catch-up
-experience, follower gathering, bound gear moving inside the Warband, magic find
-and gold find. The client panel in `addons/Warband` drives the runtime settings
-through this module's `.warband` chat commands.
+experience, follower gathering, bound gear moving inside the Warband, magic find,
+gold find, and the control surface for the open-world scaler. The client panel in
+`addons/Warband` drives the runtime settings through this module's `.warband`
+chat commands.
 
 **Warband implements its features in-house.** A third-party module named anywhere
 in the project docs is a research reference for how a behaviour works - never a
@@ -31,6 +32,8 @@ longer refers to it.
 | Instances stop restocking | Built; not yet verified in game | `WarbandInstances.cpp`, `WarbandCommands.cpp` |
 | Hearthstone without cooldown | Built; not yet verified in game | `WarbandConvenience.cpp`, `WarbandCommands.cpp` |
 | Pets always happy | Built; not yet verified in game | `WarbandConvenience.cpp`, `WarbandCommands.cpp` |
+| World scaling control | Built; not yet verified in game | `WarbandWorldScale.cpp`, `WarbandCommands.cpp` |
+| AoE loot control | Built; not yet verified in game | `WarbandAoeLoot.cpp`, `WarbandCommands.cpp` |
 
 Keeping the two kinds of bot apart is what `WarbandPlayerRoles.h` is for:
 `WarbandFollowerMaster()` returns a leader only for a bot piloted by a real
@@ -316,10 +319,15 @@ belong to the bot's own file.
 
 The bag-space fix, not an economy feature. A party of five loots five times as much grey junk, and
 a follower's bags cannot be opened and emptied by hand the way the leader's can, so grey loot is
-sold the moment it is picked up: the vendor price is paid to whoever looted it and the item is
-destroyed before it can accumulate. Which purse the copper lands in is deliberately unimportant.
+sold the moment it is picked up: the vendor price is paid into the leader's purse and the item is
+destroyed before it can accumulate. The leader is the one purse the player can see, so the party's
+junk money stays in one place instead of filling follower purses nobody can open.
 
-    .warband trash            read the state and the session totals
+The counters belong to one Warband: they are keyed by the leader's GUID and start again at zero
+when the leader logs in, so the panel reports what this party's own sales paid - a random bot
+looting somewhere else in the world can never inflate them.
+
+    .warband trash            read the state and this Warband's totals
     .warband trash on | off   sell grey loot at pickup, or stop
     .warband trash sell       empty the party's bags of grey loot right now
 
@@ -328,10 +336,12 @@ page shows the same numbers with a toggle and a sweep button.
 
 It hangs on `PlayerScript::OnPlayerLootItem`, which the core raises at the end of the ordinary
 pickup path (`Player.cpp:13954`, after `StoreNewItem` and `SendNewItem`) for every `Player` - the
-real player and every follower alike. No core change is involved.
+real player and every follower alike. No core change is involved. The sweep pays the leader as
+well, whichever member held the item.
 
 Never sold: quest-class items, items that start a quest, and anything an accepted quest still
-needs. A grey with no vendor price is left in the bags rather than deleted for nothing. The
+needs. A grey with no vendor price is left in the bags rather than deleted for nothing, and an
+item whose price cannot be credited (gold cap) stays where it is instead of disappearing. The
 keep-grey-"upgrades" rule from the module that inspired this is not copied: for vendor trash it
 never fires.
 
@@ -339,6 +349,62 @@ Why the sweep exists: a pickup only happens when the looting character has a fre
 that is already full cannot be emptied by looting. `.warband trash sell` walks the leader's bags
 and every follower's, which is the only way to clear a follower that filled up before the feature
 was switched on.
+
+## World scaling control
+
+The open world scaler is not Warband code either. `mod-zone-scaling` - an installed, pinned
+dependency, the one module in the tree that can scale creatures outside instances - presents
+open-world creatures, quest rewards and loot at each character's own level, inside the zones the
+server opts in. It is pre-release upstream: treat the mechanism as sound but the experience as
+unverified.
+
+This module owns only the switch over it. The panel's World scaling page and `.warband worldscale`
+flip the module's single `ZoneScaling.Enable` option; zones, bands, direction and everything else
+stay in `mod_zone_scaling.conf`.
+
+**Off by default, deliberately.** The module ships disabled (`ZoneScaling.Enable = 0`), and with
+its own `DefaultBehaviour = "off"` an enabled module still changes nothing until a zone is added to
+its zone list - so flipping the switch alone does not scale the world. That matches the recorded
+decision to keep the open world unscaled unless asked. When the server is built without the
+module, the page reports `installed=0` instead of pretending to offer a switch.
+
+    .warband worldscale           read whether it is installed and enabled
+    .warband worldscale on | off  flip the module's ZoneScaling.Enable
+
+The reply is `WARBAND_WORLDSCALE=installed=1;enabled=0`. A change rewrites that one line in
+`configs/modules/mod_zone_scaling.conf` and reloads the configuration - the same path
+`.reload config` takes - so the module picks it up without a restart.
+
+## AoE loot control
+
+Area looting is not Warband code either. `mod-aoe-loot` - the third installed, pinned dependency -
+merges every lootable corpse in range into the window opened on one corpse, items and gold alike,
+so a cleared pack is emptied from one place. The module carries its own per-character
+`.aoeloot on|off`; this surface owns the server-wide configuration and the trash auto-sell closes
+the integration gap described below.
+
+    .warband aoeloot                     read the whole configuration
+    .warband aoeloot on | off            the master switch
+    .warband aoeloot message on | off    announce the module on login
+    .warband aoeloot group on | off      also merge inside a group
+    .warband aoeloot range <5-100>       corpse search radius
+    .warband aoeloot corpses <1-50>      corpses merged per window
+    .warband aoeloot mail on | off       mail an item when the bags are full
+
+The reply is
+`WARBAND_AOELOOT=installed=1;enabled=0;message=1;group=1;mail=0;range=55.0;corpses=20`. **Off by
+default**: the module ships enabled (`AOELoot.Enable = 1`), so the Warband runtime seeds its
+configuration with 0 and the base game's one-corpse window stays the default. A change rewrites
+that one line in `configs/modules/mod_aoe_loot.conf` - appending it when the shipped file has no
+such line, which is the case for `AOELoot.MaxCorpses` - and reloads the configuration, so it lands
+without a restart. When the server is built without the module, the page reports `installed=0`
+instead of pretending to offer switches.
+
+One integration is Warband's own: the module stores the item it takes from a merged window on its
+own path, which does not raise `OnPlayerLootItem` that the trash auto-sell hangs on. So
+`WarbandTrashSell` also hooks `OnPlayerAfterCreatureLoot` and sweeps the bags once after that store
+while area looting is enabled - the grey is still sold to the leader's purse. With area looting
+off, the hook does nothing and the ordinary pickup hook does all the work.
 
 ## Follower gathering
 

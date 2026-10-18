@@ -41,3 +41,13 @@
 	path = modules/mod-item-level-scaling
 	url = https://github.com/Ildourol/mod-item-level-scaling.git
 	branch = master
+
+[submodule "modules/mod-zone-scaling"]
+	path = modules/mod-zone-scaling
+	url = https://github.com/firstoni-dev/mod-zone-scaling.git
+	branch = master
+
+[submodule "modules/mod-aoe-loot"]
+	path = modules/mod-aoe-loot
+	url = https://github.com/azerothcore/mod-aoe-loot.git
+	branch = master
