@@ -17,6 +17,8 @@ The tree as it stands:
       Gold find           live - the coin multiplier
       Trash sell          live - grey loot sold on pickup, with a sweep button
       Auction house       live - the auction bot's settings, and Restock now
+      Instances           live - killed instance creatures stay dead, with a counter
+      Convenience         live - hearthstone without a cooldown, pets always happy
     Features              what this Warband adds, listed live
     About                 author and project description
 
@@ -98,11 +100,71 @@ Files:
                     slash commands, window plumbing
     Warband.xml     layout: window chrome, tree pane, detail pane, the feature pages
     PartyAccess.lua member strips on the bag frame and the character sheet
-    Layout.lua      makes the bags and the character sheet draggable, and remembers where
+    PartyRoster.lua the Party tab on the Friends frame
+    Layout.lua      makes the bags, the character sheet and the Friends frame draggable
     Bindings.xml    the WARBANDTOGGLE key binding entry, unbound by default
 
 Adding a feature means adding a node to the Tree table in Warband.lua. Use status "live" only for
 something that actually works, and "placeholder" for anything unfinished.
+
+## Item binding
+
+Server > Item binding reads the policy with `.warband binding` — the reply is
+`WARBAND_BINDING=enforced=0` — and one button flips it. With binding **off**, which is the default,
+a soulbound piece can be traded, mailed, auctioned, put in a guild bank and handed to a companion
+like any other item; the item keeps its soulbound flag, so the tooltip stays honest. Turning it
+**on** restores the ordinary rule. The page states the policy in words rather than in yes/no,
+because "binding off" is easy to misread as "items are unbound".
+
+## Magic find
+
+Server > Magic find shows five rows — green, blue, purple, orange, gold — each with a `-` and a `+`
+(step 0.5, range 1 to 20) and a reset button that clears all five. Values are multipliers on the
+drop chance of that quality only: x4 turns a 20% blue into 80%, x6 turns a 3% legendary into 18%,
+and anything past 100% becomes a guaranteed drop. The reply is
+`WARBAND_MAGICFIND=green=2.00;blue=4.00;purple=6.00;orange=6.00;gold=6.00`, and a worked-example
+line recalculates as you click. Poor and normal qualities are never touched, and no rows are added
+or removed.
+
+## Gold find
+
+Server > Gold find is one row: `-` and `+` in steps of 0.5 between 1 and 20, plus a reset. The reply
+is `WARBAND_GOLDFIND=3.00`. It multiplies the coin that loot generates — creatures, chests, mines
+and containers — and leaves vendoring, quest rewards, mail and the auction house alone.
+
+## Trash sell
+
+Server > Trash sell has the switch and a **Sell the junk in our bags now** button. The switch sells
+grey loot at the moment it is picked up, for the leader and every companion; the button sweeps what
+is already in the bags, which is the only way to clear a companion that filled up before the feature
+was on. The reply is `WARBAND_TRASHSELL=enabled=1;sold=12;copper=3456;swept=0`, and the page shows
+the session totals plus how many items the last sweep collected.
+
+## Auction house
+
+Server > Auction house is the only interface the auction bot has. `Seller` and `Buyer` toggle the
+two sides of the market, `+`/`-` change listings per cycle (25 at a time) and buy candidates (1 at a
+time), and **Restock now** makes the bot rebuild its item lists immediately. The reply is
+`WARBAND_AHBOT=installed=1;seller=1;buyer=1;items=150;candidates=5;alliance=1200;horde=1200;neutral=200`;
+when the bot is not installed the page says `installed=0` instead of offering dead buttons. Every
+change rewrites that option in the bot's configuration file and reloads it, so prices and filters
+stay in the bot's own file.
+
+## Instances
+
+Server > Instances is one switch and a counter: a creature killed inside a dungeon or raid stays
+dead for the run, and the counter shows how many that session has kept down. The reply is
+`WARBAND_INSTANCE=enabled=1;kept=42`. The hint on the page says the part people get wrong — an
+instance reset (manual, or the daily one) still restores the whole dungeon, which is what a reset
+means.
+
+## Convenience
+
+Server > Convenience carries two timers a party of five cannot keep by hand. **Hearthstone** clears
+the item's cooldown the moment it is used (`WARBAND_HEARTHSTONE=enabled=1;cleared=3`, with the count
+of clears this session shown underneath). **Pets** keeps every hunter pet at full happiness, the
+leader's included, because a follower will never feed its pet and an unhappy pet carries a damage
+penalty (`WARBAND_PETS=enabled=1`).
 
 ## Party roster (`PartyRoster.lua`)
 

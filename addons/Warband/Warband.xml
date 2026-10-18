@@ -1402,6 +1402,112 @@
                             </Button>
                         </Frames>
                     </Frame>
+                    <Frame name="WarbandPageConvenience" parent="WarbandDetailPane" hidden="true">
+                        <Size>
+                            <AbsDimension x="732" y="470"/>
+                        </Size>
+                        <Anchors>
+                            <Anchor point="TOPLEFT" relativeTo="WarbandDetailPane"
+                                relativePoint="TOPLEFT">
+                                <Offset>
+                                    <AbsDimension x="24" y="-80"/>
+                                </Offset>
+                            </Anchor>
+                        </Anchors>
+                        <Layers>
+                            <Layer level="ARTWORK">
+                                <FontString name="$parentCaption" inherits="GameFontNormalSmall"
+                                    justifyH="LEFT" text="CONVENIENCE">
+                                    <Size>
+                                        <AbsDimension x="300" y="12"/>
+                                    </Size>
+                                    <Anchors>
+                                        <Anchor point="TOPLEFT"/>
+                                    </Anchors>
+                                    <Color r="1" g="0.82" b="0"/>
+                                </FontString>
+                                <FontString name="$parentStatus" inherits="GameFontHighlightSmall"
+                                    justifyH="LEFT" text="Reading the settings...">
+                                    <Size>
+                                        <AbsDimension x="620" y="14"/>
+                                    </Size>
+                                    <Anchors>
+                                        <Anchor point="TOPLEFT">
+                                            <Offset>
+                                                <AbsDimension x="0" y="-24"/>
+                                            </Offset>
+                                        </Anchor>
+                                    </Anchors>
+                                </FontString>
+                                <FontString name="$parentHint" inherits="GameFontDisableSmall"
+                                    justifyH="LEFT"
+                                    text="Two timers a party of five cannot keep by hand. The hearthstone is ready again the moment it is used. A hunter pet's happiness drains on a timed tick and drops a step every time the pet dies, and a follower will never feed it, so every pet is kept at full happiness - the leader's included.">
+                                    <Size>
+                                        <AbsDimension x="620" y="60"/>
+                                    </Size>
+                                    <Anchors>
+                                        <Anchor point="TOPLEFT">
+                                            <Offset>
+                                                <AbsDimension x="0" y="-48"/>
+                                            </Offset>
+                                        </Anchor>
+                                    </Anchors>
+                                </FontString>
+                                <FontString name="$parentDetail" inherits="GameFontNormalSmall"
+                                    justifyH="LEFT" text="">
+                                    <Size>
+                                        <AbsDimension x="620" y="20"/>
+                                    </Size>
+                                    <Anchors>
+                                        <Anchor point="TOPLEFT">
+                                            <Offset>
+                                                <AbsDimension x="0" y="-116"/>
+                                            </Offset>
+                                        </Anchor>
+                                    </Anchors>
+                                    <Color r="1" g="0.82" b="0"/>
+                                </FontString>
+                            </Layer>
+                        </Layers>
+                        <Frames>
+                            <Button name="$parentHearthstone" inherits="UIPanelButtonTemplate"
+                                text="Hearthstone: no cooldown">
+                                <Size>
+                                    <AbsDimension x="220" y="22"/>
+                                </Size>
+                                <Anchors>
+                                    <Anchor point="TOPLEFT">
+                                        <Offset>
+                                            <AbsDimension x="0" y="-148"/>
+                                        </Offset>
+                                    </Anchor>
+                                </Anchors>
+                                <Scripts>
+                                    <OnClick>
+                                        Warband_ToggleHearthstone();
+                                    </OnClick>
+                                </Scripts>
+                            </Button>
+                            <Button name="$parentPets" inherits="UIPanelButtonTemplate"
+                                text="Pets: always happy">
+                                <Size>
+                                    <AbsDimension x="220" y="22"/>
+                                </Size>
+                                <Anchors>
+                                    <Anchor point="TOPLEFT">
+                                        <Offset>
+                                            <AbsDimension x="0" y="-180"/>
+                                        </Offset>
+                                    </Anchor>
+                                </Anchors>
+                                <Scripts>
+                                    <OnClick>
+                                        Warband_TogglePets();
+                                    </OnClick>
+                                </Scripts>
+                            </Button>
+                        </Frames>
+                    </Frame>
         </Frames>
         <Scripts>
             <OnShow>

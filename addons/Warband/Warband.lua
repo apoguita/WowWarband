@@ -66,6 +66,7 @@ local Tree = {
             { id = "trashsell", text = "Trash sell", status = "live", page = "trashsell" },
             { id = "auctionhouse", text = "Auction house", status = "live", page = "auctionhouse" },
             { id = "instances", text = "Instances", status = "live", page = "instances" },
+            { id = "convenience", text = "Convenience", status = "live", page = "convenience" },
         },
     },
     {
@@ -194,6 +195,20 @@ local instance = { known = false, enabled = true, kept = 0 }
 local instanceRequest = { pending = false, deadline = nil }
 local UpdateInstanceDisplay
 local SetInstanceStatus
+
+-- Convenience: the hearthstone's cooldown and hunter pet happiness, each its own switch.
+local convenience = {
+    hearthstone = true,
+    hearthstoneKnown = false,
+    cleared = 0,
+    pets = true,
+    petsKnown = false,
+}
+
+local hearthstoneRequest = { pending = false, deadline = nil }
+local petsRequest = { pending = false, deadline = nil }
+local UpdateConvenienceDisplay
+local SetConvenienceStatus
 local UpdateGoldFindDisplay
 local SetGoldFindStatus
 local goldFindValue
@@ -303,6 +318,15 @@ local function RequestInstanceState()
     StartRequest(instanceRequest, ".warband instance")
 end
 
+local function RequestConvenienceState()
+    if UpdateConvenienceDisplay then
+        UpdateConvenienceDisplay()
+    end
+
+    StartRequest(hearthstoneRequest, ".warband hearthstone")
+    StartRequest(petsRequest, ".warband pets")
+end
+
 -- Sends the value the panel shows. Repeating the last accepted value is skipped so a click that
 -- changes nothing does not produce needless chat traffic.
 local function CommitRate()
@@ -393,6 +417,18 @@ function Warband_OnUpdate()
         SetInstanceStatus("Unavailable: this worldserver does not answer .warband instance yet.",
             COLOR_GREY)
     end
+
+    if hearthstoneRequest.pending and GetTime() >= hearthstoneRequest.deadline then
+        ClearRequest(hearthstoneRequest)
+        SetConvenienceStatus("Unavailable: this worldserver does not answer .warband hearthstone.",
+            COLOR_GREY)
+    end
+
+    if petsRequest.pending and GetTime() >= petsRequest.deadline then
+        ClearRequest(petsRequest)
+        SetConvenienceStatus("Unavailable: this worldserver does not answer .warband pets.",
+            COLOR_GREY)
+    end
 end
 
 function Warband_OnEvent(self, event, ...)
@@ -460,6 +496,43 @@ function Warband_OnEvent(self, event, ...)
         end
         return
     end
+    if string.find(message or "", "WARBAND_HEARTHSTONE=", 1, true) then
+        for key, value in string.gmatch(message, "([%a_]+)=([%d%.]+)") do
+            local number = tonumber(value)
+            if key == "enabled" then
+                convenience.hearthstone = number == 1
+            elseif key == "cleared" then
+                convenience.cleared = number or 0
+            end
+        end
+
+        ClearRequest(hearthstoneRequest)
+        convenience.hearthstoneKnown = true
+
+        if UpdateConvenienceDisplay then
+            UpdateConvenienceDisplay()
+        end
+
+        return
+    end
+
+    if string.find(message or "", "WARBAND_PETS=", 1, true) then
+        for key, value in string.gmatch(message, "([%a_]+)=([%d%.]+)") do
+            if key == "enabled" then
+                convenience.pets = tonumber(value) == 1
+            end
+        end
+
+        ClearRequest(petsRequest)
+        convenience.petsKnown = true
+
+        if UpdateConvenienceDisplay then
+            UpdateConvenienceDisplay()
+        end
+
+        return
+    end
+
     if string.find(message or "", "WARBAND_INSTANCE=", 1, true) then
         for key, value in string.gmatch(message, "([%a_]+)=([%d%.]+)") do
             local number = tonumber(value)
@@ -1450,6 +1523,55 @@ function Warband_ToggleInstanceNoRespawn()
     end
 end
 
+-- Convenience: hearthstone cooldown and pet happiness.
+SetConvenienceStatus = function(text, color)
+    WarbandPageConvenienceStatus:SetText(text)
+    WarbandPageConvenienceStatus:SetTextColor(color[1], color[2], color[3])
+end
+
+UpdateConvenienceDisplay = function()
+    if not (convenience.hearthstoneKnown and convenience.petsKnown) then
+        SetConvenienceStatus("Reading the settings...", COLOR_AMBER)
+    elseif convenience.hearthstone and convenience.pets then
+        SetConvenienceStatus("Live - the hearthstone is always ready and every pet stays happy",
+            COLOR_GREEN)
+    else
+        SetConvenienceStatus("Partly on - see the buttons", COLOR_AMBER)
+    end
+
+    WarbandPageConvenienceHearthstone:SetText(convenience.hearthstone
+        and "Hearthstone: no cooldown" or "Hearthstone: normal cooldown")
+    WarbandPageConveniencePets:SetText(convenience.pets
+        and "Pets: always happy" or "Pets: normal happiness")
+
+    if convenience.hearthstoneKnown then
+        WarbandPageConvenienceDetail:SetText(string.format(
+            "Hearthstone cooldowns cleared this session: %d", convenience.cleared))
+    else
+        WarbandPageConvenienceDetail:SetText("")
+    end
+end
+
+function Warband_ToggleHearthstone()
+    if convenience.hearthstoneKnown and convenience.hearthstone then
+        SetConvenienceStatus("Switching the hearthstone cooldown back on...", COLOR_AMBER)
+        StartRequest(hearthstoneRequest, ".warband hearthstone off")
+    else
+        SetConvenienceStatus("Clearing the hearthstone cooldown...", COLOR_AMBER)
+        StartRequest(hearthstoneRequest, ".warband hearthstone on")
+    end
+end
+
+function Warband_TogglePets()
+    if convenience.petsKnown and convenience.pets then
+        SetConvenienceStatus("Letting pets go back to normal happiness...", COLOR_AMBER)
+        StartRequest(petsRequest, ".warband pets off")
+    else
+        SetConvenienceStatus("Keeping pets happy...", COLOR_AMBER)
+        StartRequest(petsRequest, ".warband pets on")
+    end
+end
+
 -- Pages whose content depends on live state rather than fixed text.
 local function DynamicLines(kind)
     if kind == "features" then
@@ -1505,6 +1627,14 @@ local function DynamicLines(kind)
             table.insert(lines, "- Instances: a creature killed inside one stays dead for the run")
         end
 
+        if convenience.hearthstoneKnown and convenience.hearthstone then
+            table.insert(lines, "- Hearthstone: no cooldown")
+        end
+
+        if convenience.petsKnown and convenience.pets then
+            table.insert(lines, "- Pets: always happy, companions included")
+        end
+
         table.insert(lines, " ")
         table.insert(lines, "New features are listed here as they are added.")
         return lines
@@ -1548,6 +1678,7 @@ local function ShowNode(node)
     WarbandPageTrashSell:Hide()
     WarbandPageAuctionHouse:Hide()
     WarbandPageInstance:Hide()
+    WarbandPageConvenience:Hide()
 
     if node.page == "experience" then
         WarbandPageExperience:Show()
@@ -1616,6 +1747,15 @@ local function ShowNode(node)
         return
     end
 
+    if node.page == "convenience" then
+        if UpdateConvenienceDisplay then
+            UpdateConvenienceDisplay()
+        end
+
+        WarbandPageConvenience:Show()
+        return
+    end
+
     RenderTextPage(node.dynamic and DynamicLines(node.dynamic) or node.lines
         or { "No details recorded for this feature yet." })
     WarbandPageText:Show()
@@ -1649,6 +1789,7 @@ function Warband_OnShow()
     RequestTrashSellState()
     RequestAuctionState()
     RequestInstanceState()
+    RequestConvenienceState()
 end
 
 function Warband_OnHide()
@@ -1661,6 +1802,8 @@ function Warband_OnHide()
     ClearRequest(trashSellRequest)
     ClearRequest(auctionRequest)
     ClearRequest(instanceRequest)
+    ClearRequest(hearthstoneRequest)
+    ClearRequest(petsRequest)
 end
 
 function Warband_OnCloseClick()

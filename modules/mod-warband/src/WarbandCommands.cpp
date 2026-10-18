@@ -31,6 +31,10 @@
  *   .warband ah repopulate                         rebuild the bot's item lists and top up now
  *   .warband instance                              read whether killed instance creatures stay dead
  *   .warband instance on | off                     keep killed instance creatures dead, or not
+ *   .warband hearthstone                           read whether the hearthstone has a cooldown
+ *   .warband hearthstone on | off                  clear its cooldown on use, or restore it
+ *   .warband pets                                  read whether pets are kept happy
+ *   .warband pets on | off                         keep every hunter pet at full happiness, or not
  *   .warband party                                 list the characters on this account for the
  *                                                  party roster: name, class, level, online, grouped
  *
@@ -45,6 +49,8 @@
  *   WARBAND_AHBOT=installed=1;seller=1;buyer=1;items=150;candidates=5;alliance=1200;horde=1200;neutral=200
  *   WARBAND_INSTANCE=enabled=1;kept=42
  *   WARBAND_PARTY=Name|class|level|online|grouped;…   (then an empty WARBAND_PARTY= to close the list)
+ *   WARBAND_HEARTHSTONE=enabled=1;cleared=3
+ *   WARBAND_PETS=enabled=1
  */
 
 #include "Chat.h"
@@ -106,6 +112,11 @@ void WarbandRefreshAuctionBot();
 bool GetWarbandInstanceNoRespawn();
 bool SetWarbandInstanceNoRespawn(bool enabled);
 uint32 GetWarbandInstanceKeptDead();
+bool GetWarbandHearthstoneAlwaysReady();
+bool SetWarbandHearthstoneAlwaysReady(bool enabled);
+bool GetWarbandPetsAlwaysHappy();
+bool SetWarbandPetsAlwaysHappy(bool enabled);
+uint32 GetWarbandHearthstoneClears();
 
 using namespace Acore::ChatCommands;
 
@@ -135,6 +146,12 @@ char const* const AuctionHouseUsage =
 
 char const* const InstanceUsage =
     "Usage: .warband instance [on|off] - whether a creature killed inside a dungeon stays dead";
+
+char const* const HearthstoneUsage =
+    "Usage: .warband hearthstone [on|off] - whether the hearthstone keeps its cooldown";
+
+char const* const PetsUsage =
+    "Usage: .warband pets [on|off] - whether every hunter pet is kept at full happiness";
 
 // Parses the single numeric argument that may follow a keyword.
 bool ParseValue(char const* args, size_t keywordLength, float& value)
@@ -205,6 +222,8 @@ public:
             {"trash",    HandleTrashCommand,      SEC_PLAYER, Console::No},
             {"ah",       HandleAuctionHouseCommand, SEC_PLAYER, Console::No},
             {"instance", HandleInstanceCommand,   SEC_PLAYER, Console::No},
+            {"hearthstone", HandleHearthstoneCommand, SEC_PLAYER, Console::No},
+            {"pets",     HandlePetsCommand,       SEC_PLAYER, Console::No},
             {"party",    HandlePartyCommand,      SEC_PLAYER, Console::No},
         };
 
@@ -772,6 +791,78 @@ private:
             "WARBAND_INSTANCE=enabled={};kept={}",
             GetWarbandInstanceNoRespawn() ? 1 : 0,
             GetWarbandInstanceKeptDead());
+    }
+
+    // Hearthstone and pets: two convenience switches, each off the same pattern as the rest.
+    static bool HandleHearthstoneCommand(ChatHandler* handler, char const* args)
+    {
+        while (*args == ' ')
+            ++args;
+
+        if (strncmp(args, "on", 2) == 0 && (args[2] == '\0' || args[2] == ' '))
+        {
+            SetWarbandHearthstoneAlwaysReady(true);
+            SendHearthstone(handler);
+            return true;
+        }
+
+        if (strncmp(args, "off", 3) == 0 && (args[3] == '\0' || args[3] == ' '))
+        {
+            SetWarbandHearthstoneAlwaysReady(false);
+            SendHearthstone(handler);
+            return true;
+        }
+
+        if (!*args)
+        {
+            SendHearthstone(handler);
+            return true;
+        }
+
+        handler->SendSysMessage(HearthstoneUsage);
+        return false;
+    }
+
+    static void SendHearthstone(ChatHandler* handler)
+    {
+        handler->PSendSysMessage(
+            "WARBAND_HEARTHSTONE=enabled={};cleared={}",
+            GetWarbandHearthstoneAlwaysReady() ? 1 : 0,
+            GetWarbandHearthstoneClears());
+    }
+
+    static bool HandlePetsCommand(ChatHandler* handler, char const* args)
+    {
+        while (*args == ' ')
+            ++args;
+
+        if (strncmp(args, "on", 2) == 0 && (args[2] == '\0' || args[2] == ' '))
+        {
+            SetWarbandPetsAlwaysHappy(true);
+            SendPets(handler);
+            return true;
+        }
+
+        if (strncmp(args, "off", 3) == 0 && (args[3] == '\0' || args[3] == ' '))
+        {
+            SetWarbandPetsAlwaysHappy(false);
+            SendPets(handler);
+            return true;
+        }
+
+        if (!*args)
+        {
+            SendPets(handler);
+            return true;
+        }
+
+        handler->SendSysMessage(PetsUsage);
+        return false;
+    }
+
+    static void SendPets(ChatHandler* handler)
+    {
+        handler->PSendSysMessage("WARBAND_PETS=enabled={}", GetWarbandPetsAlwaysHappy() ? 1 : 0);
     }
 
     // The party roster: every character on the account, with the state the panel needs to decide

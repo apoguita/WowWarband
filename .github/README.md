@@ -31,10 +31,6 @@ inventory: which modules run on the server, what Warband itself adds, and how to
 | `mod-autobalance` | Third-party, added | Instance difficulty scaling: five members can fight a raid built for forty, and a dungeon scales up once the party outlevels it |
 | `mod-item-level-scaling` | Third-party, added | Loot scaling: the same items with their stats moved to the party's level, never downward |
 
-Two client addons come from those modules: `addons/MultiBot` (companion commands, inventory and
-character windows) and `addons/PlayerbotManager` (companion management UI). Research material for
-other modules lives in `doc/` and is not installed.
-
 ## What Warband adds
 
 Everything here is Warband's own code, in `modules/mod-warband` on the server and `addons/Warband`

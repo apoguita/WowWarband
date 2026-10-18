@@ -84,10 +84,17 @@ the ordinary way, with the walk, the animation and the loot window, because the 
 wanted, so nothing is left of the idea.
 
 Other conveniences were studied and are deliberately **not** tracked as features: auto-sort,
-one-key interact, quiet bot roll messages, a faster loot window, no hearthstone cooldown,
-flight-path unlocking, dual spec and remote talent reset, returning to the dungeon entrance after
-death, recovering lost boss loot, and panel conveniences. Trash auto-sell was one of these and is
-already built.
+one-key interact, quiet bot roll messages, a faster loot window, flight-path unlocking, dual spec
+and remote talent reset, returning to the dungeon entrance after death, recovering lost boss loot,
+and panel conveniences. Trash auto-sell was one of these and is already built.
+
+**Two conveniences were promoted out of that list on 16 October 2026 and are built**, because a
+five-character Warband cannot keep two of the game's timers by hand:
+
+| # | Feature | State |
+|---|---|---|
+| 49 | Hearthstone without a cooldown: the item is ready again the moment it is used | **Built, not yet verified in game** — `WarbandConvenience.cpp`: the cooldown of spells 8690 and 39937 is cleared when the hearthstone cast turns into a teleport, and once on login. `.warband hearthstone [on\|off]`; reference: `mod-no-hearthstone-cooldown` |
+| 50 | Every hunter pet stays at full happiness, follower pets included | **Built, not yet verified in game** — happiness is the `POWER_HAPPINESS` power, drained on a timer and knocked down a step on pet death; `AllCreatureScript::OnAllCreatureUpdate` tops it back up. `.warband pets [on\|off]` |
 
 ## Not requested, kept for a possible future
 

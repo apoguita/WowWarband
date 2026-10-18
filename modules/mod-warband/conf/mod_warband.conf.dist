@@ -223,3 +223,30 @@ Warband.Instances.NoRespawn = 1
 #
 Warband.Instances.NeverAdjust.CreatureID =
 Warband.Instances.NeverAdjust.InstanceID =
+
+###################################################################################################
+#  Convenience: hearthstone and pet happiness
+#
+#  Two small quality-of-life rules, both aimed at the same problem: a single player runs five
+#  characters, and two of the game's timers cannot be kept up by hand.
+#
+#  Hearthstone. Using it starts a 15-minute cooldown on spell 8690 (and on 39937, the TBC twin some
+#  clients use). With this on, the cooldown is cleared the moment the hearthstone cast turns into a
+#  teleport, and once more on login - so the item is always ready.
+#
+#  Pets. A hunter pet's happiness is the POWER_HAPPINESS power, drained on a timer and knocked down a
+#  step whenever the pet dies. A follower cannot be told to feed its pet, so in a Warband the pet
+#  drifts into "unhappy" and its damage never recovers. With this on every pet's happiness is topped
+#  up, the leader's included.
+#
+#     Warband.Hearthstone.AlwaysReady
+#        Clear the hearthstone cooldown as soon as the item is used.
+#        Default: 1 - Enabled
+#
+Warband.Hearthstone.AlwaysReady = 1
+
+#     Warband.Pets.AlwaysHappy
+#        Keep every hunter pet at full happiness.
+#        Default: 1 - Enabled
+#
+Warband.Pets.AlwaysHappy = 1

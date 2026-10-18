@@ -29,6 +29,8 @@ longer refers to it.
 | Trash auto-sell | Built; not yet verified in game | `WarbandTrashSell.cpp`, `WarbandCommands.cpp` |
 | Auction house control | Built; not yet verified in game | `WarbandAuctionHouse.cpp`, `WarbandCommands.cpp` |
 | Instances stop restocking | Built; not yet verified in game | `WarbandInstances.cpp`, `WarbandCommands.cpp` |
+| Hearthstone without cooldown | Built; not yet verified in game | `WarbandConvenience.cpp`, `WarbandCommands.cpp` |
+| Pets always happy | Built; not yet verified in game | `WarbandConvenience.cpp`, `WarbandCommands.cpp` |
 
 Keeping the two kinds of bot apart is what `WarbandPlayerRoles.h` is for:
 `WarbandFollowerMaster()` returns a leader only for a bot piloted by a real
@@ -236,6 +238,28 @@ vendoring, quest rewards, mail and the auction house is a different path and sta
 money has its own `Rate.RewardQuestMoney` and `Rate.RewardBonusMoney` in `worldserver.conf`.
 
 Because the module owns the rate, its value wins over `Rate.Drop.Money` in `worldserver.conf`.
+
+## Hearthstone and pet happiness
+
+Two timers a five-character Warband cannot keep by hand.
+
+**Hearthstone.** Using the item starts a cooldown on spell 8690 and on 39937 (the TBC
+"There's No Place Like Home" twin some clients use). With `Warband.Hearthstone.AlwaysReady` on, both
+cooldowns are cleared the moment the hearthstone cast turns into a teleport, and once more on login,
+so the item is always ready. The clear only happens when the hearthstone is what is being cast,
+so portals and summons are untouched. Mechanism borrowed from `mod-no-hearthstone-cooldown`
+(`.agents/reference`).
+
+**Pets.** A hunter pet's happiness is the `POWER_HAPPINESS` power: three steps of
+`HAPPINESS_LEVEL_SIZE` (333000 each), drained on a `PET_LOSE_HAPPINES_INTERVAL` (7.5 s) timer in
+`Pet::LoseHappiness`, and knocked down a full step whenever the pet dies. Below one step the pet is
+"unhappy" and takes a damage penalty in `StatSystem.cpp`. A follower cannot be told to feed its pet,
+so in a Warband the pet slides into unhappy and stays there. With `Warband.Pets.AlwaysHappy` on,
+`AllCreatureScript::OnAllCreatureUpdate` tops the power back up whenever it has drained — for every
+hunter pet on the server, the leader's included.
+
+    .warband hearthstone [on|off]   replies WARBAND_HEARTHSTONE=enabled=1;cleared=3
+    .warband pets [on|off]          replies WARBAND_PETS=enabled=1
 
 ## Instances stop restocking
 
