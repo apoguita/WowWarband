@@ -31,6 +31,8 @@
  *   .warband ah repopulate                         rebuild the bot's item lists and top up now
  *   .warband instance                              read whether killed instance creatures stay dead
  *   .warband instance on | off                     keep killed instance creatures dead, or not
+ *   .warband party                                 list the characters on this account for the
+ *                                                  party roster: name, class, level, online, grouped
  *
  * Every reply is a single machine-readable line, which is how the Warband addon reads state:
  *   WARBAND_XP=3
@@ -42,12 +44,16 @@
  *   WARBAND_TRASHSELL=enabled=1;sold=12;copper=3456;swept=0
  *   WARBAND_AHBOT=installed=1;seller=1;buyer=1;items=150;candidates=5;alliance=1200;horde=1200;neutral=200
  *   WARBAND_INSTANCE=enabled=1;kept=42
+ *   WARBAND_PARTY=Name|class|level|online|grouped;…   (then an empty WARBAND_PARTY= to close the list)
  */
 
 #include "Chat.h"
 #include "CommandScript.h"
+#include "DatabaseEnv.h"
 #include "DBCEnums.h"
+#include "Group.h"
 #include "ItemBinding.h"
+#include "ObjectAccessor.h"
 #include "Player.h"
 #include "RBAC.h"
 #include "ScriptMgr.h"
@@ -199,6 +205,7 @@ public:
             {"trash",    HandleTrashCommand,      SEC_PLAYER, Console::No},
             {"ah",       HandleAuctionHouseCommand, SEC_PLAYER, Console::No},
             {"instance", HandleInstanceCommand,   SEC_PLAYER, Console::No},
+            {"party",    HandlePartyCommand,      SEC_PLAYER, Console::No},
         };
 
         static ChatCommandTable commandTable =
@@ -765,6 +772,74 @@ private:
             "WARBAND_INSTANCE=enabled={};kept={}",
             GetWarbandInstanceNoRespawn() ? 1 : 0,
             GetWarbandInstanceKeptDead());
+    }
+
+    // The party roster: every character on the account, with the state the panel needs to decide
+    // whether to offer Invite or Dismiss. The client cannot ask for this list, which is why it is a
+    // server command; the panel only sends the ordinary Playerbots commands afterwards.
+    static bool HandlePartyCommand(ChatHandler* handler, char const* args)
+    {
+        while (*args == ' ')
+            ++args;
+
+        if (*args)
+        {
+            handler->SendSysMessage("Usage: .warband party - list the characters on this account");
+            return false;
+        }
+
+        Player* player = handler->GetSession() ? handler->GetSession()->GetPlayer() : nullptr;
+        if (!player)
+            return false;
+
+        uint32 const accountId = handler->GetSession()->GetAccountId();
+
+        QueryResult result = CharacterDatabase.Query(
+            "SELECT guid, name, class, level FROM characters WHERE account = {} ORDER BY level DESC, name ASC",
+            accountId);
+
+        if (!result)
+        {
+            handler->PSendSysMessage("WARBAND_PARTY=");
+            return true;
+        }
+
+        std::string chunk;
+
+        do
+        {
+            Field* fields = result->Fetch();
+
+            ObjectGuid const guid = ObjectGuid(uint64(fields[0].Get<uint32>()));
+            std::string const name = fields[1].Get<std::string>();
+            uint8 const playerClass = fields[2].Get<uint8>();
+            uint8 const level = fields[3].Get<uint8>();
+
+            Player* online = ObjectAccessor::FindConnectedPlayer(guid);
+            bool const grouped = online && online->GetGroup() != nullptr;
+
+            // name|class|level|online|grouped, and ';' between entries; an empty line closes the list.
+            std::string entry = name + "|" + std::to_string(playerClass) + "|" + std::to_string(level)
+                + "|" + (online ? "1" : "0") + "|" + (grouped ? "1" : "0");
+
+            if (chunk.empty())
+                chunk = entry;
+            else
+                chunk += ";" + entry;
+
+            // Keep each reply short enough for the client to show in one line.
+            if (chunk.size() > 160)
+            {
+                handler->PSendSysMessage("WARBAND_PARTY={}", chunk);
+                chunk.clear();
+            }
+        } while (result->NextRow());
+
+        if (!chunk.empty())
+            handler->PSendSysMessage("WARBAND_PARTY={}", chunk);
+
+        handler->PSendSysMessage("WARBAND_PARTY=");
+        return true;
     }
 };
 

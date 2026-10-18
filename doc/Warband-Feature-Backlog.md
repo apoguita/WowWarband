@@ -45,17 +45,19 @@ combinations, the 11 primary professions, and trash auto-sell.
 | 2 | Party growth to five members: the leader and four followers | The premise: the player roleplays the whole five-member party | Warband server module + addon | Designed — cadence and eligibility undecided |
 | 3 | Recruitment: how a follower joins the party | Same premise | Warband server module + addon | Waiting on decision 3 |
 | 4 | Leader-paced questing: the leader does the objectives, followers complete at turn-in, and a late recruit inherits campaign progress | The premise, plus the research on quest-loot sharing | Warband server module | Designed — baseline quest sync must be verified first. Decision 5 (reward delivery) and 6 (quest-state model) sit inside this |
-| 8 | Party management: bench, swaps, saved compositions | Follows from 2: a five-member party needs a way to change who is in it | Warband server module + addon | Waiting on decision 7 |
-| 9 | Five-member adaptation of raids and large world events | The premise: content for four followers, not a raid of twenty-five | Warband core + server module | Designed — largest item; encounter rules and per-boss variation are open |
+| 8 | Party management: saved compositions, bench and swaps | Followed from 2 | — | **Not wanted** — the Party tab (item 48) already invites and dismisses per character, and that is the whole need. A saved Warband, a bench and swaps were proposed on top of it and are not wanted |
+| 9 | Five-member adaptation of raids and large world events | The premise: content for four followers, not a raid of twenty-five | `mod-autobalance` + `mod-item-level-scaling` (approved dependencies) | **Being built, 16 October 2026.** The rules, as stated: in a **dungeon**, being below its level changes nothing, and being more than a margin above it scales **mobs and loot** up; in a **raid**, the encounter is always scaled down to the party size and the loot stays as it is — unless the party is over level by that margin, in which case the raid scales **up** in difficulty and its loot scales **up in stats only** (same items, same quantity). Level scaling never runs downward anywhere |
+| 48 | Party roster: choose which characters on the account come online and join the party, from a **Party tab on the Friends frame** | Requested 16 October 2026 — the per-character commands existed but there was no window to pick from, and the client has no party-management screen at all | `.warband party` (module) + Warband client addon | **Live** — verified in game 16 October 2026: the tab lists every character with level, class and online state, Invite brings one into the party, Dismiss uninvites and logs it out (`UninviteUnit` first, because Playerbots' logout never leaves the group) |
 
-### Party loot and gear
+### Companion bags and gear
 
-| # | Feature | Origin | Where we build it | State |
-|---|---|---|---|---|
-| 13 | Loot ownership: who is entitled to ordinary drops | Shortlist: [mod-shared-loot][shared-loot] and [mod-quest-loot-party][quest-loot-party] both attack it | Warband server module | Waiting on decision 4 |
-| 12 | Gear routing: an item goes to the follower it suits | Shortlist: [mod-quest-loot-party][quest-loot-party] personal mode, which duplicating loot does not solve | Warband server module + addon | Waiting on 13 |
-| 16 | Companion bags and character sheet: see what each follower carries, its gear and its stats, from the windows the player already uses | Shortlist: [mod-bot-inventory-master][bot-inventory-master] — not used in the end, because MultiBot already carries the windows | Warband client addon (+ server module if item transfer is built) | **Partly built, pending another revision** — a companion strip on the bag frame and on the character sheet opens MultiBot's existing follower windows (click for bags, shift-click for the sheet, and the reverse). The next revision decides whether MultiBot's list view is good enough or a real bag grid is needed; item transfer between members is **not** built |
-| 20 | Companion gold reaches the leader's purse | Shortlist: [mod-shared-gold][shared-gold] | Warband server module | Designed |
+Accepted 16 October 2026: a companion strip on the bag frame and on the character sheet opens a
+follower's inventory or character sheet in MultiBot, and that is enough for now. It is delivered,
+so it is documented in the [addon README](../addons/Warband/README.md) rather than tracked here.
+Two improvements are recorded for later, not as open work: a real bag grid instead of MultiBot's
+list, and moving items directly between members.
+
+Loot itself is not on this list: the game's mechanics stay as they are (see *Not wanted*).
 
 ### Economy and world
 
@@ -63,8 +65,6 @@ combinations, the 11 primary professions, and trash auto-sell.
 |---|---|---|---|---|
 | 18 | Normal Auction House: buy useful items, list and sell eligible ones, so the party's loot actually moves | **Decision, 16 October 2026: not built in-house.** The market is too much to write, so the approved dependency `mod-ah-bot-plus` supplies it and Warband builds only the control surface. That is the one recorded exception to the in-house rule, and it is named here as the rule requires | `mod-ah-bot-plus` (dependency) + Warband addon panel | **Installed and running** — the seller keeps Alliance, Horde and Neutral stocked, the buyer purchases player listings, and `.warband ah` plus the panel's Auction house page switch both sides. Open: player-side convenience, i.e. whether to add the retail-style auction window (shortlist) |
 | 19 | Black Market Auction House | Shortlist: [Black-Market-Auction-House][bmah] — bid-only as it stands | Warband server module + client UI | Waiting on: player listing and selling support |
-| 30 | Warband camp: a party facility with the services a five-member Warband needs | Shortlist: [mod-warband-camp][warband-camp] | Warband server module | Designed — scope of services undecided |
-| 46 | Transmogrification: the party looks how the player wants | Shortlist: [mod-transmog][transmog] and [Retail Transmog Plus][retail-transmog-plus] | Warband server module + client UI | Waiting on decision: appearance only, or the collection game |
 | 24 | Instances stop restocking: a creature that dies inside an instance does not come back for the rest of the run | Shortlist: [mod-dead-means-dead][dead-means-dead], read in full — the mechanism is its, minus the multiplier model | Warband server module + addon panel | **Built, not yet verified in game** — `WarbandInstances.cpp`: `UnitScript::OnUnitDeath` pushes the respawn ten years out and saves it, so a cleared corridor survives an unload and a restart; an instance reset still restores everything. Dungeons and raids only, party kills only, with `NeverAdjust` lists. `.warband instance` and the panel's Instances page switch it live |
 | 47 | Dying inside an instance returns the party to the dungeon's start, alive, instead of a graveyard release and a corpse run through cleared trash | Requested 16 October 2026; the mechanism was studied from `DungeonRespawn` in the shortlist | Warband server module | **Postponed, 16 October 2026** — the only reference is hacky: it hijacks the release teleport to cancel the graveyard move, resurrects outright at a stored anchor, and keeps a per-character row in a character-database table; the repository is archived. Revisit later; nothing else is designed around it |
 
@@ -75,7 +75,13 @@ Kept so the decisions are not lost, but they are not goals and are not counted a
 | # | Work | Why it is parked |
 |---|---|---|
 | 15 | Nearby-corpse loot collection | Postponed 16 October 2026: the reference swallows every `CMSG_LOOT` and rewrites the loot table, too much surgery inside a pipeline still being tested. It is a fix for clicking each corpse |
-| 45 | Proximity gathering | Deferred 16 October 2026 until the loot pipeline has been played enough to judge. It is a fix for walking to each node; followers already gather the ordinary way |
+
+**Proximity gathering (item 45) was closed as not wanted on 16 October 2026.** It was never a
+leader-only feature: it meant a node or skinnable corpse being worked *without walking to it and
+without the cast* — removing the gathering loop rather than enabling it. Followers already gather
+the ordinary way, with the walk, the animation and the loot window, because the skill mirror
+(item 22) gives them the leader's Herbalism, Mining and Skinning. Automating that loop away is not
+wanted, so nothing is left of the idea.
 
 Other conveniences were studied and are deliberately **not** tracked as features: auto-sort,
 one-key interact, quiet bot roll messages, a faster loot window, no hearthstone cooldown,
@@ -83,10 +89,23 @@ flight-path unlocking, dual spec and remote talent reset, returning to the dunge
 death, recovering lost boss loot, and panel conveniences. Trash auto-sell was one of these and is
 already built.
 
+## Not requested, kept for a possible future
+
+Nothing here was asked for. These came from a module existing, not from a need, and they are
+recorded only so the research is not lost.
+
+| Idea | Where it came from | What it would be |
+|---|---|---|
+| Warband camp (item 30, closed 16 October 2026) | [mod-warband-camp][warband-camp] — a module whose name happens to contain "Warband" | A personal campsite with 320+ scenery props, dynamic phasing, 3D building tools, service NPCs (bank, vendor, repairs, auctioneer, trainers), rested XP and instant logout inside the camp, and a Playerbots tie-in that gathers offline alts around the fire. A housing system in all but name. If a smaller version is ever wanted, the useful part is field services for the party and nothing else |
+
 ## Not wanted
 
 | Item | Why |
 |---|---|
+| Loot ownership rules (item 13) | **Settled 16 October 2026: the game's own loot mechanics stand.** Rolling, need/greed and the group's loot method are left exactly as the client and the core define them. Removing the binding restriction was the whole loot change |
+| Gear routing to a chosen follower (item 12) | The same decision as 13 — it would have meant overriding the loot mechanics |
+| Companion gold routed to the leader (item 20) | Follower coin stays with the follower, the way follower bags do |
+| Transmogrification (item 46) | Read on 16 October 2026: `mod-transmog` is a gossip NPC that records appearances per character and overrides item display for **players only** — nothing in it involves bots, and companions can never wear a look. A party that transmogs only itself is not worth the dependency; closed for that reason |
 | Open-world party scaling ([mod-open-world-party-scaling][open-world-party-scaling]) | It raises difficulty for a party; Warband needs downscaling for five |
 | Random-bot sync ([mod-rndbot-sync][rndbot-sync]) | It excludes a player's own party bots, so it cannot catch up a follower |
 | Conventional raid-bot support | Teaches bots ordinary raids; it does not make an encounter fit five members |
@@ -99,24 +118,28 @@ already built.
    experience sources receive the bonus. Feature, already built; this is tuning.
 2. Catch-up trigger: automatic or player-controlled.
 3. Recruitment: how a follower joins, and whether a bench exists.
-4. Loot ownership policy: who owns ordinary drops, and which recipient rule applies.
+4. Settled, 16 October 2026: the game's loot mechanics stand. Nothing overrides who owns a drop,
+   nothing routes gear to a chosen follower, and follower coin and bags stay with the follower.
 5. Quest reward delivery at turn-in: direct, or routed by the leader afterwards.
 6. Companion quest-state model: what a follower's quest log actually is.
-7. Party management model: bench, swaps, saved compositions.
+7. Settled, 16 October 2026: party management is the Party tab and nothing more — invite and dismiss
+   per character. A saved composition, a bench and one-click swaps are not wanted.
 8. Auction House buying model and price rules; appearance scope for transmog; camp service list.
 9. Settled: followers gather. Their Herbalism, Mining and Skinning values are mirrored from the
    leader, so they can work the same nodes without owning the crafting professions.
 10. Settled: nothing unbinds. A bound item moves like any other while the binding policy is off,
     and the panel switch restores the ordinary rule when it is on.
-11. Settled, 16 October 2026: nearby-corpse loot collection is postponed (item 15) and proximity
-    gathering deferred (item 45); trash auto-sell is built. None of the three is a feature.
+11. Settled, 16 October 2026: nearby-corpse loot collection is postponed (item 15); proximity
+    gathering (item 45) is **closed as not wanted** — followers gather the ordinary way, with the
+    walk and the animation, and removing that loop is not needed. Trash auto-sell is built. None of
+    the three is a feature.
 12. Settled, 16 October 2026: the in-instance death respawn (item 47) is postponed as well, for the
     same reason as 15 — the only reference is too hacky to build on. The creature-respawn rule
     (item 24) is untouched by that and stays a wanted feature.
-13. Pending another revision, 16 October 2026: the companion-strip access (item 16) and the
-    draggable windows work well enough to use and not well enough to keep. Two questions carry into
-    the next pass: whether a follower's inventory needs a real bag grid instead of MultiBot's list,
-    and whether items should move between members directly rather than through a manual trade.
+13. Settled, 16 October 2026: the companion strip on the bags and the character sheet is accepted as
+    it is — it opens MultiBot's windows and that is enough for now. Two later improvements are
+    recorded, not scheduled: a real bag grid instead of MultiBot's list, and moving items directly
+    between members instead of through a manual trade.
 
 ## Explicitly out of scope
 

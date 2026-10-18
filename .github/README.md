@@ -27,16 +27,19 @@ build, and an addon is deployed to the client under
 | `addons/PlayerbotManager` | Third-party addon | Companion management UI. |
 | `mod-progression` | Third-party module | Content gating by progression phase. |
 | `mod-ale` | Third-party module | Lua scripting support. |
-| `mod-ah-bot-plus` | Third-party module | The auction-house market: it stocks all three houses and buys what the party lists. The one deliberately approved dependency, because writing a market is a project of its own |
+| `mod-ah-bot-plus` | Third-party module | The auction-house market: it stocks all three houses and buys what the party lists. An approved dependency, because writing a market is a project of its own |
+| `mod-autobalance` | Third-party module | Instance difficulty scaling: five members can fight a raid built for forty, and a dungeon scales up once the party outlevels it. An approved dependency |
+| `mod-item-level-scaling` | Third-party module | Loot scaling: the same items with their stats moved to the party's level, never downward. An approved dependency |
 
 **Warband implements every feature in-house unless a recorded decision says otherwise.** Third-party
 modules and addons are reference material: never a dependency, never an install step, never part
-of the build — with exactly one recorded exception, the auction-house market (`mod-ah-bot-plus`),
-named and justified in the [implementation policy](../doc/Warband-Implementation-Policy.md). Nothing
-is staged in this checkout — `modules/` holds the runtime baseline, `mod-warband` and that one
-dependency, no researched module is a submodule, and the read-only research clones under
-`.agents/reference/` are never built. A link in the research documents is a citation of where a
-behaviour was studied, nothing more.
+of the build — with three recorded exceptions, the auction-house market (`mod-ah-bot-plus`) and the
+two scaling modules (`mod-autobalance`, `mod-item-level-scaling`), each named and justified in the
+[implementation policy](../doc/Warband-Implementation-Policy.md). Nothing else is staged in this
+checkout — `modules/` holds the runtime baseline, `mod-warband` and those dependencies, no
+researched module is a submodule, and the read-only research clones under `.agents/reference/` are
+never built. A link in the research documents is a citation of where a behaviour was studied,
+nothing more.
 
 Modules that were only *researched* are not installed and are not part of the
 build. That research lives in
@@ -110,7 +113,10 @@ Warband features. It carries one small core change - the item binding policy in
 The client panel in `addons/Warband` is the player-facing side of the module: its
 XP Options page reads and sets the live values through the module's `.warband`
 chat commands, its Follower gathering page reports the mirror and can apply it on
-demand, and its Features list reports what the server answers.
+demand, and its Features list reports what the server answers. The panel also
+carries a member strip on the bag frame and on the character sheet, which opens a
+companion's inventory or character sheet in MultiBot, and the bag and character
+frames themselves are draggable and remember where they were put.
 
 Configuration is `modules/mod-warband/conf/mod_warband.conf.dist`, installed as
 `bin/RelWithDebInfo/configs/modules/mod_warband.conf`. The options, the command

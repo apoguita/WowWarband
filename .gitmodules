@@ -31,3 +31,13 @@
 	path = modules/mod-ah-bot-plus
 	url = https://github.com/NathanHandley/mod-ah-bot-plus.git
 	branch = master
+
+[submodule "modules/mod-autobalance"]
+	path = modules/mod-autobalance
+	url = https://github.com/azerothcore/mod-autobalance.git
+	branch = master
+
+[submodule "modules/mod-item-level-scaling"]
+	path = modules/mod-item-level-scaling
+	url = https://github.com/Ildourol/mod-item-level-scaling.git
+	branch = master

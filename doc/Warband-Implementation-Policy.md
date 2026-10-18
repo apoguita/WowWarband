@@ -22,15 +22,17 @@ the behaviour.** This is the default, not a preference to be re-argued per featu
   which pitfalls were already hit — because that is what makes the in-house build cheaper.
   Reading upstream source is exactly how a Warband feature gets specified.
 
-**Approved dependencies, in full.** There is exactly one, and it is recorded here so the
-exception can never be mistaken for drift:
+**Approved dependencies, in full.** These are recorded here so an exception can never be mistaken
+for drift:
 
 | Component | What it supplies | Why not in-house | Decided |
 |---|---|---|---|
 | `mod-ah-bot-plus` | The auction-house market: it lists items in all three houses and buys what players list | Writing a working auction market is a project of its own, and the requirement is movement on the house, not an economy Warband needs to own | 16 October 2026 |
+| `mod-autobalance` | Instance difficulty scaling: creature health, mana and damage follow the group, so five members can fight a forty-man raid, and a dungeon scales up once the party outlevels it | Encounter difficulty maths is tuned against player count and carries its own curves; reimplementing it would be a project | 16 October 2026 |
+| `mod-item-level-scaling` | Loot scaling: the same items with their stats moved to the party's level, and never downward | Item stat generation and publishing synthetic item templates is machinery of its own | 16 October 2026 |
 
-Warband still owns the control surface for it: the `.warband ah` command and the panel's
-Auction house page are Warband code that reads and rewrites the bot's settings.
+Warband still owns the control surfaces: the `.warband ah` command and the panel's Auction house
+page for the market, and the panel's Instances page for keeping instance creatures dead.
 
 ## Implementation model
 

@@ -8,5 +8,6 @@
 Warband.lua
 Warband.xml
 PartyAccess.lua
+PartyRoster.lua
 Layout.lua
 Bindings.xml

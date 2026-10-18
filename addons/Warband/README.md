@@ -104,9 +104,33 @@ Files:
 Adding a feature means adding a node to the Tree table in Warband.lua. Use status "live" only for
 something that actually works, and "placeholder" for anything unfinished.
 
-## Party access and window layout — pending another revision
+## Party roster (`PartyRoster.lua`)
 
-Two client features were added on 16 October 2026 and are deliberately left in a revisitable state.
+The client has no party-management window: the Friends frame's Raid tab manages raids, not who is
+standing next to you. This file adds a **Party** tab there, next to Friends/Who/Raid/Guild, and it
+is the one place to choose which characters on the account are with you.
+
+    Invite   sends .playerbots bot add <name>      (the character logs in and joins the group)
+    Dismiss  sends .playerbots bot remove <name>   (it logs out and leaves the group)
+
+The roster data comes from the server, because the client cannot ask which characters an account
+has: `.warband party` answers with one line per character — `name|class|level|online|grouped` —
+chunked into a few chat lines and closed by an empty one. The tab shows level, class, online state
+and whether the character is already grouped, then offers Invite for an offline character and
+Dismiss for a running one. Refresh happens on opening the tab, on the Refresh button, after every
+click, and on `GROUP_ROSTER_UPDATE`.
+
+Two implementation notes: the tab button is created through a fallback chain
+(`FriendsFrameTabButtonTemplate`, then `CharacterFrameTabButtonTemplate`, then a plain button),
+because the exact template a 3.3.5 client uses is inside the MPQs and cannot be read from this
+repository — the fallback keeps a wrong guess cosmetic instead of fatal. And the panel is anchored
+to the Friends frame's own corners rather than given a fixed size, so it fits whatever proportions
+the client uses.
+
+## Party access and window layout
+
+Two client features were added on 16 October 2026. Both are accepted as they stand; the
+improvements listed at the end are recorded for later, not open work.
 
 **Party access (`PartyAccess.lua`).** A strip of companion buttons rides above the bag frame and
 above the character sheet. Clicking one opens that companion's window in MultiBot — the bags strip
@@ -116,22 +140,22 @@ No protocol of our own is involved: it calls `MultiBot.RequestBotInventory(name)
 *not* on the strip: MultiBot's windows are bot windows and show an empty list for a real account,
 so the player's own items stay in the client's real bag frame and real character sheet.
 
-Open questions for the next revision:
-
-- MultiBot renders a follower's inventory as a list, not as a bag grid. If that is not good enough,
-  the alternative is Warband's own bag frame (server data via the module, or the bridge's
-  `INVENTORY_V1` payload), which is a much larger build.
-- Item transfer between members is **not** built. Trading still works the ordinary way: open a trade
-  on a companion and it accepts. A direct move (see `mod-bot-inventory-master` for the technique)
-  would need Warband server code.
-- The strip only appears when companions are in the group; there is no per-member configuration.
-
 **Window layout (`Layout.lua`).** The container frames and the character sheet are anchored by the
 client and are not flagged movable, which is why dragging them did nothing. The addon now sets that
 flag once at load and saves the result, so the windows move whenever they are dragged. The
 character sheet needs a 10-pixel grip strip above its top edge to be grabbed at all: its body is a
-full-size child frame, so every click otherwise lands on a child. The grip is functional but not
-handsome; a real grip texture, or moving the grab area inside the border, is the next revision.
+full-size child frame, so every click otherwise lands on a child.
+
+Improvements recorded for a later pass, none of them scheduled:
+
+- MultiBot renders a follower's inventory as a list, not as a bag grid. A real grid would mean
+  Warband's own bag frame, built from the module's data or the bridge's `INVENTORY_V1` payload.
+- Item transfer between members is **not** built. Trading works the ordinary way: open a trade on a
+  companion and it accepts. A direct move (see `mod-bot-inventory-master` for the technique) would
+  need Warband server code.
+- The window grip is functional but not handsome; a real grip texture, or a grab area inside the
+  border, would be the cosmetic fix.
+- The strip only appears when companions are in the group, and has no per-member configuration.
 
 
 XP controls require a worldserver executable built with the Warband module and started after that

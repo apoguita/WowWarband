@@ -16,6 +16,14 @@ local MOVABLE_FRAMES = {
     "ContainerFrame4",
     "ContainerFrame5",
     "CharacterFrame",
+    "FriendsFrame",
+}
+
+-- Frames whose body is entirely made of child frames and buttons, so they need a strip of their own
+-- to be grabbed: the character sheet's paperdoll fills it, and the friends frame's tabs do.
+local GRIP_FRAMES = {
+    CharacterFrame = true,
+    FriendsFrame = true,
 }
 
 local function SaveAnchor(frame)
@@ -123,7 +131,7 @@ loader:SetScript("OnEvent", function(self, event, name)
             ApplyAnchor(frame)
             MakeMovable(frame)
 
-            if frameName == "CharacterFrame" then
+            if GRIP_FRAMES[frameName] then
                 AddGripStrip(frame)
             end
         end
