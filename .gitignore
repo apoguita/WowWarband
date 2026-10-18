@@ -13,6 +13,9 @@
 !/modules/*.cmake
 /bin/
 /build*/
+# Release packages built by Package-WowWarband.ps1. They are published as GitHub release assets,
+# never committed: a zip of this size would exceed the repository's file limit.
+/dist/
 /var/*
 !/var/build/.gitkeep
 !/var/ccache/.gitkeep
