@@ -1314,6 +1314,94 @@
                             </Button>
                         </Frames>
                     </Frame>
+                    <Frame name="WarbandPageInstance" parent="WarbandDetailPane" hidden="true">
+                        <Size>
+                            <AbsDimension x="732" y="470"/>
+                        </Size>
+                        <Anchors>
+                            <Anchor point="TOPLEFT" relativeTo="WarbandDetailPane"
+                                relativePoint="TOPLEFT">
+                                <Offset>
+                                    <AbsDimension x="24" y="-80"/>
+                                </Offset>
+                            </Anchor>
+                        </Anchors>
+                        <Layers>
+                            <Layer level="ARTWORK">
+                                <FontString name="$parentCaption" inherits="GameFontNormalSmall"
+                                    justifyH="LEFT" text="INSTANCES">
+                                    <Size>
+                                        <AbsDimension x="300" y="12"/>
+                                    </Size>
+                                    <Anchors>
+                                        <Anchor point="TOPLEFT"/>
+                                    </Anchors>
+                                    <Color r="1" g="0.82" b="0"/>
+                                </FontString>
+                                <FontString name="$parentStatus" inherits="GameFontHighlightSmall"
+                                    justifyH="LEFT" text="Reading whether instances restock...">
+                                    <Size>
+                                        <AbsDimension x="620" y="14"/>
+                                    </Size>
+                                    <Anchors>
+                                        <Anchor point="TOPLEFT">
+                                            <Offset>
+                                                <AbsDimension x="0" y="-24"/>
+                                            </Offset>
+                                        </Anchor>
+                                    </Anchors>
+                                </FontString>
+                                <FontString name="$parentHint" inherits="GameFontDisableSmall"
+                                    justifyH="LEFT"
+                                    text="A creature killed inside a dungeon or raid stays dead for the run. The cleared corridor is remembered on disk, so leaving for a while, logging out or a server restart does not bring the trash back. An instance reset does: the client's Reset all instances, a GM reset, or the daily reset hour, which is what a reset is for. Open-world respawns are never touched.">
+                                    <Size>
+                                        <AbsDimension x="620" y="74"/>
+                                    </Size>
+                                    <Anchors>
+                                        <Anchor point="TOPLEFT">
+                                            <Offset>
+                                                <AbsDimension x="0" y="-48"/>
+                                            </Offset>
+                                        </Anchor>
+                                    </Anchors>
+                                </FontString>
+                                <FontString name="$parentDetail" inherits="GameFontNormalSmall"
+                                    justifyH="LEFT" text="">
+                                    <Size>
+                                        <AbsDimension x="620" y="34"/>
+                                    </Size>
+                                    <Anchors>
+                                        <Anchor point="TOPLEFT">
+                                            <Offset>
+                                                <AbsDimension x="0" y="-134"/>
+                                            </Offset>
+                                        </Anchor>
+                                    </Anchors>
+                                    <Color r="1" g="0.82" b="0"/>
+                                </FontString>
+                            </Layer>
+                        </Layers>
+                        <Frames>
+                            <Button name="$parentToggle" inherits="UIPanelButtonTemplate"
+                                text="Instances stay dead: on">
+                                <Size>
+                                    <AbsDimension x="220" y="22"/>
+                                </Size>
+                                <Anchors>
+                                    <Anchor point="TOPLEFT">
+                                        <Offset>
+                                            <AbsDimension x="0" y="-186"/>
+                                        </Offset>
+                                    </Anchor>
+                                </Anchors>
+                                <Scripts>
+                                    <OnClick>
+                                        Warband_ToggleInstanceNoRespawn();
+                                    </OnClick>
+                                </Scripts>
+                            </Button>
+                        </Frames>
+                    </Frame>
         </Frames>
         <Scripts>
             <OnShow>

@@ -61,6 +61,7 @@ Warband features. It carries one small core change - the item binding policy in
 | Magic find | Built; not yet verified in game |
 | Gold find | Built; not yet verified in game |
 | Trash auto-sell | Built; not yet verified in game |
+| Instances stop restocking | Built; not yet verified in game |
 
 - **XP multiplier** scales every experience gain - kills, quests, exploration and
   battlegrounds - for every character, followers included. It is a whole number
@@ -92,6 +93,11 @@ Warband features. It carries one small core change - the item binding policy in
   can empty by hand. Quest items, quest-starting items and anything an accepted quest
   still needs are never sold. A bag that is already full cannot be emptied by looting, so
   `.warband trash sell` - or the panel's button - sweeps the whole party's bags.
+- **Instances stop restocking**: a creature killed inside a dungeon or raid stays dead for the
+  run. The death is saved to the character database, so leaving for a while, logging out or a
+  server restart does not bring the trash back, while an instance reset - manual or the daily one -
+  still restores the whole dungeon. Open-world respawns are untouched, and the panel's Instances
+  page switches the rule on and off live.
 - **Follower gathering** gives every companion in the party the leader's Herbalism,
   Mining and Skinning values, so they can work the same nodes and skin the same
   corpses without owning a crafting profession. It is a floor, never a ceiling:

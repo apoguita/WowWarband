@@ -65,6 +65,7 @@ local Tree = {
             { id = "goldfind", text = "Gold find", status = "live", page = "goldfind" },
             { id = "trashsell", text = "Trash sell", status = "live", page = "trashsell" },
             { id = "auctionhouse", text = "Auction house", status = "live", page = "auctionhouse" },
+            { id = "instances", text = "Instances", status = "live", page = "instances" },
         },
     },
     {
@@ -186,6 +187,13 @@ local auction = {
 local auctionRequest = { pending = false, deadline = nil }
 local UpdateAuctionDisplay
 local SetAuctionStatus
+
+-- Instances stop restocking: a creature killed inside a dungeon stays dead for the run. "kept" is
+-- how many creatures this session has kept down.
+local instance = { known = false, enabled = true, kept = 0 }
+local instanceRequest = { pending = false, deadline = nil }
+local UpdateInstanceDisplay
+local SetInstanceStatus
 local UpdateGoldFindDisplay
 local SetGoldFindStatus
 local goldFindValue
@@ -287,6 +295,14 @@ local function RequestAuctionState()
     StartRequest(auctionRequest, ".warband ah")
 end
 
+local function RequestInstanceState()
+    if UpdateInstanceDisplay then
+        UpdateInstanceDisplay()
+    end
+
+    StartRequest(instanceRequest, ".warband instance")
+end
+
 -- Sends the value the panel shows. Repeating the last accepted value is skipped so a click that
 -- changes nothing does not produce needless chat traffic.
 local function CommitRate()
@@ -371,6 +387,12 @@ function Warband_OnUpdate()
         ClearRequest(auctionRequest)
         SetAuctionStatus("Unavailable: this worldserver does not answer .warband ah yet.", COLOR_GREY)
     end
+
+    if instanceRequest.pending and GetTime() >= instanceRequest.deadline then
+        ClearRequest(instanceRequest)
+        SetInstanceStatus("Unavailable: this worldserver does not answer .warband instance yet.",
+            COLOR_GREY)
+    end
 end
 
 function Warband_OnEvent(self, event, ...)
@@ -438,6 +460,29 @@ function Warband_OnEvent(self, event, ...)
         end
         return
     end
+    if string.find(message or "", "WARBAND_INSTANCE=", 1, true) then
+        for key, value in string.gmatch(message, "([%a_]+)=([%d%.]+)") do
+            local number = tonumber(value)
+            if key == "enabled" then
+                instance.enabled = number == 1
+            elseif key == "kept" then
+                instance.kept = number or 0
+            end
+        end
+
+        ClearRequest(instanceRequest)
+        instance.known = true
+
+        if UpdateInstanceDisplay then
+            UpdateInstanceDisplay()
+        end
+
+        if RefreshDynamicPage then
+            RefreshDynamicPage()
+        end
+        return
+    end
+
     if string.find(message or "", "WARBAND_AHBOT=", 1, true) then
         auction.installed = false
 
@@ -1361,6 +1406,50 @@ function Warband_RefreshAuction()
     StartRequest(auctionRequest, ".warband ah repopulate")
 end
 
+-- Instances: one switch, and a count of what this session has kept down.
+SetInstanceStatus = function(text, color)
+    WarbandPageInstanceStatus:SetText(text)
+    WarbandPageInstanceStatus:SetTextColor(color[1], color[2], color[3])
+end
+
+UpdateInstanceDisplay = function()
+    if not instance.known then
+        SetInstanceStatus("Reading whether instances restock...", COLOR_AMBER)
+    elseif instance.enabled then
+        SetInstanceStatus("Live - a creature killed inside a dungeon stays dead for the run",
+            COLOR_GREEN)
+    else
+        SetInstanceStatus("Off - instance creatures respawn on the ordinary timers", COLOR_GREY)
+    end
+
+    WarbandPageInstanceToggle:SetText(instance.enabled and "Instances stay dead: on"
+        or "Instances stay dead: off")
+
+    if instance.known then
+        WarbandPageInstanceDetail:SetText(string.format(
+            "Kept down this session: %d creature(s)\nA reset, manual or the daily one, brings a dungeon back.",
+            instance.kept))
+    else
+        WarbandPageInstanceDetail:SetText("Waiting for the server...")
+    end
+end
+
+function Warband_ToggleInstanceNoRespawn()
+    if not instance.known then
+        SetInstanceStatus("Waiting for the server before changing this...", COLOR_AMBER)
+        StartRequest(instanceRequest, ".warband instance")
+        return
+    end
+
+    if instance.enabled then
+        SetInstanceStatus("Switching it off...", COLOR_AMBER)
+        StartRequest(instanceRequest, ".warband instance off")
+    else
+        SetInstanceStatus("Switching it on...", COLOR_AMBER)
+        StartRequest(instanceRequest, ".warband instance on")
+    end
+end
+
 -- Pages whose content depends on live state rather than fixed text.
 local function DynamicLines(kind)
     if kind == "features" then
@@ -1412,6 +1501,10 @@ local function DynamicLines(kind)
                 or "- Auction house: stocked by the bot, selling waits for a buyer")
         end
 
+        if instance.known and instance.enabled then
+            table.insert(lines, "- Instances: a creature killed inside one stays dead for the run")
+        end
+
         table.insert(lines, " ")
         table.insert(lines, "New features are listed here as they are added.")
         return lines
@@ -1454,6 +1547,7 @@ local function ShowNode(node)
     WarbandPageGoldFind:Hide()
     WarbandPageTrashSell:Hide()
     WarbandPageAuctionHouse:Hide()
+    WarbandPageInstance:Hide()
 
     if node.page == "experience" then
         WarbandPageExperience:Show()
@@ -1513,6 +1607,15 @@ local function ShowNode(node)
         return
     end
 
+    if node.page == "instances" then
+        if UpdateInstanceDisplay then
+            UpdateInstanceDisplay()
+        end
+
+        WarbandPageInstance:Show()
+        return
+    end
+
     RenderTextPage(node.dynamic and DynamicLines(node.dynamic) or node.lines
         or { "No details recorded for this feature yet." })
     WarbandPageText:Show()
@@ -1545,6 +1648,7 @@ function Warband_OnShow()
     RequestGoldFindState()
     RequestTrashSellState()
     RequestAuctionState()
+    RequestInstanceState()
 end
 
 function Warband_OnHide()
@@ -1556,6 +1660,7 @@ function Warband_OnHide()
     ClearRequest(goldFindRequest)
     ClearRequest(trashSellRequest)
     ClearRequest(auctionRequest)
+    ClearRequest(instanceRequest)
 end
 
 function Warband_OnCloseClick()

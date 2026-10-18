@@ -194,3 +194,32 @@ Warband.GoldFind.Multiplier = 3.0
 #        Default: 1 - Enabled
 #
 Warband.TrashSell.Enabled = 1
+
+###################################################################################################
+#  Instances stop restocking
+#
+#  A creature that dies inside a dungeon or raid does not come back for the run. Its respawn time is
+#  pushed ten years out and saved to the character database, which is why a cleared corridor stays
+#  cleared even after the instance unloads (Instance.UnloadDelay: 30 minutes with nobody inside) or
+#  after a server restart.
+#
+#  An instance reset still brings everything back - the client's "Reset all instances", a GM reset,
+#  or the daily reset hour. That is what a reset is for, so nothing here fights it.
+#
+#  Only dungeons and raids, and only creatures the party killed: a follower's kill counts, and a
+#  summon's kill counts through its owner. Open-world respawns are untouched.
+#
+#     Warband.Instances.NoRespawn
+#        Keep instance creatures dead for the run. The panel's Instances page toggles this live.
+#        Default: 1 - Enabled
+#
+Warband.Instances.NoRespawn = 1
+
+#     Warband.Instances.NeverAdjust.CreatureID
+#     Warband.Instances.NeverAdjust.InstanceID
+#        Space-separated ids that keep their ordinary respawn timers, for a creature or a map that
+#        has to come back (a summoning object's guards, a respawning event mob, a test map).
+#        Default: empty
+#
+Warband.Instances.NeverAdjust.CreatureID =
+Warband.Instances.NeverAdjust.InstanceID =

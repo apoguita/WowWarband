@@ -29,6 +29,8 @@
  *   .warband ah candidates <1-50>                  listings the buyer considers per cycle
  *   .warband ah stock <alliance|horde|neutral> <n> stock target for one auction house
  *   .warband ah repopulate                         rebuild the bot's item lists and top up now
+ *   .warband instance                              read whether killed instance creatures stay dead
+ *   .warband instance on | off                     keep killed instance creatures dead, or not
  *
  * Every reply is a single machine-readable line, which is how the Warband addon reads state:
  *   WARBAND_XP=3
@@ -39,6 +41,7 @@
  *   WARBAND_GOLDFIND=3.00
  *   WARBAND_TRASHSELL=enabled=1;sold=12;copper=3456;swept=0
  *   WARBAND_AHBOT=installed=1;seller=1;buyer=1;items=150;candidates=5;alliance=1200;horde=1200;neutral=200
+ *   WARBAND_INSTANCE=enabled=1;kept=42
  */
 
 #include "Chat.h"
@@ -94,6 +97,9 @@ bool WarbandSetAuctionBotItemsPerCycle(uint32 items);
 bool WarbandSetAuctionBotBuyCandidates(uint32 candidates);
 bool WarbandSetAuctionBotStock(std::string const& house, uint32 items);
 void WarbandRefreshAuctionBot();
+bool GetWarbandInstanceNoRespawn();
+bool SetWarbandInstanceNoRespawn(bool enabled);
+uint32 GetWarbandInstanceKeptDead();
 
 using namespace Acore::ChatCommands;
 
@@ -120,6 +126,9 @@ char const* const TrashUsage =
 char const* const AuctionHouseUsage =
     "Usage: .warband ah [seller|buyer on|off] [items <10-5000>] [candidates <1-50>]"
     " [stock <alliance|horde|neutral> <0-20000>] [repopulate]";
+
+char const* const InstanceUsage =
+    "Usage: .warband instance [on|off] - whether a creature killed inside a dungeon stays dead";
 
 // Parses the single numeric argument that may follow a keyword.
 bool ParseValue(char const* args, size_t keywordLength, float& value)
@@ -189,6 +198,7 @@ public:
             {"gf",       HandleGoldFindCommand,   SEC_PLAYER, Console::No},
             {"trash",    HandleTrashCommand,      SEC_PLAYER, Console::No},
             {"ah",       HandleAuctionHouseCommand, SEC_PLAYER, Console::No},
+            {"instance", HandleInstanceCommand,   SEC_PLAYER, Console::No},
         };
 
         static ChatCommandTable commandTable =
@@ -715,6 +725,46 @@ private:
             GetWarbandAuctionBotNumber("AuctionHouseBot.Alliance.MaxItems", 0),
             GetWarbandAuctionBotNumber("AuctionHouseBot.Horde.MaxItems", 0),
             GetWarbandAuctionBotNumber("AuctionHouseBot.Neutral.MaxItems", 0));
+    }
+
+    // Instances stop restocking. The rule is applied at the moment a creature dies, so switching it
+    // off leaves everything that is already dead where it is - an instance reset is what brings a
+    // dungeon back.
+    static bool HandleInstanceCommand(ChatHandler* handler, char const* args)
+    {
+        while (*args == ' ')
+            ++args;
+
+        if (strncmp(args, "on", 2) == 0 && (args[2] == '\0' || args[2] == ' '))
+        {
+            SetWarbandInstanceNoRespawn(true);
+            SendInstance(handler);
+            return true;
+        }
+
+        if (strncmp(args, "off", 3) == 0 && (args[3] == '\0' || args[3] == ' '))
+        {
+            SetWarbandInstanceNoRespawn(false);
+            SendInstance(handler);
+            return true;
+        }
+
+        if (!*args)
+        {
+            SendInstance(handler);
+            return true;
+        }
+
+        handler->SendSysMessage(InstanceUsage);
+        return false;
+    }
+
+    static void SendInstance(ChatHandler* handler)
+    {
+        handler->PSendSysMessage(
+            "WARBAND_INSTANCE=enabled={};kept={}",
+            GetWarbandInstanceNoRespawn() ? 1 : 0,
+            GetWarbandInstanceKeptDead());
     }
 };
 

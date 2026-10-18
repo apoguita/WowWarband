@@ -28,6 +28,7 @@ longer refers to it.
 | Gold find | Built; not yet verified in game | `WarbandGoldFind.cpp`, `WarbandCommands.cpp` |
 | Trash auto-sell | Built; not yet verified in game | `WarbandTrashSell.cpp`, `WarbandCommands.cpp` |
 | Auction house control | Built; not yet verified in game | `WarbandAuctionHouse.cpp`, `WarbandCommands.cpp` |
+| Instances stop restocking | Built; not yet verified in game | `WarbandInstances.cpp`, `WarbandCommands.cpp` |
 
 Keeping the two kinds of bot apart is what `WarbandPlayerRoles.h` is for:
 `WarbandFollowerMaster()` returns a leader only for a bot piloted by a real
@@ -235,6 +236,33 @@ vendoring, quest rewards, mail and the auction house is a different path and sta
 money has its own `Rate.RewardQuestMoney` and `Rate.RewardBonusMoney` in `worldserver.conf`.
 
 Because the module owns the rate, its value wins over `Rate.Drop.Money` in `worldserver.conf`.
+
+## Instances stop restocking
+
+A Warband fights through a dungeon slowly, and the base game keeps putting the cleared trash back.
+With `Warband.Instances.NoRespawn` on, a creature that dies inside a dungeon or raid keeps its
+death: `UnitScript::OnUnitDeath` pushes its respawn ten years out and calls `SaveRespawnTime()`, so
+the dead state is a database row rather than a memory flag.
+
+That choice matters, because it is what survives an **unload**. When the last player leaves an
+instance the core starts a 30-minute timer (`Instance.UnloadDelay`) and then destroys the map; the
+respawn rows stay behind and are read back by `Map::LoadRespawnTimes()` the next time the instance
+is created. A server restart behaves the same way. So a cleared corridor is still cleared after a
+coffee break, a logout, or a restart.
+
+What it does **not** survive, deliberately, is an instance reset — the client's "Reset all
+instances", a GM reset, or the daily reset hour. `InstanceMap::Reset()` flags the map as
+reset-after-unload, and `InstanceMap::UnloadAll()` then deletes every respawn row. That is exactly
+what a reset means, so nothing here fights it.
+
+Scope: dungeons and raids only, and only creatures the party killed — a follower's kill counts, and
+a summon's kill counts through its owner. Open-world respawns are untouched. `NeverAdjust` lists
+take creature or map ids back out of the rule.
+
+    .warband instance          reads the state, replies WARBAND_INSTANCE=enabled=1;kept=42
+    .warband instance on|off   applies to the next death; already-dead creatures stay dead
+
+The panel's Instances page has the same switch and the session's count.
 
 ## Auction house control
 
