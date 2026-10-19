@@ -32,6 +32,7 @@
 #include "Player.h"
 #include "ScriptMgr.h"
 #include "WarbandPlayerRoles.h"
+#include "WarbandTrade.h"
 
 namespace
 {
@@ -118,6 +119,75 @@ void GrantWarbandTradeOnItem(Player* player, Item* item)
 
     GrantTradeOnItem(item, allowed);
 }
+
+// The other side of the trade is a companion this surface may act for: a bot (a Warband follower or
+// any playerbot) or a character on the player's own account. A real player on another account is
+// never touched - their purse stays theirs.
+bool IsTradeCompanion(Player* player, Player* partner)
+{
+    if (!player || !partner)
+        return false;
+
+    if (sPlayerbotsMgr.GetPlayerbotAI(partner))
+        return true;
+
+    WorldSession* playerSession = player->GetSession();
+    WorldSession* partnerSession = partner->GetSession();
+
+    return playerSession && partnerSession &&
+        playerSession->GetAccountId() == partnerSession->GetAccountId();
+}
+}
+
+// Puts `copper` of the companion's money into the trade window that is already open with them. The
+// core does the rest: TradeData::SetMoney() checks the purse, refuses a trade it cannot fund and
+// sends the update both clients need to show the amount, and accepting moves the coin through the
+// ordinary trade path. Nothing is written here that a hand-filled trade would not write.
+WarbandTradeGold WarbandFillTradeGold(Player* player, uint32 copper, Player*& partner)
+{
+    partner = nullptr;
+
+    TradeData* trade = player ? player->GetTradeData() : nullptr;
+    if (!trade)
+        return WarbandTradeGold::NoTrade;
+
+    partner = trade->GetTrader();
+    if (!partner || !partner->GetTradeData())
+        return WarbandTradeGold::NoTrade;
+
+    if (!IsTradeCompanion(player, partner))
+        return WarbandTradeGold::NotCompanion;
+
+    if (!partner->HasEnoughMoney(copper))
+        return WarbandTradeGold::NoFunds;
+
+    partner->GetTradeData()->SetMoney(copper);
+    return WarbandTradeGold::Ok;
+}
+
+// What the open trade looks like from the player's side: who it is with, what that companion's side
+// of the trade holds, and what the companion is carrying. Returns false when no trade is open.
+bool WarbandTradeState(Player* player, Player*& partner, uint32& tradeMoney, uint32& purse)
+{
+    partner = nullptr;
+    tradeMoney = 0;
+    purse = 0;
+
+    TradeData* trade = player ? player->GetTradeData() : nullptr;
+    if (!trade)
+        return false;
+
+    partner = trade->GetTrader();
+    if (!partner)
+        return false;
+
+    purse = partner->GetMoney();
+
+    TradeData* partnerTrade = partner->GetTradeData();
+    if (partnerTrade)
+        tradeMoney = partnerTrade->GetMoney();
+
+    return true;
 }
 
 class WarbandTrading final : public PlayerScript

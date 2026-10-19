@@ -34,6 +34,8 @@ longer refers to it.
 | Pets always happy | Built; not yet verified in game | `WarbandConvenience.cpp`, `WarbandCommands.cpp` |
 | World scaling control | Built; not yet verified in game | `WarbandWorldScale.cpp`, `WarbandCommands.cpp` |
 | AoE loot control | Built; not yet verified in game | `WarbandAoeLoot.cpp`, `WarbandCommands.cpp` |
+| Random world bots control | Built; not yet verified in game | `WarbandRandomBots.cpp`, `WarbandCommands.cpp` |
+| Companion pays in a trade | Built; not yet verified in game | `WarbandTrading.cpp`, `WarbandTrade.h`, `WarbandCommands.cpp` |
 
 Keeping the two kinds of bot apart is what `WarbandPlayerRoles.h` is for:
 `WarbandFollowerMaster()` returns a leader only for a bot piloted by a real
@@ -412,6 +414,51 @@ own path, which does not raise `OnPlayerLootItem` that the trash auto-sell hangs
 `WarbandTrashSell` also hooks `OnPlayerAfterCreatureLoot` and sweeps the bags once after that store
 while area looting is enabled - the grey is still sold to the leader's purse. With area looting
 off, the hook does nothing and the ordinary pickup hook does all the work.
+
+## Random world bots control
+
+The bots that wander the world are logged in and out by the playerbots module itself: its
+`Playerbots.RandomBotAutologin` switch gates the whole random-bot tick, and the population is the
+manager's `bot_count` event, re-rolled inside `[Playerbots.MinRandomBots, Playerbots.MaxRandomBots]`.
+They are ambience, not Warband, and on a single-player server a five-character party plays better
+without them. This surface is the switch and the size, and nothing else:
+
+    .warband randombots              read the state
+    .warband randombots on | off     start or stop the population
+    .warband randombots set <1-500>  pin how many stay online
+
+The reply is `WARBAND_RANDOMBOTS=enabled=1;target=500;online=123`. Off logs out the bots online at
+that moment through `PlayerbotHolder::LogoutPlayerBot`, the same path the module uses itself, and
+stops new logins; a target collapses the manager's own `MinRandomBots`/`MaxRandomBots` range onto
+itself, so every re-roll of `bot_count` lands on the target, and then logs out the excess. **The
+Warband's own companions are never random bots** - `IsRandomBot()` tests the random-account list and
+the manager's own set - so the switch cannot touch the party. A change is applied at once and also
+written into `configs/modules/playerbots.conf` - the autologin switch and the two bounds, nothing
+else - so the next startup holds the same state; playerbots reads those options in
+`OnBeforeWorldInitialized`, which is why the written value takes effect at the next start rather
+than immediately. `conf/mod_warband.conf.dist` documents the surface without adding a setting, since
+the module owns no key for it.
+
+## Companion pays in a trade
+
+A companion can hand coin over only by filling its side of a trade window, and the bot gets there
+through a whisper sequence (`t <amount>`, twice, the second time while the window is already open)
+that nobody should have to remember. This surface does that one step from the server instead:
+
+    .warband trade                     report the open trade
+    .warband trade gold <amount>       put that much of the companion's money into the trade
+
+The amount is compact money: `1s`, `50c`, `2g`, `1g20s5c`, or a bare number of copper. The replies
+are `WARBAND_TRADE=open=1;partner=Tanko;purse=1240;inTrade=0` and
+`WARBAND_TRADEGOLD=ok=1;partner=Tanko;amount=100;purse=1240`, or
+`ok=0;reason=notrade|notcompanion|nofunds` when it cannot happen.
+
+What it does is narrow: it reads the trade the player already has open and calls the core's own
+`TradeData::SetMoney()` on the **companion's** side, so the purse check, the packet both clients need
+to render the amount, and the coin movement on accept are all the core's ordinary trade path - no
+Warband-only money movement. Only a bot (any Warband follower) or a character on the player's own
+account can be asked to pay; a real player on another account never is. `WarbandTrade.h` carries the
+small interface, `WarbandTrading.cpp` the implementation.
 
 ## Follower gathering
 

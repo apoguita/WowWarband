@@ -251,3 +251,24 @@ Warband.Hearthstone.AlwaysReady = 1
 #        Default: 1 - Enabled
 #
 Warband.Pets.AlwaysHappy = 1
+
+###################################################################################################
+#  Random world bots
+#
+#  The bots that wander the world are not Warband's: the playerbots module logs its random bots in
+#  and out on its own schedule, reading Playerbots.RandomBotAutologin and a population between
+#  Playerbots.MinRandomBots and Playerbots.MaxRandomBots in playerbots.conf. This module adds no key
+#  of its own. It reports that state and lets the Warband panel and .warband randombots change it:
+#
+#     .warband randombots              read the state
+#                                     (WARBAND_RANDOMBOTS=enabled=1;target=500;online=123)
+#     .warband randombots off          stop new logins and log out the random bots online now
+#     .warband randombots on           restore the population at the target below
+#     .warband randombots set <1-500>  pin how many random bots stay online
+#
+#  Every change is applied at once and written into modules/playerbots.conf - the autologin switch
+#  and the two population bounds, nothing else in that file - so the next startup holds the same
+#  state. Nothing is stored here: this module adds no key of its own, it only drives the three
+#  playerbots options. The Warband's own companions are never random bots, so this switch can never
+#  touch the party.
+

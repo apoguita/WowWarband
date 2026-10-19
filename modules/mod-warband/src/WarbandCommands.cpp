@@ -64,6 +64,7 @@
 #include "Player.h"
 #include "RBAC.h"
 #include "ScriptMgr.h"
+#include "WarbandTrade.h"
 
 #include <cmath>
 #include <cstdlib>
@@ -117,6 +118,11 @@ bool SetWarbandAoeLootGroupEnabled(bool enabled);
 bool SetWarbandAoeLootMailEnabled(bool enabled);
 bool SetWarbandAoeLootRange(float range);
 bool SetWarbandAoeLootMaxCorpses(uint32 corpses);
+bool GetWarbandRandomBotsEnabled();
+uint32 GetWarbandRandomBotsTarget();
+uint32 GetWarbandRandomBotsOnline();
+bool SetWarbandRandomBotsEnabled(bool enabled);
+bool SetWarbandRandomBotsTarget(uint32 target);
 bool WarbandAuctionBotInstalled();
 bool GetWarbandAuctionBotSetting(std::string const& key, bool fallback);
 uint32 GetWarbandAuctionBotNumber(std::string const& key, uint32 fallback);
@@ -165,6 +171,10 @@ char const* const AoeLootUsage =
     "Usage: .warband aoeloot [on|off] [message|group|mail on|off] [range <5-100>] [corpses <1-50>]"
     " - area looting via mod-aoe-loot, off by default";
 
+char const* const RandomBotsUsage =
+    "Usage: .warband randombots [on|off] [set <1-500>]"
+    " - turn the random world bot population off, or pin how many stay online";
+
 char const* const AuctionHouseUsage =
     "Usage: .warband ah [seller|buyer on|off] [items <10-5000>] [candidates <1-50>]"
     " [stock <alliance|horde|neutral> <0-20000>] [repopulate]";
@@ -177,6 +187,58 @@ char const* const HearthstoneUsage =
 
 char const* const PetsUsage =
     "Usage: .warband pets [on|off] - whether every hunter pet is kept at full happiness";
+
+char const* const TradeGoldUsage =
+    "Usage: .warband trade - read the open trade;"
+    " .warband trade gold <amount> - put that much of the companion's money into the open trade"
+    " (1s, 50c, 2g, 1g20s5c)";
+
+// Compact money: digits with an optional g, s or c after each part, for example "1s", "50c", "2g",
+// "1g20s5c". A bare number is copper. Guarded against absurd amounts so a typo cannot ask a
+// companion for more gold than the game can hold.
+bool ParseMoneyText(char const* text, uint32& copper)
+{
+    constexpr uint32 MoneyLimit = 2000000000u;
+
+    uint32 total = 0;
+    bool any = false;
+
+    while (*text)
+    {
+        while (*text == ' ')
+            ++text;
+
+        if (!*text)
+            break;
+
+        char* end = nullptr;
+        unsigned long const value = std::strtoul(text, &end, 10);
+        if (end == text)
+            return false;
+
+        uint32 multiplier = 1;
+
+        if (*end == 'g' || *end == 'G')
+            multiplier = 10000;
+        else if (*end == 's' || *end == 'S')
+            multiplier = 100;
+        else if (*end == 'c' || *end == 'C')
+            multiplier = 1;
+        else if (*end != '\0' && *end != ' ')
+            return false;
+
+        if (value > MoneyLimit / multiplier || total > MoneyLimit - uint32(value) * multiplier)
+            return false;
+
+        total += uint32(value) * multiplier;
+        any = true;
+
+        text = *end ? end + 1 : end;
+    }
+
+    copper = total;
+    return any;
+}
 
 // Parses the single numeric argument that may follow a keyword.
 bool ParseValue(char const* args, size_t keywordLength, float& value)
@@ -247,6 +309,8 @@ public:
             {"trash",    HandleTrashCommand,      SEC_PLAYER, Console::No},
             {"worldscale", HandleWorldScaleCommand, SEC_PLAYER, Console::No},
             {"aoeloot",  HandleAoeLootCommand,    SEC_PLAYER, Console::No},
+            {"randombots", HandleRandomBotsCommand, SEC_PLAYER, Console::No},
+            {"trade",    HandleTradeCommand,      SEC_PLAYER, Console::No},
             {"ah",       HandleAuctionHouseCommand, SEC_PLAYER, Console::No},
             {"instance", HandleInstanceCommand,   SEC_PLAYER, Console::No},
             {"hearthstone", HandleHearthstoneCommand, SEC_PLAYER, Console::No},
@@ -882,6 +946,145 @@ private:
             GetWarbandAoeLootMailEnabled() ? 1 : 0,
             GetWarbandAoeLootRange(),
             GetWarbandAoeLootMaxCorpses());
+    }
+
+    // Random world bots: the bots the playerbots module logs in and out by itself are ambience, not
+    // Warband. On a single-player server a five-character Warband plays better without them - the
+    // world is large, the random bots scatter, and nothing they do is seen. This is the switch and
+    // the population target; the default is the configured behaviour, unchanged.
+    static bool HandleRandomBotsCommand(ChatHandler* handler, char const* args)
+    {
+        while (*args == ' ')
+            ++args;
+
+        if (!*args)
+        {
+            SendRandomBots(handler);
+            return true;
+        }
+
+        if (strncmp(args, "on", 2) == 0 && (args[2] == '\0' || args[2] == ' '))
+        {
+            SetWarbandRandomBotsEnabled(true);
+            SendRandomBots(handler);
+            return true;
+        }
+
+        if (strncmp(args, "off", 3) == 0 && (args[3] == '\0' || args[3] == ' '))
+        {
+            SetWarbandRandomBotsEnabled(false);
+            SendRandomBots(handler);
+            return true;
+        }
+
+        if (strncmp(args, "set", 3) == 0 && (args[3] == '\0' || args[3] == ' '))
+        {
+            uint32 target = 0;
+            if (!ParseCount(args + 3, target) || !SetWarbandRandomBotsTarget(target))
+            {
+                handler->SendSysMessage(RandomBotsUsage);
+                return false;
+            }
+
+            SendRandomBots(handler);
+            return true;
+        }
+
+        handler->SendSysMessage(RandomBotsUsage);
+        return false;
+    }
+
+    static void SendRandomBots(ChatHandler* handler)
+    {
+        handler->PSendSysMessage(
+            "WARBAND_RANDOMBOTS=enabled={};target={};online={}",
+            GetWarbandRandomBotsEnabled() ? 1 : 0,
+            GetWarbandRandomBotsTarget(),
+            GetWarbandRandomBotsOnline());
+    }
+
+    // The open trade, from the player's side: who it is with, what that companion's side holds and
+    // what they carry. `.warband trade gold <amount>` then puts money of theirs into the window,
+    // which is the one step the bot answers by whisper today and which nobody should have to
+    // remember. The trade itself stays a trade: the core moves the coin on accept.
+    static bool HandleTradeCommand(ChatHandler* handler, char const* args)
+    {
+        while (*args == ' ')
+            ++args;
+
+        Player* player = handler->GetSession() ? handler->GetSession()->GetPlayer() : nullptr;
+
+        if (!*args)
+        {
+            SendTrade(handler, player);
+            return true;
+        }
+
+        if (strncmp(args, "gold", 4) == 0 && (args[4] == '\0' || args[4] == ' '))
+        {
+            char const* rest = args + 4;
+            while (*rest == ' ')
+                ++rest;
+
+            uint32 copper = 0;
+            if (!*rest || !ParseMoneyText(rest, copper) || !player)
+            {
+                handler->SendSysMessage(TradeGoldUsage);
+                return false;
+            }
+
+            Player* partner = nullptr;
+
+            switch (WarbandFillTradeGold(player, copper, partner))
+            {
+                case WarbandTradeGold::Ok:
+                    handler->PSendSysMessage(
+                        "WARBAND_TRADEGOLD=ok=1;partner={};amount={};purse={}",
+                        partner->GetName(),
+                        copper,
+                        partner->GetMoney());
+                    return true;
+                case WarbandTradeGold::NoTrade:
+                    handler->PSendSysMessage("WARBAND_TRADEGOLD=ok=0;reason=notrade");
+                    return true;
+                case WarbandTradeGold::NotCompanion:
+                    handler->PSendSysMessage(
+                        "WARBAND_TRADEGOLD=ok=0;reason=notcompanion;partner={}",
+                        partner ? partner->GetName() : "");
+                    return true;
+                case WarbandTradeGold::NoFunds:
+                    handler->PSendSysMessage(
+                        "WARBAND_TRADEGOLD=ok=0;reason=nofunds;partner={};purse={}",
+                        partner ? partner->GetName() : "",
+                        partner ? partner->GetMoney() : 0);
+                    return true;
+            }
+
+            handler->SendSysMessage(TradeGoldUsage);
+            return false;
+        }
+
+        handler->SendSysMessage(TradeGoldUsage);
+        return false;
+    }
+
+    static void SendTrade(ChatHandler* handler, Player* player)
+    {
+        Player* partner = nullptr;
+        uint32 tradeMoney = 0;
+        uint32 purse = 0;
+
+        if (!WarbandTradeState(player, partner, tradeMoney, purse))
+        {
+            handler->PSendSysMessage("WARBAND_TRADE=open=0");
+            return;
+        }
+
+        handler->PSendSysMessage(
+            "WARBAND_TRADE=open=1;partner={};purse={};inTrade={}",
+            partner->GetName(),
+            purse,
+            tradeMoney);
     }
 
     // Auction house: the market itself is mod-ah-bot-plus, which has no user front end at all, so

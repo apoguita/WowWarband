@@ -20,6 +20,7 @@ The tree as it stands:
       Instances           live - killed instance creatures stay dead, with a counter
       World scaling       live - the open-world scaler switch, off by default
       AoE loot            live - the area looting switch, off by default
+      World bots          live - the random bot population, its switch and target
       Convenience         live - hearthstone without a cooldown, pets always happy
     Features              what this Warband adds, listed live
     About                 author and project description
@@ -27,6 +28,12 @@ The tree as it stands:
 Label colours state the status: green is live, grey is an unfinished placeholder. The detail pane
 header repeats it in words, so a placeholder never reads as finished. An unfinished feature sits
 inside the tab it belongs to rather than getting a tab of its own.
+
+The **Features** page lists every feature the module adds, not only the switches that happen to be
+on: experience and catch-up, gathering, gear sharing, magic find, gold find, trash sell, auction
+house, instances, hearthstone, pets, world scaling, AoE loot, world bots, the trade gold panel and
+the party roster. Each line follows the live state where the server reports one, so the page is a
+statement about the running server rather than a brochure.
 
 The inner panes are border-only group boxes on purpose: no backdrop background, so the window
 behind them shows through instead of a grey wash on top of it.
@@ -183,6 +190,35 @@ is **off by default** for the master switch: the module ships enabled, so the Wa
 its configuration with 0 and the base game's one-corpse window stays the default until you turn it
 on. Each character can additionally toggle the feature with `.aoeloot on/off`. When the server was
 built without the module the reply is `installed=0` and the page says so.
+
+## World bots
+
+Server > World bots is the switch and target for the random bots the playerbots module logs in and
+out by itself — ambience, not the Warband. The reply is
+`WARBAND_RANDOMBOTS=enabled=1;target=500;online=123`. **Random bots: on/off** turns the whole
+population off (the ones online are logged out at once) or back on; the target stepper (1–500, step
+10) pins how many stay online. The Warband's own companions are never random bots, so the switch
+cannot touch the party. Both choices are written into the playerbots configuration, so they survive a
+restart; the default until you touch it is the playerbots configuration, unchanged.
+
+## Trade gold panel (`TradePanel.lua`)
+
+A small frame that attaches to the side of the trade window and disappears with it. It exists for one
+job: letting a companion pay without reciting the bot's whisper sequence (`t <amount>`, twice, in the
+right order, once the window is already open).
+
+When a trade opens, the panel shows the partner and what they carry, three amount boxes for gold,
+silver and copper, and one **Put in trade** button. Each box takes typed numbers as well as `-` / `+`
+steps (gold 0–9999, silver and copper 0–99), so 2 silver is one number rather than two button presses.
+Pressing the button sends `.warband trade gold <amount>`; the server puts
+that much of the companion's money on their side of the trade, the amount appears in the window like
+any hand-filled trade, and accepting moves the coin through the ordinary trade path. The reply is
+`WARBAND_TRADEGOLD=ok=1;partner=Tanko;amount=100;purse=1240`, or `ok=0;reason=nofunds|notrade|notcompanion`
+when it cannot happen — the panel then says why instead of failing silently.
+
+Only a companion can pay this way: a bot (any Warband follower) or a character on your own account. A
+real player on another account is never touched. `.warband trade` alone reports the open trade:
+`WARBAND_TRADE=open=1;partner=Tanko;purse=1240;inTrade=0`.
 
 ## Convenience
 

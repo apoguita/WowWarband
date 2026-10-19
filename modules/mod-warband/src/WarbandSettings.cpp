@@ -28,6 +28,11 @@
 #include <cmath>
 #include <string>
 
+// The random world bots are a playerbots concern; the module owns the switch behind them so the
+// panel can turn the population off and pin its size. This reads the configured behaviour once,
+// which is what the panel reports when nothing has been changed.
+void InitWarbandRandomBots();
+
 namespace
 {
 constexpr float DefaultXpRate = 3.0f;
@@ -249,6 +254,11 @@ public:
             WarbandIsItemBindingEnforced()
                 ? "enforced: bound items stay put"
                 : "not enforced: bound items can be traded, mailed and sold");
+
+        // The random bots that roam the world are ambient, not Warband. The module reports the
+        // configured state so the panel and `.warband randombots` start where the playerbots
+        // configuration says they should.
+        InitWarbandRandomBots();
     }
 
     void OnPlayerGiveXP(Player* player, uint32& amount, Unit* /*victim*/, uint8 /*xpSource*/) override

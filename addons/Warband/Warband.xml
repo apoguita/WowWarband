@@ -1728,6 +1728,142 @@
                             </Button>
                         </Frames>
                     </Frame>
+                    <Frame name="WarbandPageRandomBots" parent="WarbandDetailPane" hidden="true">
+                        <Size>
+                            <AbsDimension x="732" y="470"/>
+                        </Size>
+                        <Anchors>
+                            <Anchor point="TOPLEFT" relativeTo="WarbandDetailPane"
+                                relativePoint="TOPLEFT">
+                                <Offset>
+                                    <AbsDimension x="24" y="-80"/>
+                                </Offset>
+                            </Anchor>
+                        </Anchors>
+                        <Layers>
+                            <Layer level="ARTWORK">
+                                <FontString name="$parentCaption" inherits="GameFontNormalSmall"
+                                    justifyH="LEFT" text="WORLD BOTS">
+                                    <Size>
+                                        <AbsDimension x="300" y="12"/>
+                                    </Size>
+                                    <Anchors>
+                                        <Anchor point="TOPLEFT"/>
+                                    </Anchors>
+                                    <Color r="1" g="0.82" b="0"/>
+                                </FontString>
+                                <FontString name="$parentStatus" inherits="GameFontHighlightSmall"
+                                    justifyH="LEFT" text="Reading the random bot state...">
+                                    <Size>
+                                        <AbsDimension x="620" y="14"/>
+                                    </Size>
+                                    <Anchors>
+                                        <Anchor point="TOPLEFT">
+                                            <Offset>
+                                                <AbsDimension x="0" y="-24"/>
+                                            </Offset>
+                                        </Anchor>
+                                    </Anchors>
+                                </FontString>
+                                <FontString name="$parentHint" inherits="GameFontDisableSmall"
+                                    justifyH="LEFT"
+                                    text="The random bots that wander the world are logged in and out by the playerbots module itself. They are ambience, not Warband: on a single-player server a party of five plays better with an empty world. Switching them off logs out the ones online right now; the target pins how many stay logged in. Your own companions are never random bots and are never touched. Both choices are written to the playerbots configuration, so they survive a restart.">
+                                    <Size>
+                                        <AbsDimension x="620" y="60"/>
+                                    </Size>
+                                    <Anchors>
+                                        <Anchor point="TOPLEFT">
+                                            <Offset>
+                                                <AbsDimension x="0" y="-44"/>
+                                            </Offset>
+                                        </Anchor>
+                                    </Anchors>
+                                </FontString>
+                                <FontString name="$parentTargetValue" inherits="GameFontNormalSmall"
+                                    justifyH="LEFT" text="500">
+                                    <Size>
+                                        <AbsDimension x="64" y="16"/>
+                                    </Size>
+                                    <Anchors>
+                                        <Anchor point="TOPLEFT">
+                                            <Offset>
+                                                <AbsDimension x="30" y="-128"/>
+                                            </Offset>
+                                        </Anchor>
+                                    </Anchors>
+                                    <Color r="1" g="0.82" b="0"/>
+                                </FontString>
+                                <FontString name="$parentDetail" inherits="GameFontNormalSmall"
+                                    justifyH="LEFT" text="">
+                                    <Size>
+                                        <AbsDimension x="620" y="34"/>
+                                    </Size>
+                                    <Anchors>
+                                        <Anchor point="TOPLEFT">
+                                            <Offset>
+                                                <AbsDimension x="0" y="-200"/>
+                                            </Offset>
+                                        </Anchor>
+                                    </Anchors>
+                                    <Color r="1" g="0.82" b="0"/>
+                                </FontString>
+                            </Layer>
+                        </Layers>
+                        <Frames>
+                            <Button name="$parentToggle" inherits="UIPanelButtonTemplate"
+                                text="Random bots: on">
+                                <Size>
+                                    <AbsDimension x="220" y="22"/>
+                                </Size>
+                                <Anchors>
+                                    <Anchor point="TOPLEFT">
+                                        <Offset>
+                                            <AbsDimension x="0" y="-162"/>
+                                        </Offset>
+                                    </Anchor>
+                                </Anchors>
+                                <Scripts>
+                                    <OnClick>
+                                        Warband_ToggleRandomBots();
+                                    </OnClick>
+                                </Scripts>
+                            </Button>
+                            <Button name="$parentTargetDown" inherits="UIPanelButtonTemplate" text="-">
+                                <Size>
+                                    <AbsDimension x="24" y="22"/>
+                                </Size>
+                                <Anchors>
+                                    <Anchor point="TOPLEFT">
+                                        <Offset>
+                                            <AbsDimension x="0" y="-126"/>
+                                        </Offset>
+                                    </Anchor>
+                                </Anchors>
+                                <Scripts>
+                                    <OnClick>
+                                        Warband_StepRandomBotsTarget(-10);
+                                    </OnClick>
+                                </Scripts>
+                            </Button>
+                            <Button name="$parentTargetUp" inherits="UIPanelButtonTemplate" text="+">
+                                <Size>
+                                    <AbsDimension x="24" y="22"/>
+                                </Size>
+                                <Anchors>
+                                    <Anchor point="TOPLEFT">
+                                        <Offset>
+                                            <AbsDimension x="96" y="-126"/>
+                                        </Offset>
+                                    </Anchor>
+                                </Anchors>
+                                <Scripts>
+                                    <OnClick>
+                                        Warband_StepRandomBotsTarget(10);
+                                    </OnClick>
+                                </Scripts>
+                            </Button>
+                        </Frames>
+                    </Frame>
                     <Frame name="WarbandPageConvenience" parent="WarbandDetailPane" hidden="true">
                         <Size>
                             <AbsDimension x="732" y="470"/>

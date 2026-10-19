@@ -70,6 +70,7 @@ Loot itself is not on this list: the game's mechanics stay as they are (see *Not
 | 24 | Instances stop restocking: a creature that dies inside an instance does not come back for the rest of the run | Shortlist: [mod-dead-means-dead][dead-means-dead], read in full — the mechanism is its, minus the multiplier model | Warband server module + addon panel | **Built, not yet verified in game** — `WarbandInstances.cpp`: `UnitScript::OnUnitDeath` pushes the respawn ten years out and saves it, so a cleared corridor survives an unload and a restart; an instance reset still restores everything. Dungeons and raids only, party kills only, with `NeverAdjust` lists. `.warband instance` and the panel's Instances page switch it live |
 | 47 | Dying inside an instance returns the party to the dungeon's start, alive, instead of a graveyard release and a corpse run through cleared trash | Requested 16 October 2026; the mechanism was studied from `DungeonRespawn` in the shortlist | Warband server module | **Postponed, 16 October 2026** — the only reference is hacky: it hijacks the release teleport to cancel the graveyard move, resurrects outright at a stored anchor, and keeps a per-character row in a character-database table; the repository is archived. Revisit later; nothing else is designed around it |
 | 51 | Open-world scaling switch: world creatures, quest rewards and loot at each character's own level, with a panel switch and a safe default | **Decision, 18 October 2026: not built in-house.** The only in-tree scalers (AutoBalance, item-level scaling) are instance-only, and upstream AutoBalance refuses base maps outright (open issue azerothcore/mod-autobalance#199), so `mod-zone-scaling` is installed as the pinned dependency and Warband builds only the control surface. That is the second recorded exception to the in-house rule, named here as the rule requires | `mod-zone-scaling` (dependency) + Warband addon panel | **Built, not yet verified in game** — `.warband worldscale [on\|off]` and the panel's World scaling page flip the module's `ZoneScaling.Enable`; zones, bands and direction stay in `mod_zone_scaling.conf`. **Default off**: the module ships disabled and, with its `DefaultBehaviour = "off"`, an enabled switch alone changes nothing until a zone is opted in. Missing module → `installed=0` |
+| 52 | World bot population: switch the random bots that roam the world off entirely, or pin how many stay online | Requested 18 October 2026 — the random bots scattered across the world are not useful on a single-player server, and the population was not controllable at all | Warband server module + addon panel | **Built, not yet verified in game** — `WarbandRandomBots.cpp` flips the playerbots `RandomBotAutologin` switch and collapses its `MinRandomBots`/`MaxRandomBots` range onto the target so every re-roll of `bot_count` lands there, logging the excess out at once; the Warband's own followers are never random bots, so the party is untouchable. **Both choices are written into `modules/playerbots.conf`**, so the state survives a restart; `.warband randombots [on\|off\|set <1-500>]` and the panel's World bots page |
 
 ## Parked convenience work (fixes, not features)
 
@@ -173,6 +174,17 @@ recorded only so the research is not lost.
     also removes the soulbound bit from carried items; the client offers trade for items it thinks
     are unbound, and the tooltip accordingly loses its Soulbound line. The panel switch still
     governs everything: binding on restores the ordinary rule.
+17. Settled, 18 October 2026: the random bots that roam the world are not Warband's, and their
+    population is controllable from the panel (item 52). The switch turns the whole population off,
+    logging out the bots online at that moment, and the target pins how many stay online; both act
+    on the playerbots module's own `Playerbots.RandomBotAutologin` flag and its
+    `MinRandomBots`/`MaxRandomBots` population range, so nothing new is built and no follower is
+    involved — a Warband companion is never a random bot and is never touched by the switch. The
+    default, until it is touched, is the configured behaviour. **Refinement, 18 October 2026:** a
+    runtime-only switch was not enough — the first build applied the change but a restart brought
+    the configured population straight back, which is not "deactivated". So every change is also
+    written into `modules/playerbots.conf` (the autologin switch and the two bounds, nothing else),
+    and the state therefore survives a restart.
 
 ## Explicitly out of scope
 

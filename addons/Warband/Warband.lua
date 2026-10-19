@@ -68,6 +68,7 @@ local Tree = {
             { id = "instances", text = "Instances", status = "live", page = "instances" },
             { id = "worldscale", text = "World scaling", status = "live", page = "worldscale" },
             { id = "aoeloot", text = "AoE loot", status = "live", page = "aoeloot" },
+            { id = "randombots", text = "World bots", status = "live", page = "randombots" },
             { id = "convenience", text = "Convenience", status = "live", page = "convenience" },
         },
     },
@@ -184,6 +185,19 @@ local aoeLoot = { known = false, installed = false, enabled = false, message = t
 local aoeLootRequest = { pending = false, deadline = nil }
 local UpdateAoeLootDisplay
 local SetAoeLootStatus
+
+-- Random world bots: the population the playerbots module logs in and out by itself, not the
+-- Warband's companions. The switch is server-wide and the target pins how many stay online.
+-- "online" is counted when the server answers, so it can lag the target while the population
+-- settles.
+local RANDOM_BOTS_STEP = 10
+local RANDOM_BOTS_MIN = 1
+local RANDOM_BOTS_MAX = 500
+
+local randomBots = { known = false, enabled = true, target = 500, online = 0 }
+local randomBotsRequest = { pending = false, deadline = nil }
+local UpdateRandomBotsDisplay
+local SetRandomBotsStatus
 
 -- Auction house: the market is run by the auction bot, which has no user front end. This page is
 -- its only interface: on/off for its seller and buyer sides, and how busy each cycle is.
@@ -354,6 +368,14 @@ local function RequestAoeLootState()
     StartRequest(aoeLootRequest, ".warband aoeloot")
 end
 
+local function RequestRandomBotsState()
+    if UpdateRandomBotsDisplay then
+        UpdateRandomBotsDisplay()
+    end
+
+    StartRequest(randomBotsRequest, ".warband randombots")
+end
+
 local function RequestConvenienceState()
     if UpdateConvenienceDisplay then
         UpdateConvenienceDisplay()
@@ -452,6 +474,12 @@ function Warband_OnUpdate()
     if aoeLootRequest.pending and GetTime() >= aoeLootRequest.deadline then
         ClearRequest(aoeLootRequest)
         SetAoeLootStatus("Unavailable: this worldserver does not answer .warband aoeloot yet.",
+            COLOR_GREY)
+    end
+
+    if randomBotsRequest.pending and GetTime() >= randomBotsRequest.deadline then
+        ClearRequest(randomBotsRequest)
+        SetRandomBotsStatus("Unavailable: this worldserver does not answer .warband randombots yet.",
             COLOR_GREY)
     end
 
@@ -716,6 +744,31 @@ function Warband_OnEvent(self, event, ...)
 
         if UpdateAoeLootDisplay then
             UpdateAoeLootDisplay()
+        end
+
+        if RefreshDynamicPage then
+            RefreshDynamicPage()
+        end
+        return
+    end
+
+    if string.find(message or "", "WARBAND_RANDOMBOTS=", 1, true) then
+        for key, value in string.gmatch(message, "([%a_]+)=([%d%.]+)") do
+            local number = tonumber(value)
+            if key == "enabled" then
+                randomBots.enabled = number == 1
+            elseif key == "target" then
+                randomBots.target = number or randomBots.target
+            elseif key == "online" then
+                randomBots.online = number or 0
+            end
+        end
+
+        ClearRequest(randomBotsRequest)
+        randomBots.known = true
+
+        if UpdateRandomBotsDisplay then
+            UpdateRandomBotsDisplay()
         end
 
         if RefreshDynamicPage then
@@ -1709,6 +1762,89 @@ function Warband_StepAoeCorpses(delta)
     StepAoeCorpses(delta)
 end
 
+-- Random world bots: the population playerbots keeps logged in by itself. The switch is the whole
+-- feature and the steppers pin the target; the server logs the excess out immediately, so the
+-- "online" line is what the world actually holds right now.
+SetRandomBotsStatus = function(text, color)
+    WarbandPageRandomBotsStatus:SetText(text)
+    WarbandPageRandomBotsStatus:SetTextColor(color[1], color[2], color[3])
+end
+
+UpdateRandomBotsDisplay = function()
+    if not randomBots.known then
+        SetRandomBotsStatus("Reading the random bot state...", COLOR_AMBER)
+    elseif randomBots.enabled then
+        SetRandomBotsStatus(string.format("Live - %d random bots in the world", randomBots.online),
+            COLOR_GREEN)
+    else
+        SetRandomBotsStatus("Off - the world holds only your Warband and other real players",
+            COLOR_GREY)
+    end
+
+    WarbandPageRandomBotsToggle:SetText(randomBots.enabled and "Random bots: on"
+        or "Random bots: off")
+    WarbandPageRandomBotsTargetValue:SetText(string.format("%d", randomBots.target))
+
+    if not randomBots.known then
+        WarbandPageRandomBotsDetail:SetText("Waiting for the server...")
+        return
+    end
+
+    if randomBots.enabled then
+        WarbandPageRandomBotsDetail:SetText(string.format(
+            "Target %d random bots, %d online now. Lowering the target logs the excess out at once; "
+            .. "switching them off clears the world entirely. Both are remembered across restarts.",
+            randomBots.target, randomBots.online))
+    else
+        WarbandPageRandomBotsDetail:SetText(
+            "The world bot population is off. .warband randombots on brings it back at the target "
+            .. "shown above; the choice is remembered, so the next server start stays off too.")
+    end
+end
+
+-- Shared by every control on the page: wait for the first reply, then send the change.
+local function RandomBotsAction(command, status)
+    if not randomBots.known then
+        SetRandomBotsStatus("Waiting for the server before changing this...", COLOR_AMBER)
+        StartRequest(randomBotsRequest, ".warband randombots")
+        return
+    end
+
+    SetRandomBotsStatus(status, COLOR_AMBER)
+    StartRequest(randomBotsRequest, command)
+end
+
+function Warband_ToggleRandomBots()
+    if not randomBots.known then
+        SetRandomBotsStatus("Waiting for the server before changing this...", COLOR_AMBER)
+        StartRequest(randomBotsRequest, ".warband randombots")
+        return
+    end
+
+    if randomBots.enabled then
+        SetRandomBotsStatus("Clearing the random bots out of the world...", COLOR_AMBER)
+        StartRequest(randomBotsRequest, ".warband randombots off")
+    else
+        SetRandomBotsStatus("Bringing the random bots back...", COLOR_AMBER)
+        StartRequest(randomBotsRequest, ".warband randombots on")
+    end
+end
+
+function Warband_StepRandomBotsTarget(delta)
+    local target = randomBots.target + delta
+    if target < RANDOM_BOTS_MIN then
+        target = RANDOM_BOTS_MIN
+    elseif target > RANDOM_BOTS_MAX then
+        target = RANDOM_BOTS_MAX
+    end
+
+    if target == randomBots.target then
+        return
+    end
+
+    RandomBotsAction(".warband randombots set " .. target, "Changing the target...")
+end
+
 -- Auction house: the bot has no interface of its own, so this page is it.
 SetAuctionStatus = function(text, color)
     WarbandPageAuctionHouseStatus:SetText(text)
@@ -1948,6 +2084,34 @@ local function DynamicLines(kind)
             table.insert(lines, "- Pets: always happy, companions included")
         end
 
+        if worldScale.known and worldScale.installed then
+            table.insert(lines, worldScale.enabled
+                and "- World scaling: open-world creatures, rewards and loot at each character's level"
+                or "- World scaling: off, the open world keeps its own levels")
+        end
+
+        if aoeLoot.known and aoeLoot.installed then
+            table.insert(lines, aoeLoot.enabled
+                and "- AoE loot: one window takes everything the nearby corpses hold"
+                or "- AoE loot: off, looting is one corpse at a time")
+        end
+
+        if randomBots.known then
+            if randomBots.enabled then
+                table.insert(lines, string.format(
+                    "- World bots: %d random bots roaming the world (target %d)",
+                    randomBots.online or 0, randomBots.target or 0))
+            else
+                table.insert(lines, "- World bots: switched off, the world holds only your Warband")
+            end
+        end
+
+        table.insert(lines, "- Trade gold: a panel beside the trade window lets a companion pay "
+            .. "without the bot's whisper sequence")
+
+        table.insert(lines, "- Party roster: the Friends frame's Party tab invites and dismisses "
+            .. "companions")
+
         table.insert(lines, " ")
         table.insert(lines, "New features are listed here as they are added.")
         return lines
@@ -1993,6 +2157,7 @@ local function ShowNode(node)
     WarbandPageInstance:Hide()
     WarbandPageWorldScale:Hide()
     WarbandPageAoeLoot:Hide()
+    WarbandPageRandomBots:Hide()
     WarbandPageConvenience:Hide()
 
     if node.page == "experience" then
@@ -2080,6 +2245,15 @@ local function ShowNode(node)
         return
     end
 
+    if node.page == "randombots" then
+        if UpdateRandomBotsDisplay then
+            UpdateRandomBotsDisplay()
+        end
+
+        WarbandPageRandomBots:Show()
+        return
+    end
+
     if node.page == "convenience" then
         if UpdateConvenienceDisplay then
             UpdateConvenienceDisplay()
@@ -2124,6 +2298,7 @@ function Warband_OnShow()
     RequestInstanceState()
     RequestWorldScaleState()
     RequestAoeLootState()
+    RequestRandomBotsState()
     RequestConvenienceState()
 end
 
@@ -2139,6 +2314,7 @@ function Warband_OnHide()
     ClearRequest(instanceRequest)
     ClearRequest(worldScaleRequest)
     ClearRequest(aoeLootRequest)
+    ClearRequest(randomBotsRequest)
     ClearRequest(hearthstoneRequest)
     ClearRequest(petsRequest)
 end
