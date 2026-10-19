@@ -216,7 +216,7 @@
                                     <Color r="1" g="0.82" b="0"/>
                                 </FontString>
                                 <FontString name="$parentValue" inherits="GameFontNormalLarge"
-                                    justifyH="LEFT" text="3x">
+                                    justifyH="LEFT" text="2x">
                                     <Size>
                                         <AbsDimension x="120" y="30"/>
                                     </Size>
@@ -423,7 +423,7 @@
                         </Layers>
                         <Frames>
                             <Slider name="$parentSlider" minValue="1" maxValue="10"
-                                defaultValue="3" valueStep="1" orientation="HORIZONTAL">
+                                defaultValue="2" valueStep="1" orientation="HORIZONTAL">
                                 <Size>
                                     <AbsDimension x="460" y="18"/>
                                 </Size>
@@ -514,7 +514,7 @@
                                     </OnClick>
                                 </Scripts>
                             </Button>
-                            <Button name="$parentPreset2" inherits="UIPanelButtonTemplate" text="3x">
+                            <Button name="$parentPreset2" inherits="UIPanelButtonTemplate" text="2x">
                                 <Size>
                                     <AbsDimension x="64" y="20"/>
                                 </Size>
@@ -527,7 +527,7 @@
                                 </Anchors>
                                 <Scripts>
                                     <OnClick>
-                                        Warband_SetRate(3);
+                                        Warband_SetRate(2);
                                     </OnClick>
                                 </Scripts>
                             </Button>
@@ -990,6 +990,74 @@
                             </Layer>
                         </Layers>
                     </Frame>
+                    <Frame name="WarbandPageSupplierPrices" parent="WarbandDetailPane" hidden="true">
+                        <Size>
+                            <AbsDimension x="732" y="470"/>
+                        </Size>
+                        <Anchors>
+                            <Anchor point="TOPLEFT" relativeTo="WarbandDetailPane"
+                                relativePoint="TOPLEFT">
+                                <Offset>
+                                    <AbsDimension x="24" y="-80"/>
+                                </Offset>
+                            </Anchor>
+                        </Anchors>
+                        <Layers>
+                            <Layer level="ARTWORK">
+                                <FontString name="$parentCaption" inherits="GameFontNormalSmall"
+                                    justifyH="LEFT" text="SUPPLIER PRICES">
+                                    <Size>
+                                        <AbsDimension x="300" y="12"/>
+                                    </Size>
+                                    <Anchors>
+                                        <Anchor point="TOPLEFT"/>
+                                    </Anchors>
+                                    <Color r="1" g="0.82" b="0"/>
+                                </FontString>
+                                <FontString name="$parentStatus" inherits="GameFontHighlightSmall"
+                                    justifyH="LEFT" text="Reading the supplier prices...">
+                                    <Size>
+                                        <AbsDimension x="620" y="14"/>
+                                    </Size>
+                                    <Anchors>
+                                        <Anchor point="TOPLEFT">
+                                            <Offset>
+                                                <AbsDimension x="0" y="-24"/>
+                                            </Offset>
+                                        </Anchor>
+                                    </Anchors>
+                                </FontString>
+                                <FontString name="$parentHint" inherits="GameFontDisableSmall"
+                                    justifyH="LEFT"
+                                    text="What a Warband supplier charges and pays: the item's original sell price times the multiplier for its quality, and never less than the floor. The same price is charged and paid, so nothing can be bought low and sold high. Press Apply prices to write them onto the items - the new prices appear in game after the worldserver restarts, and nothing is re-priced on its own.">
+                                    <Size>
+                                        <AbsDimension x="620" y="64"/>
+                                    </Size>
+                                    <Anchors>
+                                        <Anchor point="TOPLEFT">
+                                            <Offset>
+                                                <AbsDimension x="0" y="-44"/>
+                                            </Offset>
+                                        </Anchor>
+                                    </Anchors>
+                                </FontString>
+                                <FontString name="$parentExample" inherits="GameFontNormalSmall"
+                                    justifyH="LEFT" text="">
+                                    <Size>
+                                        <AbsDimension x="620" y="16"/>
+                                    </Size>
+                                    <Anchors>
+                                        <Anchor point="TOPLEFT">
+                                            <Offset>
+                                                <AbsDimension x="0" y="-112"/>
+                                            </Offset>
+                                        </Anchor>
+                                    </Anchors>
+                                    <Color r="1" g="0.82" b="0"/>
+                                </FontString>
+                            </Layer>
+                        </Layers>
+                    </Frame>
                     <Frame name="WarbandPageTrashSell" parent="WarbandDetailPane" hidden="true">
                         <Size>
                             <AbsDimension x="732" y="470"/>
@@ -1091,224 +1159,6 @@
                                 <Scripts>
                                     <OnClick>
                                         Warband_SellJunkNow();
-                                    </OnClick>
-                                </Scripts>
-                            </Button>
-                        </Frames>
-                    </Frame>
-                    <Frame name="WarbandPageAuctionHouse" parent="WarbandDetailPane" hidden="true">
-                        <Size>
-                            <AbsDimension x="732" y="470"/>
-                        </Size>
-                        <Anchors>
-                            <Anchor point="TOPLEFT" relativeTo="WarbandDetailPane"
-                                relativePoint="TOPLEFT">
-                                <Offset>
-                                    <AbsDimension x="24" y="-80"/>
-                                </Offset>
-                            </Anchor>
-                        </Anchors>
-                        <Layers>
-                            <Layer level="ARTWORK">
-                                <FontString name="$parentCaption" inherits="GameFontNormalSmall"
-                                    justifyH="LEFT" text="AUCTION HOUSE">
-                                    <Size>
-                                        <AbsDimension x="300" y="12"/>
-                                    </Size>
-                                    <Anchors>
-                                        <Anchor point="TOPLEFT"/>
-                                    </Anchors>
-                                    <Color r="1" g="0.82" b="0"/>
-                                </FontString>
-                                <FontString name="$parentStatus" inherits="GameFontHighlightSmall"
-                                    justifyH="LEFT" text="Reading the auction house settings...">
-                                    <Size>
-                                        <AbsDimension x="620" y="14"/>
-                                    </Size>
-                                    <Anchors>
-                                        <Anchor point="TOPLEFT">
-                                            <Offset>
-                                                <AbsDimension x="0" y="-24"/>
-                                            </Offset>
-                                        </Anchor>
-                                    </Anchors>
-                                </FontString>
-                                <FontString name="$parentHint" inherits="GameFontDisableSmall"
-                                    justifyH="LEFT"
-                                    text="The market here is run by the auction bot: its sellers keep the houses stocked so there is always something to buy, and its buyer purchases what your party lists, so selling works without other players. Everything the bot sells or buys is an ordinary auction. Prices, filters and listing rules live in the bot's own configuration file; this page only controls the parts that change how busy the market is.">
-                                    <Size>
-                                        <AbsDimension x="620" y="60"/>
-                                    </Size>
-                                    <Anchors>
-                                        <Anchor point="TOPLEFT">
-                                            <Offset>
-                                                <AbsDimension x="0" y="-48"/>
-                                            </Offset>
-                                        </Anchor>
-                                    </Anchors>
-                                </FontString>
-                                <FontString name="$parentDetail" inherits="GameFontNormalSmall"
-                                    justifyH="LEFT" text="">
-                                    <Size>
-                                        <AbsDimension x="620" y="42"/>
-                                    </Size>
-                                    <Anchors>
-                                        <Anchor point="TOPLEFT">
-                                            <Offset>
-                                                <AbsDimension x="0" y="-116"/>
-                                            </Offset>
-                                        </Anchor>
-                                    </Anchors>
-                                    <Color r="1" g="0.82" b="0"/>
-                                </FontString>
-                                <FontString name="$parentItemsLabel" inherits="GameFontDisableSmall"
-                                    justifyH="LEFT" text="Listings added per cycle">
-                                    <Size>
-                                        <AbsDimension x="200" y="12"/>
-                                    </Size>
-                                    <Anchors>
-                                        <Anchor point="TOPLEFT">
-                                            <Offset>
-                                                <AbsDimension x="0" y="-262"/>
-                                            </Offset>
-                                        </Anchor>
-                                    </Anchors>
-                                </FontString>
-                                <FontString name="$parentCandidatesLabel" inherits="GameFontDisableSmall"
-                                    justifyH="LEFT" text="Listings the buyer checks per cycle">
-                                    <Size>
-                                        <AbsDimension x="260" y="12"/>
-                                    </Size>
-                                    <Anchors>
-                                        <Anchor point="TOPLEFT">
-                                            <Offset>
-                                                <AbsDimension x="0" y="-296"/>
-                                            </Offset>
-                                        </Anchor>
-                                    </Anchors>
-                                </FontString>
-                            </Layer>
-                        </Layers>
-                        <Frames>
-                            <Button name="$parentSellerToggle" inherits="UIPanelButtonTemplate"
-                                text="Seller: on">
-                                <Size>
-                                    <AbsDimension x="140" y="22"/>
-                                </Size>
-                                <Anchors>
-                                    <Anchor point="TOPLEFT">
-                                        <Offset>
-                                            <AbsDimension x="0" y="-200"/>
-                                        </Offset>
-                                    </Anchor>
-                                </Anchors>
-                                <Scripts>
-                                    <OnClick>
-                                        Warband_ToggleAuctionSeller();
-                                    </OnClick>
-                                </Scripts>
-                            </Button>
-                            <Button name="$parentBuyerToggle" inherits="UIPanelButtonTemplate"
-                                text="Buyer: on">
-                                <Size>
-                                    <AbsDimension x="140" y="22"/>
-                                </Size>
-                                <Anchors>
-                                    <Anchor point="TOPLEFT">
-                                        <Offset>
-                                            <AbsDimension x="150" y="-200"/>
-                                        </Offset>
-                                    </Anchor>
-                                </Anchors>
-                                <Scripts>
-                                    <OnClick>
-                                        Warband_ToggleAuctionBuyer();
-                                    </OnClick>
-                                </Scripts>
-                            </Button>
-                            <Button name="$parentRepopulate" inherits="UIPanelButtonTemplate"
-                                text="Restock now">
-                                <Size>
-                                    <AbsDimension x="140" y="22"/>
-                                </Size>
-                                <Anchors>
-                                    <Anchor point="TOPLEFT">
-                                        <Offset>
-                                            <AbsDimension x="300" y="-200"/>
-                                        </Offset>
-                                    </Anchor>
-                                </Anchors>
-                                <Scripts>
-                                    <OnClick>
-                                        Warband_RefreshAuction();
-                                    </OnClick>
-                                </Scripts>
-                            </Button>
-                            <Button name="$parentItemsDown" inherits="UIPanelButtonTemplate" text="-">
-                                <Size>
-                                    <AbsDimension x="24" y="22"/>
-                                </Size>
-                                <Anchors>
-                                    <Anchor point="TOPLEFT">
-                                        <Offset>
-                                            <AbsDimension x="280" y="-257"/>
-                                        </Offset>
-                                    </Anchor>
-                                </Anchors>
-                                <Scripts>
-                                    <OnClick>
-                                        Warband_StepAuctionItems(-25);
-                                    </OnClick>
-                                </Scripts>
-                            </Button>
-                            <Button name="$parentItemsUp" inherits="UIPanelButtonTemplate" text="+">
-                                <Size>
-                                    <AbsDimension x="24" y="22"/>
-                                </Size>
-                                <Anchors>
-                                    <Anchor point="TOPLEFT">
-                                        <Offset>
-                                            <AbsDimension x="310" y="-257"/>
-                                        </Offset>
-                                    </Anchor>
-                                </Anchors>
-                                <Scripts>
-                                    <OnClick>
-                                        Warband_StepAuctionItems(25);
-                                    </OnClick>
-                                </Scripts>
-                            </Button>
-                            <Button name="$parentCandidatesDown" inherits="UIPanelButtonTemplate" text="-">
-                                <Size>
-                                    <AbsDimension x="24" y="22"/>
-                                </Size>
-                                <Anchors>
-                                    <Anchor point="TOPLEFT">
-                                        <Offset>
-                                            <AbsDimension x="280" y="-291"/>
-                                        </Offset>
-                                    </Anchor>
-                                </Anchors>
-                                <Scripts>
-                                    <OnClick>
-                                        Warband_StepAuctionCandidates(-1);
-                                    </OnClick>
-                                </Scripts>
-                            </Button>
-                            <Button name="$parentCandidatesUp" inherits="UIPanelButtonTemplate" text="+">
-                                <Size>
-                                    <AbsDimension x="24" y="22"/>
-                                </Size>
-                                <Anchors>
-                                    <Anchor point="TOPLEFT">
-                                        <Offset>
-                                            <AbsDimension x="310" y="-291"/>
-                                        </Offset>
-                                    </Anchor>
-                                </Anchors>
-                                <Scripts>
-                                    <OnClick>
-                                        Warband_StepAuctionCandidates(1);
                                     </OnClick>
                                 </Scripts>
                             </Button>

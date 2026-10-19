@@ -35,7 +35,7 @@ void InitWarbandRandomBots();
 
 namespace
 {
-constexpr float DefaultXpRate = 3.0f;
+constexpr float DefaultXpRate = 2.0f;
 constexpr float MinimumXpRate = 1.0f;
 constexpr float MaximumXpRate = 10.0f;
 

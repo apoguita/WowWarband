@@ -20,15 +20,14 @@
  *   .warband goldfind                              read the coin multiplier
  *   .warband goldfind <multiplier>                 x1 to x20 on looted coin
  *   .warband goldfind reset                        back to x1
+ *   .warband price                                 read the supplier multipliers and the floor
+ *   .warband price <tier> <multiplier>             x1 to x20 on one quality, by colour or quality
+ *   .warband price floor <copper>                  the lowest price a supplier charges
+ *   .warband price apply                           write the prices onto the items
+ *   .warband price reset                           the shipped rule: 2/3/4/5/6/7/8/9 and 10 copper
  *   .warband trash                                 read the trash auto-sell state
  *   .warband trash on | off                        sell grey loot at pickup, or stop doing it
  *   .warband trash sell                            empty every party member's bags of grey loot
- *   .warband ah                                    read the auction bot's live settings
- *   .warband ah seller | buyer on | off            switch a side of the market on or off
- *   .warband ah items <10-5000>                    listings added per cycle
- *   .warband ah candidates <1-50>                  listings the buyer considers per cycle
- *   .warband ah stock <alliance|horde|neutral> <n> stock target for one auction house
- *   .warband ah repopulate                         rebuild the bot's item lists and top up now
  *   .warband instance                              read whether killed instance creatures stay dead
  *   .warband instance on | off                     keep killed instance creatures dead, or not
  *   .warband hearthstone                           read whether the hearthstone has a cooldown
@@ -45,6 +44,8 @@
  *   WARBAND_BINDING=enforced=0
  *   WARBAND_MAGICFIND=green=2.00;blue=4.00;purple=6.00;orange=6.00;gold=6.00
  *   WARBAND_GOLDFIND=3.00
+ *   WARBAND_SUPPLIER=poor=2.00;normal=3.00;uncommon=4.00;rare=5.00;epic=6.00;legendary=7.00;
+ *                    artifact=8.00;heirloom=9.00;floor=10;items=3412;current=1
  *   WARBAND_TRASHSELL=enabled=1;sold=12;copper=3456;swept=0
  *   WARBAND_AHBOT=installed=1;seller=1;buyer=1;items=150;candidates=5;alliance=1200;horde=1200;neutral=200
  *   WARBAND_INSTANCE=enabled=1;kept=42
@@ -60,7 +61,9 @@
 #include "DBCEnums.h"
 #include "Group.h"
 #include "ItemBinding.h"
+#include "ItemTemplate.h"
 #include "ObjectAccessor.h"
+#include "ObjectMgr.h"
 #include "Player.h"
 #include "RBAC.h"
 #include "ScriptMgr.h"
@@ -123,15 +126,6 @@ uint32 GetWarbandRandomBotsTarget();
 uint32 GetWarbandRandomBotsOnline();
 bool SetWarbandRandomBotsEnabled(bool enabled);
 bool SetWarbandRandomBotsTarget(uint32 target);
-bool WarbandAuctionBotInstalled();
-bool GetWarbandAuctionBotSetting(std::string const& key, bool fallback);
-uint32 GetWarbandAuctionBotNumber(std::string const& key, uint32 fallback);
-bool WarbandSetAuctionBotSeller(bool enabled);
-bool WarbandSetAuctionBotBuyer(bool enabled);
-bool WarbandSetAuctionBotItemsPerCycle(uint32 items);
-bool WarbandSetAuctionBotBuyCandidates(uint32 candidates);
-bool WarbandSetAuctionBotStock(std::string const& house, uint32 items);
-void WarbandRefreshAuctionBot();
 bool GetWarbandInstanceNoRespawn();
 bool SetWarbandInstanceNoRespawn(bool enabled);
 uint32 GetWarbandInstanceKeptDead();
@@ -140,6 +134,17 @@ bool SetWarbandHearthstoneAlwaysReady(bool enabled);
 bool GetWarbandPetsAlwaysHappy();
 bool SetWarbandPetsAlwaysHappy(bool enabled);
 uint32 GetWarbandHearthstoneClears();
+uint8 WarbandSupplierTierCount();
+char const* WarbandSupplierTierKey(uint8 tier);
+char const* WarbandSupplierTierAlias(uint8 tier);
+float WarbandSupplierTierMultiplier(uint8 tier);
+bool SetWarbandSupplierTierMultiplier(uint8 tier, float value);
+uint32 WarbandSupplierFloor();
+bool SetWarbandSupplierFloor(uint32 copper);
+void ResetWarbandSupplierSettings();
+uint32 WarbandSupplierCatalogueSize();
+bool WarbandSupplierPricesAreCurrent();
+uint32 ApplyWarbandSupplierPrices(std::string& note);
 
 using namespace Acore::ChatCommands;
 
@@ -161,6 +166,10 @@ char const* const MagicFindUsage =
 char const* const GoldFindUsage =
     "Usage: .warband goldfind [<multiplier 1-20>] [reset]";
 
+char const* const PriceUsage =
+    "Usage: .warband price [<poor|normal|uncommon|rare|epic|legendary|artifact|heirloom> <multiplier 1-20>]"
+    " [floor <copper>] [apply] [reset]";
+
 char const* const TrashUsage =
     "Usage: .warband trash [on|off|sell] - sell sells the grey loot already in the party's bags";
 
@@ -174,10 +183,6 @@ char const* const AoeLootUsage =
 char const* const RandomBotsUsage =
     "Usage: .warband randombots [on|off] [set <1-500>]"
     " - turn the random world bot population off, or pin how many stay online";
-
-char const* const AuctionHouseUsage =
-    "Usage: .warband ah [seller|buyer on|off] [items <10-5000>] [candidates <1-50>]"
-    " [stock <alliance|horde|neutral> <0-20000>] [repopulate]";
 
 char const* const InstanceUsage =
     "Usage: .warband instance [on|off] - whether a creature killed inside a dungeon stays dead";
@@ -306,12 +311,13 @@ public:
             {"mf",        HandleMagicFindCommand, SEC_PLAYER, Console::No},
             {"goldfind", HandleGoldFindCommand,   SEC_PLAYER, Console::No},
             {"gf",       HandleGoldFindCommand,   SEC_PLAYER, Console::No},
+            {"price",    HandlePriceCommand,      SEC_PLAYER, Console::No},
+            {"prices",   HandlePriceCommand,      SEC_PLAYER, Console::No},
             {"trash",    HandleTrashCommand,      SEC_PLAYER, Console::No},
             {"worldscale", HandleWorldScaleCommand, SEC_PLAYER, Console::No},
             {"aoeloot",  HandleAoeLootCommand,    SEC_PLAYER, Console::No},
             {"randombots", HandleRandomBotsCommand, SEC_PLAYER, Console::No},
             {"trade",    HandleTradeCommand,      SEC_PLAYER, Console::No},
-            {"ah",       HandleAuctionHouseCommand, SEC_PLAYER, Console::No},
             {"instance", HandleInstanceCommand,   SEC_PLAYER, Console::No},
             {"hearthstone", HandleHearthstoneCommand, SEC_PLAYER, Console::No},
             {"pets",     HandlePetsCommand,       SEC_PLAYER, Console::No},
@@ -1087,123 +1093,6 @@ private:
             tradeMoney);
     }
 
-    // Auction house: the market itself is mod-ah-bot-plus, which has no user front end at all, so
-    // this is the surface the panel talks to. Only the options that shape the market are offered;
-    // prices and filters stay in the bot's own configuration file.
-    static bool HandleAuctionHouseCommand(ChatHandler* handler, char const* args)
-    {
-        while (*args == ' ')
-            ++args;
-
-        if (!WarbandAuctionBotInstalled())
-        {
-            handler->PSendSysMessage("WARBAND_AHBOT=installed=0");
-            return true;
-        }
-
-        if (!*args)
-        {
-            SendAuctionHouse(handler);
-            return true;
-        }
-
-        if (strncmp(args, "seller", 6) == 0 && (args[6] == '\0' || args[6] == ' '))
-        {
-            bool enabled = false;
-            if (!ParseToggle(args + 6, enabled) || !WarbandSetAuctionBotSeller(enabled))
-            {
-                handler->SendSysMessage(AuctionHouseUsage);
-                return false;
-            }
-
-            SendAuctionHouse(handler);
-            return true;
-        }
-
-        if (strncmp(args, "buyer", 5) == 0 && (args[5] == '\0' || args[5] == ' '))
-        {
-            bool enabled = false;
-            if (!ParseToggle(args + 5, enabled) || !WarbandSetAuctionBotBuyer(enabled))
-            {
-                handler->SendSysMessage(AuctionHouseUsage);
-                return false;
-            }
-
-            SendAuctionHouse(handler);
-            return true;
-        }
-
-        if (strncmp(args, "items", 5) == 0 && (args[5] == '\0' || args[5] == ' '))
-        {
-            uint32 items = 0;
-            if (!ParseCount(args + 5, items) || !WarbandSetAuctionBotItemsPerCycle(items))
-            {
-                handler->SendSysMessage(AuctionHouseUsage);
-                return false;
-            }
-
-            SendAuctionHouse(handler);
-            return true;
-        }
-
-        if (strncmp(args, "candidates", 10) == 0 && (args[10] == '\0' || args[10] == ' '))
-        {
-            uint32 candidates = 0;
-            if (!ParseCount(args + 10, candidates) || !WarbandSetAuctionBotBuyCandidates(candidates))
-            {
-                handler->SendSysMessage(AuctionHouseUsage);
-                return false;
-            }
-
-            SendAuctionHouse(handler);
-            return true;
-        }
-
-        if (strncmp(args, "stock", 5) == 0 && (args[5] == '\0' || args[5] == ' '))
-        {
-            char const* rest = args + 5;
-            while (*rest == ' ')
-                ++rest;
-
-            std::string const house(rest, strcspn(rest, " "));
-
-            uint32 items = 0;
-
-            if (house.empty() || !ParseCount(rest + house.size(), items) ||
-                !WarbandSetAuctionBotStock(house, items))
-            {
-                handler->SendSysMessage(AuctionHouseUsage);
-                return false;
-            }
-
-            SendAuctionHouse(handler);
-            return true;
-        }
-
-        if (strncmp(args, "repopulate", 10) == 0 && (args[10] == '\0' || args[10] == ' '))
-        {
-            WarbandRefreshAuctionBot();
-            SendAuctionHouse(handler);
-            return true;
-        }
-
-        handler->SendSysMessage(AuctionHouseUsage);
-        return false;
-    }
-
-    static void SendAuctionHouse(ChatHandler* handler)
-    {
-        handler->PSendSysMessage(
-            "WARBAND_AHBOT=installed=1;seller={};buyer={};items={};candidates={};alliance={};horde={};neutral={}",
-            GetWarbandAuctionBotSetting("AuctionHouseBot.EnableSeller", false) ? 1 : 0,
-            GetWarbandAuctionBotSetting("AuctionHouseBot.Buyer.Enabled", false) ? 1 : 0,
-            GetWarbandAuctionBotNumber("AuctionHouseBot.ItemsPerCycle", 0),
-            GetWarbandAuctionBotNumber("AuctionHouseBot.Buyer.BuyCandidatesPerBuyCycle", 0),
-            GetWarbandAuctionBotNumber("AuctionHouseBot.Alliance.MaxItems", 0),
-            GetWarbandAuctionBotNumber("AuctionHouseBot.Horde.MaxItems", 0),
-            GetWarbandAuctionBotNumber("AuctionHouseBot.Neutral.MaxItems", 0));
-    }
-
     // Instances stop restocking. The rule is applied at the moment a creature dies, so switching it
     // off leaves everything that is already dead where it is - an instance reset is what brings a
     // dungeon back.
@@ -1382,6 +1271,145 @@ private:
 
         handler->PSendSysMessage("WARBAND_PARTY=");
         return true;
+    }
+    // Supplier prices: one multiplier per quality plus a floor. The values are saved in the world
+    // database, and "apply" writes them onto the catalogue items, which is why the new prices are
+    // visible after a restart rather than immediately.
+    static bool HandlePriceCommand(ChatHandler* handler, char const* args)
+    {
+        while (*args == ' ')
+            ++args;
+
+        if (!*args)
+        {
+            SendPrice(handler);
+            return true;
+        }
+
+        if (strncmp(args, "apply", 5) == 0 && (args[5] == '\0' || args[5] == ' '))
+        {
+            std::string note;
+            uint32 const priced = ApplyWarbandSupplierPrices(note);
+
+            if (priced)
+            {
+                handler->PSendSysMessage(
+                    "Priced {} items. Restart the worldserver to see the new prices.", priced);
+            }
+            else
+            {
+                handler->PSendSysMessage("Prices not applied: {}.", note);
+            }
+
+            SendPrice(handler);
+            return priced != 0;
+        }
+
+        if (strncmp(args, "reset", 5) == 0 && (args[5] == '\0' || args[5] == ' '))
+        {
+            ResetWarbandSupplierSettings();
+            handler->SendSysMessage(
+                "Back to 2/3/4/5/6/7/8/9 by quality and 10 copper floor. Apply to write them onto the items.");
+            SendPrice(handler);
+            return true;
+        }
+
+        if (strncmp(args, "floor", 5) == 0 && args[5] == ' ')
+        {
+            char const* valueText = args + 5;
+            while (*valueText == ' ')
+                ++valueText;
+
+            char* end = nullptr;
+            long const parsed = std::strtol(valueText, &end, 10);
+
+            if (end == valueText || (*end != '\0' && *end != ' ') || parsed < 0 ||
+                !SetWarbandSupplierFloor(uint32(parsed)))
+            {
+                handler->SendSysMessage(PriceUsage);
+                return false;
+            }
+
+            SendPrice(handler);
+            return true;
+        }
+
+        char tierName[32] = { 0 };
+        size_t const tierLength = strcspn(args, " ");
+        if (tierLength == 0 || tierLength >= sizeof(tierName))
+        {
+            handler->SendSysMessage(PriceUsage);
+            return false;
+        }
+
+        std::strncpy(tierName, args, tierLength);
+
+        uint8 tier = WarbandSupplierTierCount();
+        for (uint8 i = 0; i < WarbandSupplierTierCount(); ++i)
+        {
+            if (std::strcmp(tierName, WarbandSupplierTierKey(i)) == 0 ||
+                std::strcmp(tierName, WarbandSupplierTierAlias(i)) == 0)
+            {
+                tier = i;
+                break;
+            }
+        }
+
+        if (tier == WarbandSupplierTierCount())
+        {
+            handler->SendSysMessage(PriceUsage);
+            return false;
+        }
+
+        char const* multiplierText = args + tierLength;
+        while (*multiplierText == ' ')
+            ++multiplierText;
+
+        if (!*multiplierText)
+        {
+            handler->SendSysMessage(PriceUsage);
+            return false;
+        }
+
+        char* end = nullptr;
+        float const multiplier = std::strtof(multiplierText, &end);
+
+        if (end == multiplierText || (*end != '\0' && *end != ' ') || !std::isfinite(multiplier) ||
+            !SetWarbandSupplierTierMultiplier(tier, multiplier))
+        {
+            handler->SendSysMessage(PriceUsage);
+            return false;
+        }
+
+        SendPrice(handler);
+        return true;
+    }
+
+    static void SendPrice(ChatHandler* handler)
+    {
+        std::string line = "WARBAND_SUPPLIER=";
+
+        for (uint8 tier = 0; tier < WarbandSupplierTierCount(); ++tier)
+        {
+            if (tier)
+                line += ';';
+
+            line += WarbandSupplierTierKey(tier);
+            line += '=';
+
+            char value[16] = { 0 };
+            std::snprintf(value, sizeof(value), "%.2f", WarbandSupplierTierMultiplier(tier));
+            line += value;
+        }
+
+        char tail[96] = { 0 };
+        std::snprintf(tail, sizeof(tail), ";floor=%u;items=%u;current=%d",
+            WarbandSupplierFloor(),
+            WarbandSupplierCatalogueSize(),
+            WarbandSupplierPricesAreCurrent() ? 1 : 0);
+        line += tail;
+
+        handler->SendSysMessage(line);
     }
 };
 

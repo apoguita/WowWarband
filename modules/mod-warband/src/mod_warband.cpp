@@ -7,6 +7,7 @@ void AddSC_warband_gathering();
 void AddSC_warband_trading();
 void AddSC_warband_magicfind();
 void AddSC_warband_goldfind();
+void AddSC_warband_suppliers();
 void AddSC_warband_trashsell();
 void AddSC_warband_instances();
 void AddSC_warband_convenience();
@@ -19,6 +20,7 @@ void Addmod_warbandScripts()
     AddSC_warband_trading();
     AddSC_warband_magicfind();
     AddSC_warband_goldfind();
+    AddSC_warband_suppliers();
     AddSC_warband_trashsell();
     AddSC_warband_instances();
     AddSC_warband_convenience();

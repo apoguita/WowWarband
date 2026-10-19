@@ -14,9 +14,9 @@
 #     Warband.XP.Rate
 #        Server-wide experience multiplier applied to every character, followers included.
 #        Whole number from 1 to 10.
-#        Default: 3
+#        Default: 2
 #
-Warband.XP.Rate = 3
+Warband.XP.Rate = 2
 
 ###################################################################################################
 #  Follower catch-up XP
@@ -27,7 +27,7 @@ Warband.XP.Rate = 3
 #
 #  The multiplier is:  1 + (PerLevel * levels behind), with the floor and cap applied after.
 #  At the defaults a follower 1 level behind gains 10% extra, and one 20 levels behind gains
-#  200% extra (a x3.00 multiplier). At Warband.XP.Rate = 3 that second case receives x9.00.
+#  200% extra (a x3.00 multiplier). At Warband.XP.Rate = 2 that second case receives x6.00.
 #
 #     Warband.CatchUp.Enabled
 #        Enable the follower catch-up multiplier.
@@ -173,6 +173,54 @@ Warband.MagicFind.Gold = 6.0
 Warband.GoldFind.Multiplier = 3.0
 
 ###################################################################################################
+#  Supplier prices
+#
+#  The auctioneers are the supplier interface now: clicking one opens a category menu instead of the
+#  auction house window, stocking the game's craftables, materials, reagents and recipes without
+#  limit, and buying back anything. This section holds the two numbers that decide what one of them
+#  charges and pays:
+#
+#      price = max(floor, original sell price * multiplier[quality])
+#
+#  The "original sell price" is the item's own SellPrice as the game shipped it, which is the number
+#  on the item tooltip. It is stored once per catalogue item, so re-pricing always starts from the
+#  original and a multiplier can never compound.
+#
+#  The same price is charged and paid: the shops report both BuyPrice and SellPrice as this value,
+#  so there is no buying low and selling high.
+#
+#  These keys only seed the first run. The live values live in the world database
+#  (warband_supplier_setting), which is what the panel's Supplier prices page and the .warband price
+#  command edit, so a value set in game wins over this file and survives restarts. Change a key here
+#  and it takes effect only for a value nothing has saved yet. .warband price reset goes back to the
+#  shipped rule below.
+#
+#  A price is written onto the item itself (item_template.BuyPrice and SellPrice), because the core
+#  reads the item's own prices and no hook can scale them per quality. The item table is read once at
+#  startup, so after pressing Apply the new prices are visible after a worldserver restart. Nothing
+#  is re-priced by itself: prices change only when you press Apply or run .warband price apply.
+#
+#     Warband.Suppliers.Multiplier.<quality>
+#        One multiplier per item quality, 1.0 to 20.0. The shipped rule is 2 for poor through
+#        9 for heirloom.
+#
+#     Warband.Suppliers.Floor
+#        The lowest price, in copper, that a supplier charges or pays. 1 to 1000000.
+#
+#  The command is .warband price <poor|normal|uncommon|rare|epic|legendary|artifact|heirloom>
+#  <multiplier>, .warband price floor <copper>, .warband price apply, .warband price reset.
+#
+Warband.Suppliers.Multiplier.Poor = 2.0
+Warband.Suppliers.Multiplier.Normal = 3.0
+Warband.Suppliers.Multiplier.Uncommon = 4.0
+Warband.Suppliers.Multiplier.Rare = 5.0
+Warband.Suppliers.Multiplier.Epic = 6.0
+Warband.Suppliers.Multiplier.Legendary = 7.0
+Warband.Suppliers.Multiplier.Artifact = 8.0
+Warband.Suppliers.Multiplier.Heirloom = 9.0
+Warband.Suppliers.Floor = 10
+
+###################################################################################################
 #  Trash auto-sell
 #
 #  A Warband of five loots five bags' worth of grey junk, and a follower's bags cannot be opened by
@@ -272,3 +320,4 @@ Warband.Pets.AlwaysHappy = 1
 #  playerbots options. The Warband's own companions are never random bots, so this switch can never
 #  touch the party.
 
+###################################################################################################

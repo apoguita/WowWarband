@@ -17,7 +17,7 @@ local FRAME_NAME = "WarbandConfigFrame"
 
 local XP_MIN = 1
 local XP_MAX = 10
-local XP_DEFAULT = 3
+local XP_DEFAULT = 2
 local REPLY_TIMEOUT = 5
 local MINIMAP_RADIUS = 80
 
@@ -63,8 +63,8 @@ local Tree = {
             { id = "binding", text = "Item binding", status = "live", page = "binding" },
             { id = "magicfind", text = "Magic find", status = "live", page = "magicfind" },
             { id = "goldfind", text = "Gold find", status = "live", page = "goldfind" },
+            { id = "supplierprices", text = "Supplier prices", status = "live", page = "supplierprices" },
             { id = "trashsell", text = "Trash sell", status = "live", page = "trashsell" },
-            { id = "auctionhouse", text = "Auction house", status = "live", page = "auctionhouse" },
             { id = "instances", text = "Instances", status = "live", page = "instances" },
             { id = "worldscale", text = "World scaling", status = "live", page = "worldscale" },
             { id = "aoeloot", text = "AoE loot", status = "live", page = "aoeloot" },
@@ -161,6 +161,32 @@ local GOLD_MAX = 20
 local goldFind = { known = false, mult = 3 }
 local goldFindRequest = { pending = false, deadline = nil }
 
+-- Supplier prices: what the Warband supplier merchants charge and pay. One multiplier per item
+-- quality plus a copper floor. The values live on the server and survive a restart; "apply" writes
+-- them onto the item prices, which the worldserver only reads at startup, so the page says a
+-- restart is needed before the new prices show up in a shop window.
+local SUPPLIER_TIERS = { "poor", "normal", "uncommon", "rare", "epic", "legendary", "artifact", "heirloom" }
+local SUPPLIER_LABELS = {
+    poor = "Poor",
+    normal = "Normal",
+    uncommon = "Uncommon",
+    rare = "Rare",
+    epic = "Epic",
+    legendary = "Legendary",
+    artifact = "Artifact",
+    heirloom = "Heirloom",
+}
+local SUPPLIER_STEP = 1
+local SUPPLIER_MIN = 1
+local SUPPLIER_MAX = 20
+local SUPPLIER_FLOOR_STEP = 5
+local SUPPLIER_FLOOR_MIN = 1
+
+local supplier = { known = false, mult = {}, floor = 10, items = 0, current = false }
+local supplierRequest = { pending = false, deadline = nil }
+local UpdateSupplierDisplay
+local SetSupplierStatus
+
 -- Trash auto-sell: grey loot sold at pickup time so it never takes a bag slot. "sold" and
 -- "copper" are the server's session totals, "swept" is what the last sweep command collected.
 local trashSell = { known = false, enabled = true, sold = 0, copper = 0, swept = 0 }
@@ -198,30 +224,6 @@ local randomBots = { known = false, enabled = true, target = 500, online = 0 }
 local randomBotsRequest = { pending = false, deadline = nil }
 local UpdateRandomBotsDisplay
 local SetRandomBotsStatus
-
--- Auction house: the market is run by the auction bot, which has no user front end. This page is
--- its only interface: on/off for its seller and buyer sides, and how busy each cycle is.
-local AUCTION_ITEMS_STEP = 25
-local AUCTION_ITEMS_MIN = 10
-local AUCTION_ITEMS_MAX = 5000
-local AUCTION_CANDIDATES_MIN = 1
-local AUCTION_CANDIDATES_MAX = 50
-
-local auction = {
-    known = false,
-    installed = false,
-    seller = false,
-    buyer = false,
-    items = 0,
-    candidates = 0,
-    alliance = 0,
-    horde = 0,
-    neutral = 0,
-}
-
-local auctionRequest = { pending = false, deadline = nil }
-local UpdateAuctionDisplay
-local SetAuctionStatus
 
 -- Instances stop restocking: a creature killed inside a dungeon stays dead for the run. "kept" is
 -- how many creatures this session has kept down.
@@ -334,14 +336,6 @@ local function RequestTrashSellState()
     end
 
     StartRequest(trashSellRequest, ".warband trash")
-end
-
-local function RequestAuctionState()
-    if UpdateAuctionDisplay then
-        UpdateAuctionDisplay()
-    end
-
-    StartRequest(auctionRequest, ".warband ah")
 end
 
 local function RequestInstanceState()
@@ -481,11 +475,6 @@ function Warband_OnUpdate()
         ClearRequest(randomBotsRequest)
         SetRandomBotsStatus("Unavailable: this worldserver does not answer .warband randombots yet.",
             COLOR_GREY)
-    end
-
-    if auctionRequest.pending and GetTime() >= auctionRequest.deadline then
-        ClearRequest(auctionRequest)
-        SetAuctionStatus("Unavailable: this worldserver does not answer .warband ah yet.", COLOR_GREY)
     end
 
     if instanceRequest.pending and GetTime() >= instanceRequest.deadline then
@@ -632,43 +621,6 @@ function Warband_OnEvent(self, event, ...)
         return
     end
 
-    if string.find(message or "", "WARBAND_AHBOT=", 1, true) then
-        auction.installed = false
-
-        for key, value in string.gmatch(message, "([%a_]+)=([%d%.]+)") do
-            local number = tonumber(value)
-            if key == "installed" then
-                auction.installed = number == 1
-            elseif key == "seller" then
-                auction.seller = number == 1
-            elseif key == "buyer" then
-                auction.buyer = number == 1
-            elseif key == "items" then
-                auction.items = number or 0
-            elseif key == "candidates" then
-                auction.candidates = number or 0
-            elseif key == "alliance" then
-                auction.alliance = number or 0
-            elseif key == "horde" then
-                auction.horde = number or 0
-            elseif key == "neutral" then
-                auction.neutral = number or 0
-            end
-        end
-
-        ClearRequest(auctionRequest)
-        auction.known = true
-
-        if UpdateAuctionDisplay then
-            UpdateAuctionDisplay()
-        end
-
-        if RefreshDynamicPage then
-            RefreshDynamicPage()
-        end
-        return
-    end
-
     if string.find(message or "", "WARBAND_TRASHSELL=", 1, true) then
         for key, value in string.gmatch(message, "([%a_]+)=([%d%.]+)") do
             local number = tonumber(value)
@@ -791,6 +743,35 @@ function Warband_OnEvent(self, event, ...)
 
         if UpdateMagicFindDisplay then
             UpdateMagicFindDisplay()
+        end
+
+        if RefreshDynamicPage then
+            RefreshDynamicPage()
+        end
+        return
+    end
+
+    if string.find(message or "", "WARBAND_SUPPLIER=", 1, true) then
+        for key, value in string.gmatch(message, "([%a_]+)=([%d%.]+)") do
+            local number = tonumber(value)
+            if not number then
+                -- Not a value line: skip.
+            elseif SUPPLIER_LABELS[key] then
+                supplier.mult[key] = number
+            elseif key == "floor" then
+                supplier.floor = number
+            elseif key == "items" then
+                supplier.items = number
+            elseif key == "current" then
+                supplier.current = number == 1
+            end
+        end
+
+        ClearRequest(supplierRequest)
+        supplier.known = true
+
+        if UpdateSupplierDisplay then
+            UpdateSupplierDisplay()
         end
 
         if RefreshDynamicPage then
@@ -1480,6 +1461,193 @@ function Warband_AdjustGoldFind(delta)
     StartRequest(goldFindRequest, string.format(".warband goldfind %.2f", wanted))
 end
 
+-- Supplier prices: eight multipliers and a floor, then one button that writes them onto the items.
+-- The row values are the server's, not the panel's: every change asks the server and shows what it
+-- accepted, so the page can never drift from what a shop will charge.
+local function SupplierMoney(copper)
+    copper = math.max(math.floor(copper or 0), 0)
+
+    local gold = math.floor(copper / 10000)
+    local silver = math.floor((copper % 10000) / 100)
+    local rest = copper % 100
+
+    if gold > 0 then
+        return string.format("%dg %ds", gold, silver)
+    end
+
+    if silver > 0 then
+        return string.format("%ds %dc", silver, rest)
+    end
+
+    return string.format("%dc", rest)
+end
+
+SetSupplierStatus = function(text, color)
+    WarbandPageSupplierPricesStatus:SetText(text)
+    WarbandPageSupplierPricesStatus:SetTextColor(color[1], color[2], color[3])
+end
+
+local function SupplierPriceFor(copper, multiplier)
+    return math.max(supplier.floor or 1, math.floor(copper * (multiplier or 1)))
+end
+
+local function BuildSupplierRows()
+    if supplierRows[1] then
+        return
+    end
+
+    for index, tier in ipairs(SUPPLIER_TIERS) do
+        local y = -136 - (index - 1) * 26
+
+        local label = WarbandPageSupplierPrices:CreateFontString(nil, "ARTWORK", "GameFontNormal")
+        label:SetPoint("TOPLEFT", WarbandPageSupplierPrices, "TOPLEFT", 0, y)
+        label:SetWidth(120)
+        label:SetJustifyH("LEFT")
+        label:SetText(SUPPLIER_LABELS[tier])
+
+        local value = WarbandPageSupplierPrices:CreateFontString(nil, "ARTWORK", "GameFontHighlight")
+        value:SetPoint("TOPLEFT", WarbandPageSupplierPrices, "TOPLEFT", 130, y)
+        value:SetWidth(120)
+        value:SetJustifyH("LEFT")
+
+        local down = CreateFrame("Button", nil, WarbandPageSupplierPrices, "UIPanelButtonTemplate")
+        down:SetSize(28, 20)
+        down:SetPoint("TOPLEFT", WarbandPageSupplierPrices, "TOPLEFT", 262, y + 4)
+        down:SetText("-")
+        down:SetScript("OnClick", function() Warband_AdjustSupplier(tier, -SUPPLIER_STEP) end)
+
+        local up = CreateFrame("Button", nil, WarbandPageSupplierPrices, "UIPanelButtonTemplate")
+        up:SetSize(28, 20)
+        up:SetPoint("TOPLEFT", WarbandPageSupplierPrices, "TOPLEFT", 296, y + 4)
+        up:SetText("+")
+        up:SetScript("OnClick", function() Warband_AdjustSupplier(tier, SUPPLIER_STEP) end)
+
+        supplierRows[index] = { value = value }
+    end
+
+    local floorY = -136 - #SUPPLIER_TIERS * 26 - 6
+
+    local floorLabel = WarbandPageSupplierPrices:CreateFontString(nil, "ARTWORK", "GameFontNormal")
+    floorLabel:SetPoint("TOPLEFT", WarbandPageSupplierPrices, "TOPLEFT", 0, floorY)
+    floorLabel:SetWidth(120)
+    floorLabel:SetJustifyH("LEFT")
+    floorLabel:SetText("Floor")
+
+    local floorValue = WarbandPageSupplierPrices:CreateFontString(nil, "ARTWORK", "GameFontHighlight")
+    floorValue:SetPoint("TOPLEFT", WarbandPageSupplierPrices, "TOPLEFT", 130, floorY)
+    floorValue:SetWidth(120)
+    floorValue:SetJustifyH("LEFT")
+
+    local floorDown = CreateFrame("Button", nil, WarbandPageSupplierPrices, "UIPanelButtonTemplate")
+    floorDown:SetSize(28, 20)
+    floorDown:SetPoint("TOPLEFT", WarbandPageSupplierPrices, "TOPLEFT", 262, floorY + 4)
+    floorDown:SetText("-")
+    floorDown:SetScript("OnClick", function() Warband_AdjustSupplierFloor(-SUPPLIER_FLOOR_STEP) end)
+
+    local floorUp = CreateFrame("Button", nil, WarbandPageSupplierPrices, "UIPanelButtonTemplate")
+    floorUp:SetSize(28, 20)
+    floorUp:SetPoint("TOPLEFT", WarbandPageSupplierPrices, "TOPLEFT", 296, floorY + 4)
+    floorUp:SetText("+")
+    floorUp:SetScript("OnClick", function() Warband_AdjustSupplierFloor(SUPPLIER_FLOOR_STEP) end)
+
+    supplierRows.floor = { value = floorValue }
+
+    local apply = CreateFrame("Button", nil, WarbandPageSupplierPrices, "UIPanelButtonTemplate")
+    apply:SetSize(140, 22)
+    apply:SetPoint("TOPLEFT", WarbandPageSupplierPrices, "TOPLEFT", 0, floorY - 34)
+    apply:SetText("Apply prices")
+    apply:SetScript("OnClick", function()
+        if not supplier.known then
+            return
+        end
+
+        SetSupplierStatus("Writing the prices onto the items...", COLOR_AMBER)
+        StartRequest(supplierRequest, ".warband price apply")
+    end)
+
+    local reset = CreateFrame("Button", nil, WarbandPageSupplierPrices, "UIPanelButtonTemplate")
+    reset:SetSize(160, 22)
+    reset:SetPoint("TOPLEFT", WarbandPageSupplierPrices, "TOPLEFT", 150, floorY - 34)
+    reset:SetText("Reset to defaults")
+    reset:SetScript("OnClick", function()
+        if not supplier.known then
+            return
+        end
+
+        SetSupplierStatus("Going back to the shipped rule...", COLOR_AMBER)
+        StartRequest(supplierRequest, ".warband price reset")
+    end)
+end
+
+UpdateSupplierDisplay = function()
+    BuildSupplierRows()
+
+    for index, tier in ipairs(SUPPLIER_TIERS) do
+        supplierRows[index].value:SetText(string.format("x%.2f", supplier.mult[tier] or 1))
+    end
+
+    supplierRows.floor.value:SetText(string.format("%d copper", supplier.floor or 10))
+
+    if not supplier.known then
+        SetSupplierStatus("Reading the supplier prices...", COLOR_AMBER)
+    elseif supplier.items == 0 then
+        SetSupplierStatus("No catalogue installed yet - the supplier merchants have nothing to sell",
+            COLOR_GREY)
+    elseif supplier.current then
+        SetSupplierStatus(string.format("Applied to %d items - matches these values", supplier.items),
+            COLOR_GREEN)
+    else
+        SetSupplierStatus(string.format("%d items catalogued - press Apply prices to write these values",
+            supplier.items), COLOR_AMBER)
+    end
+
+    -- A 1 silver item of ordinary quality, worked through the current rule, is the shortest way to
+    -- show what the numbers do.
+    local normal = supplier.mult.normal or 1
+    local epic = supplier.mult.epic or 1
+    WarbandPageSupplierPricesExample:SetText(string.format(
+        "A 1s item costs %s at normal quality, %s at epic; nothing is ever below the %s floor.",
+        SupplierMoney(SupplierPriceFor(100, normal)),
+        SupplierMoney(SupplierPriceFor(100, epic)),
+        SupplierMoney(supplier.floor or 10)))
+end
+
+local function RequestSupplierState()
+    if UpdateSupplierDisplay then
+        UpdateSupplierDisplay()
+    end
+
+    StartRequest(supplierRequest, ".warband price")
+end
+
+function Warband_AdjustSupplier(tier, delta)
+    local current = supplier.mult[tier] or 1
+    local wanted = math.max(SUPPLIER_MIN, math.min(SUPPLIER_MAX, current + delta))
+
+    if wanted == current then
+        return
+    end
+
+    supplier.mult[tier] = wanted
+    UpdateSupplierDisplay()
+    SetSupplierStatus("Saving the multiplier...", COLOR_AMBER)
+    StartRequest(supplierRequest, string.format(".warband price %s %.0f", tier, wanted))
+end
+
+function Warband_AdjustSupplierFloor(delta)
+    local current = supplier.floor or 10
+    local wanted = math.max(SUPPLIER_FLOOR_MIN, current + delta)
+
+    if wanted == current then
+        return
+    end
+
+    supplier.floor = wanted
+    UpdateSupplierDisplay()
+    SetSupplierStatus("Saving the floor...", COLOR_AMBER)
+    StartRequest(supplierRequest, string.format(".warband price floor %d", wanted))
+end
+
 -- Trash auto-sell: one toggle and a sweep button. "Sold at pickup" is easy to disbelieve until the
 -- bags stay empty, so the page also reports what the feature has cleared so far.
 local function FormatCopper(copper)
@@ -1845,89 +2013,6 @@ function Warband_StepRandomBotsTarget(delta)
     RandomBotsAction(".warband randombots set " .. target, "Changing the target...")
 end
 
--- Auction house: the bot has no interface of its own, so this page is it.
-SetAuctionStatus = function(text, color)
-    WarbandPageAuctionHouseStatus:SetText(text)
-    WarbandPageAuctionHouseStatus:SetTextColor(color[1], color[2], color[3])
-end
-
-UpdateAuctionDisplay = function()
-    if not auction.known then
-        SetAuctionStatus("Reading the auction house settings...", COLOR_AMBER)
-    elseif not auction.installed then
-        SetAuctionStatus("No auction bot on this worldserver", COLOR_GREY)
-    elseif auction.seller and auction.buyer then
-        SetAuctionStatus("Live - the houses are stocked and your listings can be bought", COLOR_GREEN)
-    elseif auction.seller then
-        SetAuctionStatus("Seller only - stocked, but nothing buys your listings", COLOR_AMBER)
-    elseif auction.buyer then
-        SetAuctionStatus("Buyer only - your listings sell, the houses are not restocked", COLOR_AMBER)
-    else
-        SetAuctionStatus("Both sides off - the market is only what players put there", COLOR_GREY)
-    end
-
-    WarbandPageAuctionHouseSellerToggle:SetText(auction.seller and "Seller: on" or "Seller: off")
-    WarbandPageAuctionHouseBuyerToggle:SetText(auction.buyer and "Buyer: on" or "Buyer: off")
-
-    if auction.installed then
-        WarbandPageAuctionHouseDetail:SetText(string.format(
-            "%d listings added per cycle, %d checked for buying per cycle\nStock targets: %d Alliance, %d Horde, %d Neutral",
-            auction.items, auction.candidates, auction.alliance, auction.horde, auction.neutral))
-    else
-        WarbandPageAuctionHouseDetail:SetText("")
-    end
-end
-
-function Warband_ToggleAuctionSeller()
-    if auction.known and not auction.installed then
-        return
-    end
-
-    SetAuctionStatus("Switching the seller...", COLOR_AMBER)
-    StartRequest(auctionRequest,
-        auction.seller and ".warband ah seller off" or ".warband ah seller on")
-end
-
-function Warband_ToggleAuctionBuyer()
-    if auction.known and not auction.installed then
-        return
-    end
-
-    SetAuctionStatus("Switching the buyer...", COLOR_AMBER)
-    StartRequest(auctionRequest,
-        auction.buyer and ".warband ah buyer off" or ".warband ah buyer on")
-end
-
-function Warband_StepAuctionItems(delta)
-    if auction.known and not auction.installed then
-        return
-    end
-
-    local wanted = math.max(AUCTION_ITEMS_MIN, math.min(AUCTION_ITEMS_MAX, auction.items + delta))
-    SetAuctionStatus("Applying...", COLOR_AMBER)
-    StartRequest(auctionRequest, ".warband ah items " .. wanted)
-end
-
-function Warband_StepAuctionCandidates(delta)
-    if auction.known and not auction.installed then
-        return
-    end
-
-    local wanted = math.max(AUCTION_CANDIDATES_MIN,
-        math.min(AUCTION_CANDIDATES_MAX, auction.candidates + delta))
-    SetAuctionStatus("Applying...", COLOR_AMBER)
-    StartRequest(auctionRequest, ".warband ah candidates " .. wanted)
-end
-
-function Warband_RefreshAuction()
-    if auction.known and not auction.installed then
-        return
-    end
-
-    SetAuctionStatus("Restocking the auction houses...", COLOR_AMBER)
-    StartRequest(auctionRequest, ".warband ah repopulate")
-end
-
 -- Instances: one switch, and a count of what this session has kept down.
 SetInstanceStatus = function(text, color)
     WarbandPageInstanceStatus:SetText(text)
@@ -2066,12 +2151,6 @@ local function DynamicLines(kind)
             table.insert(lines, "- Trash sell: grey loot is sold on pickup, so bags stay empty")
         end
 
-        if auction.known and auction.installed and auction.seller then
-            table.insert(lines, auction.buyer
-                and "- Auction house: stocked by the bot, and it buys what the party lists"
-                or "- Auction house: stocked by the bot, selling waits for a buyer")
-        end
-
         if instance.known and instance.enabled then
             table.insert(lines, "- Instances: a creature killed inside one stays dead for the run")
         end
@@ -2152,8 +2231,8 @@ local function ShowNode(node)
     WarbandPageBinding:Hide()
     WarbandPageMagicFind:Hide()
     WarbandPageGoldFind:Hide()
+    WarbandPageSupplierPrices:Hide()
     WarbandPageTrashSell:Hide()
-    WarbandPageAuctionHouse:Hide()
     WarbandPageInstance:Hide()
     WarbandPageWorldScale:Hide()
     WarbandPageAoeLoot:Hide()
@@ -2191,6 +2270,15 @@ local function ShowNode(node)
         WarbandPageGoldFind:Show()
         return
     end
+
+    if node.page == "supplierprices" then
+        if UpdateSupplierDisplay then
+            UpdateSupplierDisplay()
+        end
+
+        WarbandPageSupplierPrices:Show()
+        return
+    end
     if node.page == "magicfind" then
         if UpdateMagicFindDisplay then
             UpdateMagicFindDisplay()
@@ -2206,15 +2294,6 @@ local function ShowNode(node)
         end
 
         WarbandPageTrashSell:Show()
-        return
-    end
-
-    if node.page == "auctionhouse" then
-        if UpdateAuctionDisplay then
-            UpdateAuctionDisplay()
-        end
-
-        WarbandPageAuctionHouse:Show()
         return
     end
 
@@ -2293,8 +2372,8 @@ function Warband_OnShow()
     RequestBindingState()
     RequestMagicFindState()
     RequestGoldFindState()
+    RequestSupplierState()
     RequestTrashSellState()
-    RequestAuctionState()
     RequestInstanceState()
     RequestWorldScaleState()
     RequestAoeLootState()
@@ -2309,8 +2388,8 @@ function Warband_OnHide()
     ClearRequest(bindingRequest)
     ClearRequest(magicFindRequest)
     ClearRequest(goldFindRequest)
+    ClearRequest(supplierRequest)
     ClearRequest(trashSellRequest)
-    ClearRequest(auctionRequest)
     ClearRequest(instanceRequest)
     ClearRequest(worldScaleRequest)
     ClearRequest(aoeLootRequest)

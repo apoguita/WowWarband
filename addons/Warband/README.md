@@ -15,8 +15,8 @@ The tree as it stands:
       Item binding        live - the party binding policy switch
       Magic find          live - one multiplier per quality
       Gold find           live - the coin multiplier
+      Supplier prices     live - what the supplier merchants charge and pay, with Apply
       Trash sell          live - grey loot sold on pickup, with a sweep button
-      Auction house       live - the auction bot's settings, and Restock now
       Instances           live - killed instance creatures stay dead, with a counter
       World scaling       live - the open-world scaler switch, off by default
       AoE loot            live - the area looting switch, off by default
@@ -44,10 +44,10 @@ protocol:
     .warband xp             the module replies WARBAND_XP=<rate>
     .warband xp set <1-10>  applies the new rate immediately, then replies the same way
 
-The slider sends the value when you release it; the -/+ buttons and the 1x / 3x / 5x / 10x presets
+The slider sends the value when you release it; the -/+ buttons and the 1x / 2x / 5x / 10x presets
 send on click. The status line shows what the server answered, or says so when the worldserver does
 not answer at all. Changes are runtime-only: a worldserver restart or config reload returns the rate
-to the configured default (3x).
+to the configured default (2x).
 
 The Features list shows the live rate, so it updates as the slider moves.
 
@@ -143,6 +143,24 @@ Server > Gold find is one row: `-` and `+` in steps of 0.5 between 1 and 20, plu
 is `WARBAND_GOLDFIND=3.00`. It multiplies the coin that loot generates — creatures, chests, mines
 and containers — and leaves vendoring, quest rewards, mail and the auction house alone.
 
+## Supplier prices
+
+Server > Supplier prices is what the Warband suppliers charge and pay. Eight rows — poor, normal,
+uncommon, rare, epic, legendary, artifact, heirloom — each with `-` and `+` in steps of 1 between 1
+and 20, then a floor row in copper, then **Apply prices** and **Reset to defaults**. The reply is
+`WARBAND_SUPPLIER=poor=2.00;...;heirloom=9.00;floor=10;items=7351;current=1`.
+
+A supplier's price is `max(floor, the item's original sell price * the multiplier for its quality)`,
+and the same price is charged and paid, so nothing can be bought low and sold high. The page never
+shows a value it has not been told: every click asks the server and displays what came back.
+`current=1` means the item prices already match the values shown.
+
+**Apply prices writes the prices onto the items**, and the server reads an item's price once at
+startup — so the page says plainly that the new prices appear in game after the worldserver
+restarts. Nothing re-prices on its own; a restart with no Apply changes nothing. The values
+themselves are saved by the server, so they survive that restart and the page shows them again next
+time.
+
 ## Trash sell
 
 Server > Trash sell has the switch and a **Sell the junk in our bags now** button. The switch sells
@@ -151,16 +169,6 @@ is paid into the leader's purse - the one purse the party can see. The button sw
 already in the bags, which is the only way to clear a companion that filled up before the feature
 was on. The reply is `WARBAND_TRASHSELL=enabled=1;sold=12;copper=3456;swept=0`; the page shows this
 Warband's totals since the leader logged in, plus how many items the last sweep collected.
-
-## Auction house
-
-Server > Auction house is the only interface the auction bot has. `Seller` and `Buyer` toggle the
-two sides of the market, `+`/`-` change listings per cycle (25 at a time) and buy candidates (1 at a
-time), and **Restock now** makes the bot rebuild its item lists immediately. The reply is
-`WARBAND_AHBOT=installed=1;seller=1;buyer=1;items=150;candidates=5;alliance=1200;horde=1200;neutral=200`;
-when the bot is not installed the page says `installed=0` instead of offering dead buttons. Every
-change rewrites that option in the bot's configuration file and reloads it, so prices and filters
-stay in the bot's own file.
 
 ## Instances
 

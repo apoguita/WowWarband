@@ -27,7 +27,7 @@ inventory: which modules run on the server, what Warband itself adds, and how to
 | `mod-multibot-bridge` | Third-party | Companion command bridge; its client half is `addons/MultiBot` |
 | `mod-progression` | Third-party | Content gating by progression phase |
 | `mod-ale` | Third-party | Lua scripting support |
-| `mod-ah-bot-plus` | Third-party, added | The auction-house market: it stocks all three houses and buys what the party lists |
+| REMOVED: `mod-ah-bot-plus` | Third-party, added | The auction-house market: it stocks all three houses and buys what the party lists |
 | `mod-autobalance` | Third-party, added | Instance difficulty scaling: five members can fight a raid built for forty, and a dungeon scales up once the party outlevels it |
 | `mod-item-level-scaling` | Third-party, added | Loot scaling: the same items with their stats moved to the party's level, never downward |
 
@@ -42,7 +42,7 @@ on the client. Each option can be changed while the server runs — no rebuild, 
 
 | Option | What it does | How to change it |
 | --- | --- | --- |
-| XP multiplier | 1x–10x on every experience gain, followers included. Default 3x | Panel → XP Options, or `.warband xp set <1-10>` |
+| XP multiplier | 1x–10x on every experience gain, followers included. Default 2x | Panel → XP Options, or `.warband xp set <1-10>` |
 | Follower catch-up XP | extra experience for a companion that is behind its leader, so a new recruit catches up | Panel → XP Options, or `.warband catchup step/floor/cap/on/off` |
 | Follower gathering | companions receive the leader's Herbalism, Mining and Skinning, so they work the same nodes and skin the same corpses. Raise-only | Panel → Follower gathering, or `.warband gather [on\|off\|auto on\|auto off]` |
 | Bound gear inside the Warband | with binding off, a soulbound piece trades, mails, auctions and moves to a companion or any other character like any other item; the switch puts the ordinary rule back | Panel → Item binding, or `.warband binding [on\|off]` |
@@ -50,7 +50,6 @@ on the client. Each option can be changed while the server runs — no rebuild, 
 | Gold find | a multiplier on looted coin. Default x3 | Panel → Gold find, or `.warband goldfind <multiplier>` |
 | Trash auto-sell | grey loot is sold the moment it is picked up, for the leader and every companion, so bags stay empty; the vendor price goes to the leader's purse and the page counts only this Warband's sales. `.warband trash sell` empties what is already in the bags | Panel → Trash sell, or `.warband trash [on\|off\|sell]` |
 | Instances stop restocking | a creature killed inside a dungeon or raid stays dead for the run, across logging out and server restarts; an instance reset still restores the dungeon | Panel → Instances, or `.warband instance [on\|off]` |
-| Auction house control | reads and writes the auction bot's settings — seller and buyer on/off, listings per cycle, buy candidates, stock targets | Panel → Auction house, or `.warband ah seller/buyer/items/candidates/stock/repopulate` |
 | World scaling | open-world creatures, quest rewards and loot at each character's own level; the switch flips `mod-zone-scaling`, which is installed and off by default, and only zones the server opted in change | Panel → World scaling, or `.warband worldscale [on\|off]` |
 | AoE loot | one loot window holds the nearby corpses' items and gold; the panel exposes the module's whole configuration — switch, group, login message, radius, corpse count, mail fallback — installed and off by default, with `.aoeloot on\|off` per character | Panel → AoE loot, or `.warband aoeloot [on\|off\|message\|group\|mail\|range <5-100>\|corpses <1-50>]` |
 | World bots | the random bots playerbots logs in and out by itself: switch the population off for an empty world, or pin how many stay online; the Warband's own companions are never touched, and the default is the playerbots configuration | Panel → World bots, or `.warband randombots [on\|off\|set <1-500>]` |
