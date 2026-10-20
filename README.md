@@ -44,6 +44,7 @@ value is saved, so it survives the next restart.
 | Option | What it does | How to change it |
 | --- | --- | --- |
 | Auction house replaced by merchants | every auctioneer, in every city, is now a Warband merchant: clicking one opens a category menu instead of the auction house, stocking **everything a profession can make** — 7,350 items, unlimited quantity — and buying anything you sell at the same price. The menu is Armor (type → slot → level range 1-10 … 71-80), Weapons (family, one- and two-handed), Containers, Materials and reagents, Consumables, Glyphs (by class), Gems, Recipes (by profession), Ammunition and Keys | Panel → Supplier prices, or `.warband price <tier> <multiplier>` / `floor` / `apply` / `reset` |
+| Soul shards from any kill | Drain Soul grants its Soul Shard on any kill, not only on a target that yields experience or honor, and its per-tick shard chance follows the same rule; Shadowburn's shard refund too | server-side rule, no switch — `.warband` has nothing to set |
 | XP multiplier | 1x–10x on every experience gain, followers included. Default 2x | Panel → XP Options, or `.warband xp set <1-10>` |
 | Follower catch-up XP | extra experience for a companion that is behind its leader, so a new recruit catches up | Panel → XP Options, or `.warband catchup step/floor/cap/on/off` |
 | Follower gathering | companions receive the leader's Herbalism, Mining and Skinning, so they work the same nodes and skin the same corpses. Raise-only | Panel → Follower gathering, or `.warband gather [on\|off\|auto on\|auto off]` |
@@ -100,6 +101,15 @@ What it currently carries: the local bind address, `EnablePlayerSettings`, eleve
 skills, Playerbots' random-bot population and autologin (off) and **NEED rolls instead of greed**,
 AoE-loot mail fallback, AutoBalance's money and higher-level rules, and item-level scaling without
 scale-down.
+
+**Database content ships the same way — through AzerothCore's own updater.** Anything this project
+adds to the world database is committed as a pending update under
+`data/sql/updates/pending_db_world/`, which the worldserver applies once on its first start
+(`Updates.EnableDatabases` in `worldserver.conf`). Nothing has to be imported by hand: clone, build,
+start. The supplier merchants are distributed this way — 29 converted auctioneers, 83 menus, 434
+vendor lists, 7,350 items and their prices — and that file clears the rows it owns before inserting,
+so a database that already has them can run it again without error. The inverse of every such
+update is kept beside it in `data/sql/warband/` as a recovery script.
 
 ## Configuration and references
 

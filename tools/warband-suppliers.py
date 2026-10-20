@@ -1,9 +1,16 @@
 """Generate the Warband supplier merchants: creatures, menus, vendor lists and prices.
 
-What it produces, in data/sql/custom/warband-suppliers/:
+What it produces:
 
-    apply.sql    every table row needed for the merchants to exist and work
-    revert.sql   the exact inverse, self-contained
+    data/sql/updates/pending_db_world/2026_10_19_00_warband_suppliers.sql
+        every table row needed for the merchants to exist and work. This is the directory
+        AzerothCore's DB updater reads (Updates.EnableDatabases), so a clone that starts the
+        server once gets the shops installed with no manual step, and the file clears the rows it
+        owns first so applying it twice is harmless.
+
+    data/sql/warband/revert_warband_suppliers.sql
+        the exact inverse, self-contained, kept outside the updater's directory as the recovery
+        script.
 
 The catalogue is what a profession can actually create, read from the client's Spell.dbc (an effect
 of type 24 makes an item), plus every trade good, gem and recipe. The tree below decides how a
@@ -46,7 +53,13 @@ from collections import OrderedDict
 MYSQL = r"C:\Program Files\MySQL\MySQL Server 8.4\bin\mysql.exe"
 INI = r"var\mysql-client.ini"
 DATABASE = "acore_world"
-OUT = r"data\sql\custom\warband-suppliers"
+# The forward SQL lives where AzerothCore's DB updater looks for it (Updates.EnableDatabases in
+# worldserver.conf), so a clone that starts the server once gets the shops installed with no manual
+# step. The reverse lives beside it, outside the updater's directory, as the recovery script.
+OUT = r"data\sql\updates\pending_db_world"
+APPLY_NAME = "2026_10_19_00_warband_suppliers.sql"
+REVERT_DIR = r"data\sql\warband"
+REVERT_NAME = "revert_warband_suppliers.sql"
 SPELL_DBC = r"var\data\dbc\Spell.dbc"
 
 SOURCE_TEMPLATE = 8671          # Auctioneer Buckler: a plain humanoid to copy the holder templates from
@@ -568,7 +581,25 @@ def generate(catalogue, root, menus, leaves, templates, spawns):
     apply_lines.append("  PRIMARY KEY (`entry`)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;")
     apply_lines.append("")
 
-    # 2. The original price of every catalogue item, so nothing has to be guessed later.
+    # 2. Everything this file owns is removed first, so it can be applied twice without errors. The
+    #    DB updater applies a pending file once, but a clone may already have the data from an older
+    #    copy, and a re-run has to be harmless.
+    apply_lines.append("-- this file owns these rows; clear them so a second application is harmless")
+    apply_lines.append("DELETE FROM `gossip_menu_option` WHERE `MenuID` BETWEEN %d AND %d;"
+                       % (MENU_BASE, MENU_BASE + len(menus) - 1))
+    apply_lines.append("DELETE FROM `gossip_menu` WHERE `MenuID` BETWEEN %d AND %d;"
+                       % (MENU_BASE, MENU_BASE + len(menus) - 1))
+    apply_lines.append("DELETE FROM `npc_text` WHERE `ID` BETWEEN %d AND %d;"
+                       % (TEXT_BASE, TEXT_BASE + len(menus) - 1))
+    apply_lines.append("DELETE FROM `npc_vendor` WHERE `entry` BETWEEN %d AND %d;"
+                       % (HOLDER_BASE, HOLDER_BASE + len(leaves) - 1))
+    apply_lines.append("DELETE FROM `creature_template_model` WHERE `CreatureID` BETWEEN %d AND %d;"
+                       % (HOLDER_BASE, HOLDER_BASE + len(leaves) - 1))
+    apply_lines.append("DELETE FROM `creature_template` WHERE `entry` BETWEEN %d AND %d;"
+                       % (HOLDER_BASE, HOLDER_BASE + len(leaves) - 1))
+    apply_lines.append("")
+
+    # 3. The original price of every catalogue item, so nothing has to be guessed later.
     apply_lines.append("-- original prices, kept for the Supplier prices page")
     apply_lines.append("INSERT IGNORE INTO `warband_supplier_price` (`entry`, `quality`, `base_buy`, `base_sell`) VALUES")
     rows = []
@@ -783,13 +814,17 @@ def main():
               % (len(menus), len(leaves), total_rows))
         return
 
-    with open(os.path.join(OUT, "apply.sql"), "w", encoding="utf-8", newline="\n") as handle:
+    os.makedirs(OUT, exist_ok=True)
+    os.makedirs(REVERT_DIR, exist_ok=True)
+
+    with open(os.path.join(OUT, APPLY_NAME), "w", encoding="utf-8", newline="\n") as handle:
         handle.write("\n".join(apply_lines) + "\n")
 
-    with open(os.path.join(OUT, "revert.sql"), "w", encoding="utf-8", newline="\n") as handle:
+    with open(os.path.join(REVERT_DIR, REVERT_NAME), "w", encoding="utf-8", newline="\n") as handle:
         handle.write("\n".join(revert_lines) + "\n")
 
-    print("wrote %s\\apply.sql (%d vendor rows) and revert.sql" % (OUT, total_rows))
+    print("wrote %s\\%s (%d vendor rows) and %s\\%s"
+          % (OUT, APPLY_NAME, total_rows, REVERT_DIR, REVERT_NAME))
 
 
 if __name__ == "__main__":

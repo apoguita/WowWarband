@@ -1065,15 +1065,17 @@ class spell_warl_curse_of_doom : public AuraScript
 
     void OnRemove(AuraEffect const* aurEff, AuraEffectHandleModes /*mode*/)
     {
-        if (!GetCaster())
+        Unit* caster = GetCaster();
+        if (!caster)
             return;
 
         AuraRemoveMode removeMode = GetTargetApplication()->GetRemoveMode();
         if (removeMode != AURA_REMOVE_BY_DEATH || !IsExpired())
             return;
 
-        if (GetCaster()->ToPlayer()->isHonorOrXPTarget(GetTarget()))
-            GetCaster()->CastSpell(GetTarget(), SPELL_WARLOCK_CURSE_OF_DOOM_EFFECT, true, nullptr, aurEff);
+        // Warband: the Doomguard comes for any kill, not only a kill that yields experience or
+        // honor, for the same reason the Drain Soul shard does - a Warband fights greys all day.
+        caster->CastSpell(GetTarget(), SPELL_WARLOCK_CURSE_OF_DOOM_EFFECT, true, nullptr, aurEff);
     }
 
     void Register() override
@@ -1193,7 +1195,10 @@ class spell_warl_drain_soul : public AuraScript
     {
         Unit* caster = GetCaster();
         Unit* target = GetTarget();
-        if (!(GetTargetApplication()->GetRemoveMode() == AURA_REMOVE_BY_DEATH && caster && target && caster->IsPlayer() && caster->ToPlayer()->isHonorOrXPTarget(target)))
+        // Warband: any kill yields the Soul Shard, not only a kill that yields experience or honor.
+        // The retail rule starves a Warband that fights greys and low-level mobs, which is most of
+        // what a five-character Warband kills.
+        if (!(GetTargetApplication()->GetRemoveMode() == AURA_REMOVE_BY_DEATH && caster && target && caster->IsPlayer()))
         {
             PreventDefaultAction();
         }
@@ -1233,20 +1238,21 @@ class spell_warl_drain_soul : public AuraScript
     void HandleTick(AuraEffect const* aurEff)
     {
         Unit* caster = GetCaster();
-        Unit* target = GetTarget();
 
-        if (caster && caster->IsPlayer() && caster->ToPlayer()->isHonorOrXPTarget(target))
+        // Warband: the per-tick shard chance works on any target, for the same reason as the death
+        // shard above - a Warband that fights greys should still be able to make shards.
+        if (!caster || !caster->IsPlayer())
+            return;
+
+        if (roll_chance_i(20))
         {
-            if (roll_chance_i(20))
+            caster->CastSpell(caster, SPELL_WARLOCK_CREATE_SOULSHARD, aurEff);
+            // Glyph of Drain Soul - chance to create an additional Soul Shard.
+            if (AuraEffect* aur = caster->GetAuraEffect(SPELL_WARLOCK_GLYPH_OF_DRAIN_SOUL_AURA, EFFECT_0))
             {
-                caster->CastSpell(caster, SPELL_WARLOCK_CREATE_SOULSHARD, aurEff);
-                // Glyph of Drain Soul - chance to create an additional Soul Shard.
-                if (AuraEffect* aur = caster->GetAuraEffect(SPELL_WARLOCK_GLYPH_OF_DRAIN_SOUL_AURA, EFFECT_0))
+                if (roll_chance_i(aur->GetMiscValue()))
                 {
-                    if (roll_chance_i(aur->GetMiscValue()))
-                    {
-                        caster->CastSpell(caster, SPELL_WARLOCK_CREATE_SOULSHARD, aur);
-                    }
+                    caster->CastSpell(caster, SPELL_WARLOCK_CREATE_SOULSHARD, aur);
                 }
             }
         }
@@ -1270,7 +1276,10 @@ class spell_warl_shadowburn : public AuraScript
     {
         Unit* caster = GetCaster();
         Unit* target = GetTarget();
-        if (!(GetTargetApplication()->GetRemoveMode() == AURA_REMOVE_BY_DEATH && caster && target && caster->IsPlayer() && caster->ToPlayer()->isHonorOrXPTarget(target)))
+        // Warband: any kill yields the Soul Shard, not only a kill that yields experience or honor.
+        // The retail rule starves a Warband that fights greys and low-level mobs, which is most of
+        // what a five-character Warband kills.
+        if (!(GetTargetApplication()->GetRemoveMode() == AURA_REMOVE_BY_DEATH && caster && target && caster->IsPlayer()))
         {
             PreventDefaultAction();
         }
