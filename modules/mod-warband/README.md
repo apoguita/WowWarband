@@ -70,7 +70,7 @@ Keeping the two kinds of bot apart is what `WarbandPlayerRoles.h` is for:
 player, so the XP, catch-up, gathering and trading code never mistake the world's
 random bots for Warband followers.
 
-There are **two deliberate core changes**, and both are named here rather than hidden:
+There are **three deliberate core changes**, and all are named here rather than hidden:
 
 1. **Item binding** (`Item.cpp`): the module owns whether a bound item may move.
 2. **Soul shards on any kill** (`src/server/scripts/Spells/spell_warlock.cpp`): Drain Soul and
@@ -78,6 +78,10 @@ There are **two deliberate core changes**, and both are named here rather than h
    Soul Shard, and Drain Soul's per-tick shard chance follows the same rule. The retail rule starves
    a Warband that fights grey and low-level mobs, which is most of what it kills. There is no switch
    - the retail rule has no use on a five-character server.
+3. **Soulstones never expire** (`src/server/game/Spells/SpellInfoCorrections.cpp`): all seven
+   Soulstone Resurrection ranks replace the shipped 15-minute duration with the infinite entry the
+   client data already contains, so a shard waits for the death it was made for instead of timing
+   out. The buff is still consumed by the resurrection itself, so it pays out exactly once.
 
 Everything else the module does is implemented with public core API and needs no `src/` change at
 all.

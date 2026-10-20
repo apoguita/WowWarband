@@ -4487,12 +4487,21 @@ void SpellMgr::LoadSpellInfoCorrections()
         spellInfo->Effects[EFFECT_1].SpellClassMask[0] = 6;
     });
 
+    // Soulstone Resurrection, every rank - Warband: the soulstone never expires.
+    // The shipped data gives all seven ranks duration index 347 (15 minutes), so a shard was lost to
+    // the clock rather than to dying. Duration index 21 is the infinite entry the client data already
+    // contains, and it is the same entry "Natural shapeshifter" uses below. The buff is consumed by
+    // the resurrection itself, so it still pays out exactly once.
+    ApplySpellFix({ 20707, 20762, 20763, 20764, 20765, 27239, 47883 }, [](SpellInfo* spellInfo)
+    {
+        spellInfo->DurationEntry = sSpellDurationStore.LookupEntry(21);
+    });
+
     // 46747 Fling torch
     ApplySpellFix({ 46747 }, [](SpellInfo* spellInfo)
     {
         spellInfo->Effects[EFFECT_0].TargetA = SpellImplicitTargetInfo(TARGET_DEST_CASTER);
     });
-
     // Chains of Naberius
     ApplySpellFix({ 36146 }, [](SpellInfo* spellInfo)
     {

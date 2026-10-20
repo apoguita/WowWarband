@@ -11,4 +11,3 @@ PartyAccess.lua
 PartyRoster.lua
 Layout.lua
 TradePanel.lua
-Bindings.xml

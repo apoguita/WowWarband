@@ -2170,6 +2170,7 @@ local function DynamicLines(kind)
         end
 
         table.insert(lines, "- Soul shards: Drain Soul, Shadowburn, the Doomguard, any kill")
+        table.insert(lines, "- Soulstones never expire, they wait for the death they were made for")
 
         if worldScale.known and worldScale.installed then
             table.insert(lines, worldScale.enabled
@@ -2194,6 +2195,7 @@ local function DynamicLines(kind)
 
         table.insert(lines, "- Trade gold: a companion can pay in the trade window")
         table.insert(lines, "- Party roster: Friends frame, Party tab")
+        table.insert(lines, "- Guild charter: no signatures, create it and invite")
         table.insert(lines, "- Companion windows: bags strip and character sheet")
         table.insert(lines, "- Settings are saved: changes survive a restart")
         return lines
