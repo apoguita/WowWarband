@@ -2107,43 +2107,43 @@ function Warband_TogglePets()
 end
 
 -- Pages whose content depends on live state rather than fixed text.
+-- The features page is a fixed 470 px box with no scrolling, so every line is kept short enough to
+-- stay on one row: a bullet that wraps pushes the ones below it off the page.
 local function DynamicLines(kind)
     if kind == "features" then
         local lines = {
             "Everything this Warband adds to the game:",
-            " ",
             "- XP rates heightened to " .. rate .. "x",
         }
 
         if supplier.known and supplier.items > 0 then
             table.insert(lines, string.format(
-                "- Auctioneers are Warband merchants: %d items across the category menu, unlimited "
-                .. "stock, and they buy anything you sell", supplier.items))
+                "- Auctioneers are Warband merchants: %d items, unlimited stock", supplier.items))
+        end
+
+        if supplier.known then
+            table.insert(lines, string.format(
+                "- Shop prices: max(%d copper, sell price x quality multiplier)", supplier.floor or 10))
         end
 
         if catchUp.known and catchUp.enabled and catchUp.step > 0 then
             table.insert(lines, "- Follower catch-up: +" .. string.format("%.2f", catchUp.step)
-                .. " per level behind (x" .. string.format("%.2f", CatchUpMultiplierFor(5))
-                .. " at 5 levels behind, x" .. string.format("%.2f", CatchUpMultiplierFor(20))
-                .. " at 20)")
+                .. " per level behind")
         end
 
         if gather.known and gather.enabled and
             (gather.herbalism > 0 or gather.mining > 0 or gather.skinning > 0) then
-            table.insert(lines, "- Follower gathering: followers receive your Herbalism, Mining "
-                .. "and Skinning values")
+            table.insert(lines, "- Follower gathering: followers get your gathering skills")
         end
 
         if binding.known and not binding.enforced then
-            table.insert(lines, "- Gear sharing: any bound item can be traded, mailed, sold and "
-                .. "handed to a companion")
+            table.insert(lines, "- Gear sharing: bound items trade, mail and move freely")
         elseif binding.known then
-            table.insert(lines, "- Binding enforced: a bound item stays with the character that "
-                .. "bound it")
+            table.insert(lines, "- Binding enforced: bound items stay with their owner")
         end
 
         if goldFind.known then
-            table.insert(lines, string.format("%sGold find: looted coin x%.1f", "- ", goldFind.mult or 1))
+            table.insert(lines, string.format("- Gold find: looted coin x%.1f", goldFind.mult or 1))
         end
 
         if magicFind.known then
@@ -2154,11 +2154,11 @@ local function DynamicLines(kind)
         end
 
         if trashSell.known and trashSell.enabled then
-            table.insert(lines, "- Trash sell: grey loot is sold on pickup, so bags stay empty")
+            table.insert(lines, "- Trash sell: grey loot sold on pickup, bags stay empty")
         end
 
         if instance.known and instance.enabled then
-            table.insert(lines, "- Instances: a creature killed inside one stays dead for the run")
+            table.insert(lines, "- Instances: a creature killed inside stays dead for the run")
         end
 
         if convenience.hearthstoneKnown and convenience.hearthstone then
@@ -2169,36 +2169,33 @@ local function DynamicLines(kind)
             table.insert(lines, "- Pets: always happy, companions included")
         end
 
+        table.insert(lines, "- Soul shards: Drain Soul, Shadowburn, the Doomguard, any kill")
+
         if worldScale.known and worldScale.installed then
             table.insert(lines, worldScale.enabled
-                and "- World scaling: open-world creatures, rewards and loot at each character's level"
+                and "- World scaling: open-world creatures and loot at your level"
                 or "- World scaling: off, the open world keeps its own levels")
         end
 
         if aoeLoot.known and aoeLoot.installed then
             table.insert(lines, aoeLoot.enabled
-                and "- AoE loot: one window takes everything the nearby corpses hold"
-                or "- AoE loot: off, looting is one corpse at a time")
+                and "- AoE loot: one window takes everything nearby"
+                or "- AoE loot: off, one corpse at a time")
         end
 
         if randomBots.known then
             if randomBots.enabled then
-                table.insert(lines, string.format(
-                    "- World bots: %d random bots roaming the world (target %d)",
+                table.insert(lines, string.format("- World bots: %d roaming (target %d)",
                     randomBots.online or 0, randomBots.target or 0))
             else
-                table.insert(lines, "- World bots: switched off, the world holds only your Warband")
+                table.insert(lines, "- World bots: off, only your Warband is out there")
             end
         end
 
-        table.insert(lines, "- Trade gold: a panel beside the trade window lets a companion pay "
-            .. "without the bot's whisper sequence")
-
-        table.insert(lines, "- Party roster: the Friends frame's Party tab invites and dismisses "
-            .. "companions")
-
-        table.insert(lines, " ")
-        table.insert(lines, "New features are listed here as they are added.")
+        table.insert(lines, "- Trade gold: a companion can pay in the trade window")
+        table.insert(lines, "- Party roster: Friends frame, Party tab")
+        table.insert(lines, "- Companion windows: bags strip and character sheet")
+        table.insert(lines, "- Settings are saved: changes survive a restart")
         return lines
     end
 

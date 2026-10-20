@@ -98,9 +98,10 @@ Whole files are never copied: a `worldserver.conf` carries database credentials 
 excluded from `export` for that reason.
 
 What it currently carries: the local bind address, `EnablePlayerSettings`, eleven primary trade
-skills, Playerbots' random-bot population and autologin (off) and **NEED rolls instead of greed**,
-AoE-loot mail fallback, AutoBalance's money and higher-level rules, and item-level scaling without
-scale-down.
+skills, **guild charters that need no signatures** (`MinPetitionSigns = 0` — a Warband is one player
+plus bots, and a bot cannot sign a charter), Playerbots' random-bot population and autologin (off)
+and **NEED rolls instead of greed**, AoE-loot mail fallback, AutoBalance's money and higher-level
+rules, and item-level scaling without scale-down.
 
 **Database content ships the same way — through AzerothCore's own updater.** Anything this project
 adds to the world database is committed as a pending update under
