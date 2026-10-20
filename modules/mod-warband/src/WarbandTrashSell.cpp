@@ -36,6 +36,7 @@
 #include "Log.h"
 #include "Player.h"
 #include "ScriptMgr.h"
+#include "WarbandPersistence.h"
 #include "WarbandPlayerRoles.h"
 
 #include <algorithm>
@@ -102,6 +103,7 @@ bool GetWarbandTrashSellEnabled()
 bool SetWarbandTrashSellEnabled(bool enabled)
 {
     trashSellEnabled = enabled;
+    WarbandSettingSet("trashsell.enabled", enabled ? 1.0 : 0.0);
     return true;
 }
 
@@ -245,6 +247,9 @@ public:
     void OnAfterConfigLoad(bool /*reload*/) override
     {
         trashSellEnabled = sConfigMgr->GetOption<bool>("Warband.TrashSell.Enabled", true);
+
+        // A saved value wins over the configuration default.
+        trashSellEnabled = WarbandSettingGet("trashsell.enabled", trashSellEnabled ? 1.0 : 0.0) != 0.0;
 
         LOG_INFO("server.loading", "Warband trash sell: {}", trashSellEnabled ? "enabled" : "disabled");
     }

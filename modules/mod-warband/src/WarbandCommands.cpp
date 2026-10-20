@@ -67,6 +67,7 @@
 #include "Player.h"
 #include "RBAC.h"
 #include "ScriptMgr.h"
+#include "WarbandPersistence.h"
 #include "WarbandTrade.h"
 
 #include <cmath>
@@ -433,6 +434,7 @@ private:
         if (strncmp(args, "on", 2) == 0 && (args[2] == '\0' || args[2] == ' '))
         {
             WarbandSetItemBindingEnforced(true);
+            WarbandSettingSet("binding.enforced", 1.0);
             SendBinding(handler);
             return true;
         }
@@ -440,6 +442,7 @@ private:
         if (strncmp(args, "off", 3) == 0 && (args[3] == '\0' || args[3] == ' '))
         {
             WarbandSetItemBindingEnforced(false);
+            WarbandSettingSet("binding.enforced", 0.0);
             SendBinding(handler);
             return true;
         }

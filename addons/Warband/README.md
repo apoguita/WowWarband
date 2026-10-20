@@ -29,6 +29,9 @@ Label colours state the status: green is live, grey is an unfinished placeholder
 header repeats it in words, so a placeholder never reads as finished. An unfinished feature sits
 inside the tab it belongs to rather than getting a tab of its own.
 
+Every value the panel changes is saved on the server, in the world database, so a restart keeps it.
+The panel always shows what the server accepted, never what it hoped to set.
+
 The **Features** page lists every feature the module adds, not only the switches that happen to be
 on: experience and catch-up, gathering, gear sharing, magic find, gold find, trash sell, auction
 house, instances, hearthstone, pets, world scaling, AoE loot, world bots, the trade gold panel and

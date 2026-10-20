@@ -544,12 +544,22 @@ def generate(catalogue, root, menus, leaves, templates, spawns):
     revert_lines = ["-- Warband suppliers: reverses apply.sql completely. Generated, do not edit by hand.",
                     "START TRANSACTION;", ""]
 
-    # 1. The module's own tables, in case the module has never run.
+    # 1. The module's own tables, in case the module has never run. The settings table is shared with
+    #    every other Warband feature, which is why its keys carry a "supplier." prefix here.
     apply_lines.append("-- module tables")
-    apply_lines.append("CREATE TABLE IF NOT EXISTS `warband_supplier_setting` (")
-    apply_lines.append("  `setting` VARCHAR(32) NOT NULL,")
+    apply_lines.append("CREATE TABLE IF NOT EXISTS `warband_setting` (")
+    apply_lines.append("  `setting` VARCHAR(48) NOT NULL,")
     apply_lines.append("  `value` DOUBLE NOT NULL DEFAULT 0,")
     apply_lines.append("  PRIMARY KEY (`setting`)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;")
+
+    legacy = query("SELECT COUNT(*) FROM information_schema.TABLES WHERE TABLE_SCHEMA = '%s' "
+                   "AND TABLE_NAME = 'warband_supplier_setting'" % DATABASE)[0][0]
+    if legacy == "1":
+        apply_lines.append("-- carry over values saved before the settings table was shared")
+        apply_lines.append("INSERT IGNORE INTO `warband_setting` (`setting`, `value`)")
+        apply_lines.append("  SELECT CONCAT('supplier.', `setting`), `value` FROM `warband_supplier_setting`;")
+        apply_lines.append("DROP TABLE IF EXISTS `warband_supplier_setting`;")
+
     apply_lines.append("CREATE TABLE IF NOT EXISTS `warband_supplier_price` (")
     apply_lines.append("  `entry` INT UNSIGNED NOT NULL,")
     apply_lines.append("  `quality` TINYINT UNSIGNED NOT NULL DEFAULT 0,")
@@ -686,17 +696,26 @@ def generate(catalogue, root, menus, leaves, templates, spawns):
     apply_lines.append("")
 
     apply_lines.append("-- the values the panel shows as applied")
-    settings = []
-    for tier, value in enumerate(MULTIPLIERS):
-        settings.append(("mult.%d" % tier, value))
-        settings.append(("applied.mult.%d" % tier, value))
-    settings.append(("floor", float(FLOOR)))
-    settings.append(("applied.floor", float(FLOOR)))
-    settings.append(("applied.items", float(len(catalogue))))
 
-    for key, value in settings:
+    # The multipliers and the floor belong to whoever tuned them in game, so they are only written
+    # when nothing is saved yet. The applied markers describe what this run just did, so they are
+    # always written.
+    for tier, value in enumerate(MULTIPLIERS):
         apply_lines.append(
-            "INSERT INTO `warband_supplier_setting` (`setting`, `value`) VALUES (%s, %s) "
+            "INSERT IGNORE INTO `warband_setting` (`setting`, `value`) VALUES (%s, %s);"
+            % (sql_text("supplier.mult.%d" % tier), value))
+
+    apply_lines.append(
+        "INSERT IGNORE INTO `warband_setting` (`setting`, `value`) VALUES (%s, %s);"
+        % (sql_text("supplier.floor"), float(FLOOR)))
+
+    applied = [("supplier.applied.mult.%d" % tier, value) for tier, value in enumerate(MULTIPLIERS)]
+    applied.append(("supplier.applied.floor", float(FLOOR)))
+    applied.append(("supplier.applied.items", float(len(catalogue))))
+
+    for key, value in applied:
+        apply_lines.append(
+            "INSERT INTO `warband_setting` (`setting`, `value`) VALUES (%s, %s) "
             "ON DUPLICATE KEY UPDATE `value` = %s;" % (sql_text(key), value, value))
     apply_lines.append("")
 

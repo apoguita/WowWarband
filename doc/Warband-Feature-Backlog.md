@@ -204,6 +204,16 @@ the approach is revisited.
 
 18. Settled, 18 October 2026: prices are one rule and one number, not a model. The rule is `merchant sell price x multiplier[quality]`, floored, with the multipliers a per-tier ladder the panel owns (seeded x2 grey, x3 white, x4 green, x5 blue, x6 epic, x7 legendary, x8 artifact, x9 heirloom; floor 10 copper). Crafting-cost pricing, reagent sums and market-feedback pricing were all rejected: they cannot be checked by hand before posting, which is the whole point. The same reference price is what the market charges and what it pays for a player's listing, so an item posted at its price sells; the auction house's own cut remains the only asymmetry. Item 53.
 
+19. Settled, 19 October 2026: **every Warband setting is saved**, because a value changed in game
+    was forgotten by the next restart — gold find set to x5 came back at x3. The values live in the
+    world database in one table, `warband_setting(setting, value)`, written by every setter and read
+    back on the next boot; the configuration file is the default and a saved value wins over it.
+    Deleting a row, or pressing reset, returns that setting to the shipped default. Three features
+    keep writing their owner module's configuration instead — AoE loot, world scaling and world bots
+    — because that file is where those features read the value, and a second copy would be a second
+    thing to keep in step. `WarbandSuppliers.cpp` uses the same table under a `supplier.` prefix, so
+    the supplier prices and every switch share one mechanism.
+
 ## Explicitly out of scope
 
 Individual character progression that conflicts with shared campaign progress, AuctionSim-style

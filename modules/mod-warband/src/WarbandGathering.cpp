@@ -41,6 +41,7 @@
 #include "ObjectAccessor.h"
 #include "Player.h"
 #include "ScriptMgr.h"
+#include "WarbandPersistence.h"
 #include "WarbandPlayerRoles.h"
 
 #include <algorithm>
@@ -211,12 +212,14 @@ uint32 GetWarbandGatherApplications()
 bool SetWarbandGatherMirrorEnabled(bool enabled)
 {
     gatherMirrorEnabled = enabled;
+    WarbandSettingSet("gather.enabled", enabled ? 1.0 : 0.0);
     return true;
 }
 
 bool SetWarbandGatherAutomatic(bool automatic)
 {
     gatherMirrorAutomatic = automatic;
+    WarbandSettingSet("gather.automatic", automatic ? 1.0 : 0.0);
     return true;
 }
 
@@ -236,6 +239,11 @@ public:
     {
         gatherMirrorEnabled = sConfigMgr->GetOption<bool>("Warband.Gather.Enabled", true);
         gatherMirrorAutomatic = sConfigMgr->GetOption<bool>("Warband.Gather.Automatic", true);
+
+        // Saved values win over the configuration defaults.
+        gatherMirrorEnabled = WarbandSettingGet("gather.enabled", gatherMirrorEnabled ? 1.0 : 0.0) != 0.0;
+        gatherMirrorAutomatic =
+            WarbandSettingGet("gather.automatic", gatherMirrorAutomatic ? 1.0 : 0.0) != 0.0;
 
         LOG_INFO(
             "server.loading",

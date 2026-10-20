@@ -25,6 +25,7 @@
 #include "Map.h"
 #include "Player.h"
 #include "ScriptMgr.h"
+#include "WarbandPersistence.h"
 
 #include <cstdlib>
 #include <string>
@@ -117,6 +118,7 @@ bool GetWarbandInstanceNoRespawn()
 bool SetWarbandInstanceNoRespawn(bool enabled)
 {
     noRespawnEnabled = enabled;
+    WarbandSettingSet("instances.norespawn", enabled ? 1.0 : 0.0);
     return true;
 }
 
@@ -133,6 +135,9 @@ public:
     void OnAfterConfigLoad(bool /*reload*/) override
     {
         noRespawnEnabled = sConfigMgr->GetOption<bool>("Warband.Instances.NoRespawn", true);
+
+        // A saved value wins over the configuration default.
+        noRespawnEnabled = WarbandSettingGet("instances.norespawn", noRespawnEnabled ? 1.0 : 0.0) != 0.0;
         neverCreatureIds = ParseIds(sConfigMgr->GetOption<std::string>(
             "Warband.Instances.NeverAdjust.CreatureID", ""));
         neverInstanceIds = ParseIds(sConfigMgr->GetOption<std::string>(

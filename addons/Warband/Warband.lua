@@ -2115,6 +2115,12 @@ local function DynamicLines(kind)
             "- XP rates heightened to " .. rate .. "x",
         }
 
+        if supplier.known and supplier.items > 0 then
+            table.insert(lines, string.format(
+                "- Auctioneers are Warband merchants: %d items across the category menu, unlimited "
+                .. "stock, and they buy anything you sell", supplier.items))
+        end
+
         if catchUp.known and catchUp.enabled and catchUp.step > 0 then
             table.insert(lines, "- Follower catch-up: +" .. string.format("%.2f", catchUp.step)
                 .. " per level behind (x" .. string.format("%.2f", CatchUpMultiplierFor(5))

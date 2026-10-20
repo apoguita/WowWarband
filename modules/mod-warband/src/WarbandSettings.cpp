@@ -21,6 +21,7 @@
 #include "ItemBinding.h"
 #include "Player.h"
 #include "ScriptMgr.h"
+#include "WarbandPersistence.h"
 #include "WarbandPlayerRoles.h"
 
 #include <algorithm>
@@ -88,6 +89,7 @@ bool SetWarbandXpRate(float rate)
         return false;
 
     xpRate = rate;
+    WarbandSettingSet("xp.rate", rate);
     return true;
 }
 
@@ -119,6 +121,7 @@ uint32 GetWarbandCatchUpApplications()
 bool SetWarbandCatchUpEnabled(bool enabled)
 {
     catchUpEnabled = enabled;
+    WarbandSettingSet("catchup.enabled", enabled ? 1.0 : 0.0);
     return true;
 }
 
@@ -128,6 +131,7 @@ bool SetWarbandCatchUpPerLevel(float value)
         return false;
 
     catchUpPerLevel = value;
+    WarbandSettingSet("catchup.perlevel", value);
     return true;
 }
 
@@ -137,6 +141,7 @@ bool SetWarbandCatchUpFloor(float value)
         return false;
 
     catchUpFloor = value;
+    WarbandSettingSet("catchup.floor", value);
     return true;
 }
 
@@ -147,6 +152,7 @@ bool SetWarbandCatchUpCap(float value)
         return false;
 
     catchUpCap = value;
+    WarbandSettingSet("catchup.cap", value);
     return true;
 }
 
@@ -192,6 +198,15 @@ public:
 
         xpRate = configuredRate;
 
+        // A saved value wins over the configuration default, so a change made in game survives a
+        // restart. Only a value the setter would also accept is taken.
+        float const savedRate = float(WarbandSettingGet("xp.rate", configuredRate));
+        if (savedRate >= MinimumXpRate && savedRate <= MaximumXpRate &&
+            std::floor(savedRate) == savedRate)
+        {
+            xpRate = savedRate;
+        }
+
         catchUpEnabled = sConfigMgr->GetOption<bool>("Warband.CatchUp.Enabled", true);
         catchUpDebug = sConfigMgr->GetOption<bool>("Warband.CatchUp.Debug", false);
 
@@ -235,10 +250,22 @@ public:
 
         catchUpCap = configuredCap;
 
+        // Saved values win over the configuration defaults, clamped to the accepted ranges.
+        catchUpEnabled = WarbandSettingGet("catchup.enabled", catchUpEnabled ? 1.0 : 0.0) != 0.0;
+        catchUpDebug = WarbandSettingGet("catchup.debug", catchUpDebug ? 1.0 : 0.0) != 0.0;
+        catchUpPerLevel = std::clamp(
+            float(WarbandSettingGet("catchup.perlevel", catchUpPerLevel)), 0.0f, MaximumCatchUpPerLevel);
+        catchUpFloor = std::clamp(
+            float(WarbandSettingGet("catchup.floor", catchUpFloor)), 1.0f, MaximumCatchUpMultiplier);
+        catchUpCap = std::clamp(
+            float(WarbandSettingGet("catchup.cap", catchUpCap)), 0.0f, MaximumCatchUpMultiplier);
+
         // The binding policy lives in the core, because the core is what asks whether an item may
         // move; the module owns the setting behind it and pushes it in. Default is the Warband rule:
         // binding does not restrict gear.
-        WarbandSetItemBindingEnforced(sConfigMgr->GetOption<bool>("Warband.Binding.Enforced", false));
+        bool const bindingDefault = sConfigMgr->GetOption<bool>("Warband.Binding.Enforced", false);
+        WarbandSetItemBindingEnforced(
+            WarbandSettingGet("binding.enforced", bindingDefault ? 1.0 : 0.0) != 0.0);
 
         LOG_INFO("server.loading", "Warband XP multiplier set to {}x", xpRate);
         LOG_INFO(

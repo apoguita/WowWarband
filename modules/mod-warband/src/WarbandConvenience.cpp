@@ -21,6 +21,7 @@
 #include "Pet.h"
 #include "Player.h"
 #include "ScriptMgr.h"
+#include "WarbandPersistence.h"
 
 namespace
 {
@@ -42,6 +43,7 @@ bool GetWarbandHearthstoneAlwaysReady()
 bool SetWarbandHearthstoneAlwaysReady(bool enabled)
 {
     hearthstoneAlwaysReady = enabled;
+    WarbandSettingSet("convenience.hearthstone", enabled ? 1.0 : 0.0);
     return true;
 }
 
@@ -53,6 +55,7 @@ bool GetWarbandPetsAlwaysHappy()
 bool SetWarbandPetsAlwaysHappy(bool enabled)
 {
     petsAlwaysHappy = enabled;
+    WarbandSettingSet("convenience.pets", enabled ? 1.0 : 0.0);
     return true;
 }
 
@@ -73,6 +76,11 @@ public:
     {
         hearthstoneAlwaysReady = sConfigMgr->GetOption<bool>("Warband.Hearthstone.AlwaysReady", true);
         petsAlwaysHappy = sConfigMgr->GetOption<bool>("Warband.Pets.AlwaysHappy", true);
+
+        // Saved values win over the configuration defaults.
+        hearthstoneAlwaysReady =
+            WarbandSettingGet("convenience.hearthstone", hearthstoneAlwaysReady ? 1.0 : 0.0) != 0.0;
+        petsAlwaysHappy = WarbandSettingGet("convenience.pets", petsAlwaysHappy ? 1.0 : 0.0) != 0.0;
 
         LOG_INFO(
             "server.loading",

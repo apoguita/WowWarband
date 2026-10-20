@@ -33,11 +33,13 @@
 #include "ObjectMgr.h"
 #include "Player.h"
 #include "ScriptMgr.h"
+#include "WarbandPersistence.h"
 #include "WarbandPlayerRoles.h"
 
 #include <algorithm>
 #include <array>
 #include <cmath>
+#include <string>
 
 namespace
 {
@@ -117,12 +119,18 @@ bool SetWarbandMagicFindTierMultiplier(uint8 tier, float multiplier)
     }
 
     magicFindMultipliers[tier] = multiplier;
+    WarbandSettingSet(std::string("magicfind.") + magicFindTierKeys[tier], multiplier);
     return true;
 }
 
 void ResetWarbandMagicFindMultipliers()
 {
     magicFindMultipliers.fill(1.0f);
+
+    for (uint8 tier = 0; tier < MagicFindTierCount; ++tier)
+    {
+        WarbandSettingSet(std::string("magicfind.") + magicFindTierKeys[tier], 1.0);
+    }
 }
 
 class WarbandMagicFind final : public GlobalScript, public WorldScript
@@ -152,6 +160,19 @@ public:
             }
 
             magicFindMultipliers[tier] = configured;
+        }
+
+        // A saved value wins over the configuration default, so a change made in game survives a
+        // restart; only a value inside the accepted range is taken.
+        for (uint8 tier = 0; tier < MagicFindTierCount; ++tier)
+        {
+            float const saved = float(WarbandSettingGet(
+                std::string("magicfind.") + magicFindTierKeys[tier], magicFindMultipliers[tier]));
+
+            if (std::isfinite(saved) && saved >= MinMagicFindMultiplier && saved <= MaxMagicFindMultiplier)
+            {
+                magicFindMultipliers[tier] = saved;
+            }
         }
 
         LOG_INFO(

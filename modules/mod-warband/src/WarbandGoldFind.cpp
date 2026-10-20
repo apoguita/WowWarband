@@ -19,6 +19,7 @@
 
 #include "Config.h"
 #include "ScriptMgr.h"
+#include "WarbandPersistence.h"
 #include "World.h"
 
 #include <cmath>
@@ -53,6 +54,7 @@ bool SetWarbandGoldFindMultiplier(float multiplier)
 
     goldFindMultiplier = multiplier;
     ApplyGoldFind();
+    WarbandSettingSet("goldfind.multiplier", multiplier);
     return true;
 }
 
@@ -60,6 +62,7 @@ void ResetWarbandGoldFindMultiplier()
 {
     goldFindMultiplier = 1.0f;
     ApplyGoldFind();
+    WarbandSettingSet("goldfind.multiplier", 1.0);
 }
 
 class WarbandGoldFind final : public WorldScript
@@ -82,6 +85,12 @@ public:
                 MaxGoldFindMultiplier);
             configured = 1.0f;
         }
+
+        // A saved value wins over the configuration default, so a change made in game survives the
+        // restart; only a value inside the accepted range is taken.
+        float const saved = float(WarbandSettingGet("goldfind.multiplier", configured));
+        if (std::isfinite(saved) && saved >= MinGoldFindMultiplier && saved <= MaxGoldFindMultiplier)
+            configured = saved;
 
         goldFindMultiplier = configured;
         ApplyGoldFind();

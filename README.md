@@ -27,7 +27,7 @@ inventory: which modules run on the server, what Warband itself adds, and how to
 | `mod-multibot-bridge` | Third-party | Companion command bridge; its client half is `addons/MultiBot` |
 | `mod-progression` | Third-party | Content gating by progression phase |
 | `mod-ale` | Third-party | Lua scripting support |
-| REMOVED: `mod-ah-bot-plus` | Third-party, added | The auction-house market: it stocks all three houses and buys what the party lists |
+| REMOVED: `mod-ah-bot-plus` | Third-party, added | The auction-house market: it stocks all three houses and buys what the party lists. Withdrawn — the auction house it served is now the Warband merchant network below |
 | `mod-autobalance` | Third-party, added | Instance difficulty scaling: five members can fight a raid built for forty, and a dungeon scales up once the party outlevels it |
 | `mod-item-level-scaling` | Third-party, added | Loot scaling: the same items with their stats moved to the party's level, never downward |
 
@@ -38,10 +38,12 @@ other modules lives in `doc/` and is not installed.
 ## What Warband adds
 
 Everything here is Warband's own code, in `modules/mod-warband` on the server and `addons/Warband`
-on the client. Each option can be changed while the server runs — no rebuild, no restart.
+on the client. Each option can be changed while the server runs — no rebuild, no restart — and the
+value is saved, so it survives the next restart.
 
 | Option | What it does | How to change it |
 | --- | --- | --- |
+| Auction house replaced by merchants | every auctioneer, in every city, is now a Warband merchant: clicking one opens a category menu instead of the auction house, stocking **everything a profession can make** — 7,350 items, unlimited quantity — and buying anything you sell at the same price. The menu is Armor (type → slot → level range 1-10 … 71-80), Weapons (family, one- and two-handed), Containers, Materials and reagents, Consumables, Glyphs (by class), Gems, Recipes (by profession), Ammunition and Keys | Panel → Supplier prices, or `.warband price <tier> <multiplier>` / `floor` / `apply` / `reset` |
 | XP multiplier | 1x–10x on every experience gain, followers included. Default 2x | Panel → XP Options, or `.warband xp set <1-10>` |
 | Follower catch-up XP | extra experience for a companion that is behind its leader, so a new recruit catches up | Panel → XP Options, or `.warband catchup step/floor/cap/on/off` |
 | Follower gathering | companions receive the leader's Herbalism, Mining and Skinning, so they work the same nodes and skin the same corpses. Raise-only | Panel → Follower gathering, or `.warband gather [on\|off\|auto on\|auto off]` |
@@ -76,8 +78,28 @@ data for creation, skills and starting spells, the server's `CharStartOutfit.dbc
 | `Warband-Server.ps1 start all` / `stop all`, or the start/stop bats | load and unload the database, login server and world server, in order and gracefully |
 | `Build-WowWarband.bat` | incremental build with the existing CMake cache; the Playerbots isolate is validated in [the build notes](doc/Playerbots-Build-Validation.md) |
 | `Deploy-WarbandAddon.ps1` | copy `addons/Warband` into the client |
+| `Warband-Configs.ps1 -Action apply` | carry this project's configuration decisions onto the installed server configs — see below |
 | `Backup-WowWarband.ps1` | back up all four AzerothCore databases |
 | `Sync-ProjectReadme.ps1` | keep `.github/README.md` identical to this file |
+
+### Config decisions travel with the repository
+
+Anything the project deliberately changes in a server config is recorded in `data/configs/` and
+applied by `Warband-Configs.ps1`, so a fresh clone ends up with the same behaviour:
+
+    .\Warband-Configs.ps1 -Action check     report drift between data/configs and the installed configs
+    .\Warband-Configs.ps1 -Action apply     write the recorded values into the installed configs
+    .\Warband-Configs.ps1 -Action export    capture what this install currently changes, to be committed
+
+`apply` touches **only** the keys named in `data/configs/` and leaves the rest of each file alone.
+Whole files are never copied: a `worldserver.conf` carries database credentials and a machine path
+(`DataDir`), and copying one over someone else's install would break their server. Those keys are
+excluded from `export` for that reason.
+
+What it currently carries: the local bind address, `EnablePlayerSettings`, eleven primary trade
+skills, Playerbots' random-bot population and autologin (off) and **NEED rolls instead of greed**,
+AoE-loot mail fallback, AutoBalance's money and higher-level rules, and item-level scaling without
+scale-down.
 
 ## Configuration and references
 

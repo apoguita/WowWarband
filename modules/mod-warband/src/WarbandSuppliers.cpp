@@ -28,6 +28,7 @@
 #include "ItemTemplate.h"
 #include "Log.h"
 #include "ScriptMgr.h"
+#include "WarbandPersistence.h"
 
 #include <algorithm>
 #include <array>
@@ -89,8 +90,6 @@ namespace
     uint32 appliedItems = 0;
     bool appliedKnown = false;
 
-    bool tablesReady = false;
-
     bool IsValidMultiplier(float value)
     {
         return std::isfinite(value) && value >= MinMultiplier && value <= MaxMultiplier;
@@ -103,21 +102,13 @@ namespace
 
     void SaveSetting(std::string const& key, double value)
     {
-        WorldDatabase.DirectExecute(
-            "INSERT INTO `warband_supplier_setting` (`setting`, `value`) VALUES ('{}', {}) "
-            "ON DUPLICATE KEY UPDATE `value` = {}",
-            key, value, value);
+        // One table for every Warband setting; the "supplier." prefix keeps these names clear.
+        WarbandSettingSet("supplier." + key, value);
     }
 
-    // The module owns both tables: nothing else in the world database creates or reads them.
-    void EnsureTables()
+    // The original prices live in their own table, because that is a catalogue, not a setting.
+    void EnsurePriceTable()
     {
-        WorldDatabase.DirectExecute(
-            "CREATE TABLE IF NOT EXISTS `warband_supplier_setting` ("
-            "`setting` VARCHAR(32) NOT NULL, "
-            "`value` DOUBLE NOT NULL DEFAULT 0, "
-            "PRIMARY KEY (`setting`)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
-
         WorldDatabase.DirectExecute(
             "CREATE TABLE IF NOT EXISTS `warband_supplier_price` ("
             "`entry` INT UNSIGNED NOT NULL, "
@@ -168,103 +159,53 @@ namespace
         }
     }
 
-    // Reads the saved values, seeding anything absent with the configured default. A value saved by
-    // an earlier session always wins over the config file, so the panel is the source of truth.
+    // Reads the saved values through the shared Warband settings store, seeding anything absent with
+    // the configured default. A value saved by an earlier session always wins over the config file,
+    // so the panel is the source of truth.
     void LoadSettings()
     {
         multipliers = confMultipliers;
         floorPrice = confFloor;
 
-        QueryResult result = WorldDatabase.Query("SELECT `setting`, `value` FROM `warband_supplier_setting`");
-        if (!result)
+        for (uint8 tier = 0; tier < TierCount; ++tier)
         {
-            // Nothing saved yet: the configured defaults become the saved values.
-            for (uint8 tier = 0; tier < TierCount; ++tier)
+            float const saved = float(WarbandSettingGet(
+                std::string("supplier.mult.") + std::to_string(tier), double(multipliers[tier])));
+
+            if (IsValidMultiplier(saved))
+            {
+                multipliers[tier] = saved;
+            }
+            else
             {
                 SaveSetting(std::string("mult.") + std::to_string(tier), double(multipliers[tier]));
             }
-
-            SaveSetting("floor", double(floorPrice));
-            appliedKnown = false;
-            return;
         }
 
-        std::array<bool, TierCount> tierSeen { };
-        bool floorSeen = false;
+        uint32 const savedFloor = uint32(std::llround(
+            WarbandSettingGet("supplier.floor", double(floorPrice))));
 
-        do
+        if (IsValidFloor(savedFloor))
         {
-            Field* fields = result->Fetch();
-            std::string const key = fields[0].Get<std::string>();
-            double const value = fields[1].Get<double>();
+            floorPrice = savedFloor;
+        }
+        else
+        {
+            SaveSetting("floor", double(floorPrice));
+        }
 
-            if (key == "floor")
-            {
-                if (IsValidFloor(uint32(std::llround(value))))
-                {
-                    floorPrice = uint32(std::llround(value));
-                }
-
-                floorSeen = true;
-                continue;
-            }
-
-            if (key == "applied.floor")
-            {
-                appliedFloor = uint32(std::llround(value));
-                continue;
-            }
-
-            bool matched = false;
-            for (uint8 tier = 0; tier < TierCount; ++tier)
-            {
-                std::string const multKey = std::string("mult.") + std::to_string(tier);
-                std::string const appliedKey = std::string("applied.mult.") + std::to_string(tier);
-
-                if (key == multKey)
-                {
-                    float const candidate = float(value);
-                    if (IsValidMultiplier(candidate))
-                    {
-                        multipliers[tier] = candidate;
-                    }
-
-                    tierSeen[tier] = true;
-                    matched = true;
-                    break;
-                }
-
-                if (key == appliedKey)
-                {
-                    appliedMultipliers[tier] = float(value);
-                    matched = true;
-                    break;
-                }
-            }
-
-            if (matched)
-            {
-                continue;
-            }
-
-            if (key == "applied.items")
-            {
-                appliedItems = uint32(std::llround(value));
-                appliedKnown = true;
-            }
-        } while (result->NextRow());
+        // What the last apply wrote, so the panel can say whether the prices match the values above.
+        appliedKnown = WarbandSettingHas("supplier.applied.items");
+        appliedFloor = uint32(std::llround(
+            WarbandSettingGet("supplier.applied.floor", double(appliedFloor))));
+        appliedItems = uint32(std::llround(
+            WarbandSettingGet("supplier.applied.items", double(appliedItems))));
 
         for (uint8 tier = 0; tier < TierCount; ++tier)
         {
-            if (!tierSeen[tier])
-            {
-                SaveSetting(std::string("mult.") + std::to_string(tier), double(multipliers[tier]));
-            }
-        }
-
-        if (!floorSeen)
-        {
-            SaveSetting("floor", double(floorPrice));
+            appliedMultipliers[tier] = float(WarbandSettingGet(
+                std::string("supplier.applied.mult.") + std::to_string(tier),
+                double(appliedMultipliers[tier])));
         }
     }
 
@@ -308,11 +249,7 @@ bool SetWarbandSupplierTierMultiplier(uint8 tier, float value)
     }
 
     multipliers[tier] = value;
-
-    if (tablesReady)
-    {
-        SaveSetting(std::string("mult.") + std::to_string(tier), double(value));
-    }
+    SaveSetting(std::string("mult.") + std::to_string(tier), double(value));
 
     return true;
 }
@@ -330,11 +267,7 @@ bool SetWarbandSupplierFloor(uint32 value)
     }
 
     floorPrice = value;
-
-    if (tablesReady)
-    {
-        SaveSetting("floor", double(value));
-    }
+    SaveSetting("floor", double(value));
 
     return true;
 }
@@ -343,11 +276,6 @@ void ResetWarbandSupplierSettings()
 {
     multipliers = DefaultMultipliers;
     floorPrice = DefaultFloor;
-
-    if (!tablesReady)
-    {
-        return;
-    }
 
     for (uint8 tier = 0; tier < TierCount; ++tier)
     {
@@ -359,7 +287,7 @@ void ResetWarbandSupplierSettings()
 
 uint32 WarbandSupplierCatalogueSize()
 {
-    return tablesReady ? CountCatalogue() : 0;
+    return CountCatalogue();
 }
 
 bool WarbandSupplierPricesAreCurrent()
@@ -392,12 +320,6 @@ bool WarbandSupplierPricesAreCurrent()
 uint32 ApplyWarbandSupplierPrices(std::string& note)
 {
     note.clear();
-
-    if (!tablesReady)
-    {
-        note = "the supplier tables are not ready, check the server log";
-        return 0;
-    }
 
     QueryResult result = WorldDatabase.Query("SELECT `entry`, `quality`, `base_sell` FROM `warband_supplier_price`");
     if (!result)
@@ -496,8 +418,7 @@ public:
     void OnAfterConfigLoad(bool /*reload*/) override
     {
         ReadConfig();
-        EnsureTables();
-        tablesReady = true;
+        EnsurePriceTable();
         LoadSettings();
 
         LOG_INFO(

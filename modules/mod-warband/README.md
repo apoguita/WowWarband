@@ -17,6 +17,34 @@ feature it happened to carry. That feature is gone - it cleared the soulbound fl
 from everything, which broke items that are meant to be bound - and the name no
 longer refers to it.
 
+## Settings are saved
+
+Everything the panel can change is remembered across a restart. The mechanism is one table in the
+world database, `warband_setting(setting VARCHAR(48) PRIMARY KEY, value DOUBLE)`, filled by
+`WarbandPersistence.cpp`:
+
+    WarbandSettingGet("goldfind.multiplier", <config default>)
+    WarbandSettingSet("goldfind.multiplier", value)      // called by every setter
+
+The rule is the same everywhere: **the configuration file supplies the default and a saved value
+wins over it.** A switch flipped in the panel, a multiplier typed into the command, a reset button -
+each writes its row the moment it changes, so the next startup reads it back. Deleting a row (or
+pressing reset) returns that setting to what the shipped configuration says.
+
+This covers the XP rate, follower catch-up (enabled, debug, per level, floor, cap), item binding,
+follower gathering (mirror, automatic), magic find (one row per quality), gold find, trash sell,
+instances, the hearthstone and pet switches, and the supplier multipliers and floor.
+
+Three features keep their state differently, on purpose: **AoE loot**, **world scaling** and **world
+bots** rewrite the option in the configuration file of the module that owns the behaviour
+(`mod-aoe-loot`, `mod-zone-scaling`, `playerbots`), because that file is where those features read it
+and a second copy in the Warband table would be a second thing to keep in step. They persist either
+way.
+
+The table is created on first use, so a world that has never run this module still works, and the
+read happens on first access rather than at a particular startup hook, so no feature can load a
+default just because its script ran early.
+
 ## Feature status
 
 | Feature | State | Source |
