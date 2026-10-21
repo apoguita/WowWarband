@@ -103,6 +103,26 @@ Build approval is required before any configure or build, as described in
 `doc/Warband-Implementation-Policy.md`. Everything else here is read and changed
 at runtime, so tuning the features never needs a rebuild.
 
+## Bundled patches for the module submodules
+
+Two modules the project depends on carry Warband changes: `mod-item-level-scaling`
+(the int32 snapshot fix and quest reward scaling) and `mod-zone-scaling` (the
+group-level anchor). Their code lives in submodules that point at upstream remotes
+the project cannot push to, so the changes are also tracked in this repository as
+plain diffs and applied by a script:
+
+    modules\patches\mod-item-level-scaling\warband.patch
+    modules\patches\mod-zone-scaling\warband.patch
+
+    .\Warband-Module-Patches.ps1                 report whether each patch is applied
+    .\Warband-Module-Patches.ps1 -Action apply   apply the missing patches
+
+A clone pins each submodule to its upstream commit and then applies these patches,
+so every Warband feature — including the ones in module code — ships with this
+repository and nothing stays local. Run the script after
+`git submodule update --init`, before configuring or building; it is idempotent
+and reports a patch that no longer applies cleanly instead of forcing it.
+
 ## XP multiplier
 
 `Warband.XP.Rate` is a server-wide multiplier applied to every experience gain -
