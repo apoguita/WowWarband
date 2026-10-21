@@ -2161,6 +2161,8 @@ local function DynamicLines(kind)
             table.insert(lines, "- Instances: a creature killed inside stays dead for the run")
         end
 
+        table.insert(lines, "- Dungeon Finder: picking a dungeon takes the whole party there")
+
         if convenience.hearthstoneKnown and convenience.hearthstone then
             table.insert(lines, "- Hearthstone: no cooldown")
         end

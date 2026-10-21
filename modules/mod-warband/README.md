@@ -58,6 +58,7 @@ default just because its script ran early.
 | Supplier prices | Built; not yet verified in game | `WarbandSuppliers.cpp`, `WarbandCommands.cpp` |
 | Trash auto-sell | Built; not yet verified in game | `WarbandTrashSell.cpp`, `WarbandCommands.cpp` |
 | Instances stop restocking | Built; not yet verified in game | `WarbandInstances.cpp`, `WarbandCommands.cpp` |
+| The Dungeon Finder travels the party | Teleport verified in game, companions included; heroic and Random picks not yet checked | `WarbandDungeonFinder.cpp` |
 | Hearthstone without cooldown | Built; not yet verified in game | `WarbandConvenience.cpp`, `WarbandCommands.cpp` |
 | Pets always happy | Built; not yet verified in game | `WarbandConvenience.cpp`, `WarbandCommands.cpp` |
 | World scaling control | Built; not yet verified in game | `WarbandWorldScale.cpp`, `WarbandCommands.cpp` |
@@ -445,6 +446,53 @@ take creature or map ids back out of the rule.
     .warband instance on|off   applies to the next death; already-dead creatures stay dead
 
 The panel's Instances page has the same switch and the session's count.
+
+## The Dungeon Finder travels the party
+
+A five-character Warband has nobody to queue with, so the finder sits there and matches nobody. It
+is also, already, a complete travel menu: the client draws the dungeon list, the server holds an
+entrance for every dungeon in `lfg_dungeon_template`, and both sides know which dungeons a character
+may enter. So a pick is answered with a teleport rather than a queue.
+
+Select a dungeon in the finder and press Find Group: the whole party, companions included, is put at
+that dungeon's entrance. The boxes work as they always did: specific dungeons, a Random Dungeon, a
+heroic, or a raid.
+
+| Pick | Where the party lands |
+| --- | --- |
+| a specific dungeon | that dungeon's entrance, in the difficulty its entry names |
+| Random Dungeon | one dungeon from the pool that box stands for, minus the ones the finder would have refused this character |
+| several boxes ticked | any of them, drawn at random, which is what queueing for several meant |
+| a raid | the raid's entrance; the core still asks for a raid group first |
+
+Nothing is queued, and no role check, proposal or deserter timer is created. The join is refused
+inside `PlayerScript::OnPlayerCanJoinLfg`, the hook the core calls from `LFGMgr::JoinLfg` after the
+packet has been parsed and before the queue is touched, so the teleport is the whole answer to the
+click.
+
+The retail rules are kept rather than bypassed. `Player::TeleportTo` still runs every check it runs
+for any teleport - level, attunement, an instance's own requirements, the raid-group rule, the hourly
+instance limit - and a refusal arrives in the game's own words. The destination is the finder's own
+entrance row. A heroic pick sets the party's dungeon difficulty, and a raid pick its raid
+difficulty, before the jump, so the entry chosen is the copy of the dungeon that is entered;
+instance saves are keyed by map and difficulty, so no saved dungeon is reset on the way through.
+
+Leaving is the retail way too: the entry point is recorded before the party jumps, so the instance's
+exit portal puts everyone back where they came from.
+
+Refused in the module's own words: a click while dead, while in combat, or from a battleground (the
+finder never allowed queueing from one, and a teleport would be a way out of the match). A dungeon
+the finder has no entrance for is left alone. The finder's own rule that only the party leader
+queues is kept as well: a follower clicking Find Group is ignored, exactly as it would be for a
+queue.
+
+Each jump is logged:
+
+    Warband dungeon finder: Apo travels to Utgarde Keep (map 574, 4 party member(s) follow)
+
+For any of this to be reached the finder itself has to be switched on: `DungeonFinder.OptionsMask`
+ships as `5`, which includes the dungeon finder. Setting it to `0` disables the whole window,
+travel included.
 
 ## Trash auto-sell
 

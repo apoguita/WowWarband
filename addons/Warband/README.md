@@ -34,8 +34,8 @@ The panel always shows what the server accepted, never what it hoped to set.
 
 The **Features** page lists every feature the module adds, not only the switches that happen to be
 on: experience and catch-up, gathering, gear sharing, magic find, gold find, trash sell, auction
-house, instances, hearthstone, pets, world scaling, quest level scaling, the engineering bot
-prices, AoE loot, world bots, the trade gold panel and
+house, instances, the Dungeon Finder's travel, hearthstone, pets, world scaling, quest level
+scaling, the engineering bot prices, AoE loot, world bots, the trade gold panel and
 the party roster. Each line follows the live state where the server reports one, so the page is a
 statement about the running server rather than a brochure.
 
