@@ -59,6 +59,7 @@ default just because its script ran early.
 | Trash auto-sell | Built; not yet verified in game | `WarbandTrashSell.cpp`, `WarbandCommands.cpp` |
 | Instances stop restocking | Built; not yet verified in game | `WarbandInstances.cpp`, `WarbandCommands.cpp` |
 | The Dungeon Finder travels the party | Teleport verified in game, companions included; heroic and Random picks not yet checked | `WarbandDungeonFinder.cpp` |
+| Complete destination list | Built; not yet verified in game - lists every dungeon, heroic and raid with an entrance, unfiltered | `WarbandDungeonFinder.h`, `WarbandCommands.cpp` |
 | Hearthstone without cooldown | Built; not yet verified in game | `WarbandConvenience.cpp`, `WarbandCommands.cpp` |
 | Pets always happy | Built; not yet verified in game | `WarbandConvenience.cpp`, `WarbandCommands.cpp` |
 | World scaling control | Built; not yet verified in game | `WarbandWorldScale.cpp`, `WarbandCommands.cpp` |
@@ -493,6 +494,33 @@ Each jump is logged:
 For any of this to be reached the finder itself has to be switched on: `DungeonFinder.OptionsMask`
 ships as `5`, which includes the dungeon finder. Setting it to `0` disables the whole window,
 travel included.
+
+### The complete destination list
+
+The window is not the whole menu, and it cannot be made one. Its entries come from the client's own
+`LFGDungeons.dbc`, which carries a level window per dungeon (Deadmines `15-25`, Stockades `55-65`, a
+heroic Northrend entry `80-83`), and the client draws only the entries whose window contains the
+character's level. At 80 no classic dungeon is drawn at all, and no packet the server can send adds
+one back - the client's FrameXML (`Interface\FrameXML\LFGFrame.lua`) is the legacy
+Looking-For-Group wizard only, so the Dungeon Finder frames are native client code.
+
+So the list is the server's own:
+
+    .warband travel          -> WARBAND_TRAVEL=<id>|<kind>|<difficulty>|<min>|<max>|<name>;...   (chunked)
+                             -> WARBAND_TRAVEL=                                               (closes the list)
+    .warband travel <id>     -> WARBAND_TRAVELGO=ok=1;id=574;name=Utgarde Keep
+                             -> WARBAND_TRAVELGO=ok=0;id=574;reason=noentrance|dead|combat|battleground|refused
+
+Every entry of type dungeon, heroic or raid that has an entrance is listed - the shipped data carries
+64 dungeons, 35 raids and 32 heroics, and the only ones left out are those with no entrance at all -
+with its level window kept as information rather than used as a filter. Nothing is hidden, greyed or
+dropped: level, attunement, lock and gear score are reported by the core's own teleport at the moment
+of travel, in the game's own words, exactly as a finder pick is.
+
+`.warband travel <id>` and a finder pick go through the same path, so the party, the companions, the
+entry's difficulty and the exit portal all behave identically. The client half is
+`addons/Warband/DungeonTravel.lua`, which turns the Dungeon Finder window into the travel menu: a
+black panel, one row per destination, a Travel button on each, and no queue view at all.
 
 ## Trash auto-sell
 

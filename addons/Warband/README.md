@@ -115,6 +115,7 @@ Files:
     PartyAccess.lua member strips on the bag frame and the character sheet
     PartyRoster.lua the Party tab on the Friends frame
     Layout.lua      makes the bags, the character sheet and the Friends frame draggable
+    DungeonTravel.lua     the Dungeon Finder window turned into the destination travel menu
     Bindings.xml    the WARBANDTOGGLE key binding entry, unbound by default
 
 Adding a feature means adding a node to the Tree table in Warband.lua. Use status "live" only for
@@ -239,6 +240,48 @@ the item's cooldown the moment it is used (`WARBAND_HEARTHSTONE=enabled=1;cleare
 of clears this session shown underneath). **Pets** keeps every hunter pet at full happiness, the
 leader's included, because a follower will never feed its pet and an unhappy pet carries a damage
 penalty (`WARBAND_PETS=enabled=1`).
+
+## Dungeon travel window (`DungeonTravel.lua`)
+
+On a Warband the Dungeon Finder has no job to do: one player and their companions have nobody to be
+matched with, and the server already answers a finder pick with travel. So this file does not add a
+page next to the queue — it **replaces the window's content**. Open the Dungeon Finder and you get a
+black panel listing every destination the server can reach; the queue view is never drawn.
+
+The finder's own list could not have done this job anyway: it is level-filtered by the client's copy
+of the dungeon data, so at 80 every classic dungeon is simply absent, and no packet the server sends
+adds one back.
+
+The list comes from `.warband travel`, which answers in chunks shaped `id|kind|difficulty|min|max|name`
+and closes with an empty `WARBAND_TRAVEL=`. Each row shows the name, the level window the entry was
+published with, and its kind (Dungeon, Heroic, Raid 10, Raid 25); clicking one sends
+`.warband travel <id>` and the server travels the player, the party and the companions, then answers
+`WARBAND_TRAVELGO=` — the status line reports the destination, or the reason it refused
+(`noentrance`, `dead`, `combat`, `battleground`, `refused`).
+
+The level window is information, never a gate: nothing is filtered, hidden or greyed. The list is
+cached in `WarbandDB`, so the second visit costs nothing and **Refresh** asks again. A worldserver
+without the command is reported as "Unavailable: this worldserver does not answer .warband travel
+yet." rather than as an empty page.
+
+Presentation and plumbing:
+
+- the panel is the whole window — full size, plain black, one frame level above everything Blizzard
+  would have drawn there;
+- Blizzard's `LFDQueueFrame` is hidden on every open, and hooked so anything that re-shows it is put
+  back down: hiding it also removes its artwork, which is what used to show around the panel;
+- Blizzard's close button is a direct child of the window and would be swallowed by a full-size
+  panel, so its frame level is raised above ours — the X keeps working, and so does Escape.
+
+Every row is coloured for your level with the game's own rule: `GetQuestDifficultyColor`, the same
+function the finder's list uses, applied to the entry's *recommended* level (its `recLevel`, not its
+minimum — the two differ by up to six levels in the shipped data). The thresholds are Blizzard's:
+
+    +5 and up          red      (too high)
+    +3 to +4           orange   (close to the limit)
+    -2 to +2           yellow   (at your level)
+    -3 .. green range  green    (lower than you; GetQuestGreenRange() is 5 at 80)
+    beyond that        grey     (trivial)
 
 ## Party roster (`PartyRoster.lua`)
 

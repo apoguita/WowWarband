@@ -36,6 +36,8 @@
  *   .warband pets on | off                         keep every hunter pet at full happiness, or not
  *   .warband party                                 list the characters on this account for the
  *                                                  party roster: name, class, level, online, grouped
+ *   .warband travel                                every destination the server knows, unfiltered
+ *   .warband travel <dungeon id>                   travel the party to that destination
  *
  * Every reply is a single machine-readable line, which is how the Warband addon reads state:
  *   WARBAND_XP=3
@@ -50,6 +52,8 @@
  *   WARBAND_AHBOT=installed=1;seller=1;buyer=1;items=150;candidates=5;alliance=1200;horde=1200;neutral=200
  *   WARBAND_INSTANCE=enabled=1;kept=42
  *   WARBAND_PARTY=Name|class|level|online|grouped;…   (then an empty WARBAND_PARTY= to close the list)
+ *   WARBAND_TRAVEL=id|kind|difficulty|min|max|name;…  (then an empty WARBAND_TRAVEL= to close the list)
+ *   WARBAND_TRAVELGO=ok=1;id=574;name=Utgarde Keep
  *   WARBAND_HEARTHSTONE=enabled=1;cleared=3
  *   WARBAND_PETS=enabled=1
  */
@@ -62,11 +66,13 @@
 #include "Group.h"
 #include "ItemBinding.h"
 #include "ItemTemplate.h"
+#include "LFGMgr.h"
 #include "ObjectAccessor.h"
 #include "ObjectMgr.h"
 #include "Player.h"
 #include "RBAC.h"
 #include "ScriptMgr.h"
+#include "WarbandDungeonFinder.h"
 #include "WarbandPersistence.h"
 #include "WarbandTrade.h"
 
@@ -74,6 +80,7 @@
 #include <cstdlib>
 #include <cstring>
 #include <string>
+#include <vector>
 
 float GetWarbandXpRate();
 bool SetWarbandXpRate(float rate);
@@ -323,6 +330,7 @@ public:
             {"hearthstone", HandleHearthstoneCommand, SEC_PLAYER, Console::No},
             {"pets",     HandlePetsCommand,       SEC_PLAYER, Console::No},
             {"party",    HandlePartyCommand,      SEC_PLAYER, Console::No},
+            {"travel",   HandleTravelCommand,     SEC_PLAYER, Console::No},
         };
 
         static ChatCommandTable commandTable =
@@ -1274,6 +1282,92 @@ private:
 
         handler->PSendSysMessage("WARBAND_PARTY=");
         return true;
+    }
+
+    // The complete destination list and the travel to one of them. The Dungeon Finder window can
+    // only draw the dungeons its own DBC level window allows - at 80 that is the Northrend set and
+    // nothing else - so this is the whole table, and the choice belongs to the player.
+    static bool HandleTravelCommand(ChatHandler* handler, char const* args)
+    {
+        while (*args == ' ')
+            ++args;
+
+        Player* player = handler->GetSession() ? handler->GetSession()->GetPlayer() : nullptr;
+        if (!player)
+            return false;
+
+        if (!*args)
+        {
+            SendTravelList(handler);
+            return true;
+        }
+
+        char* end = nullptr;
+        unsigned long const id = std::strtoul(args, &end, 10);
+        if (end == args || *end != '\0' || id == 0)
+        {
+            handler->SendSysMessage("Usage: .warband travel [<dungeon id>]");
+            return false;
+        }
+
+        lfg::LFGDungeonData const* dungeon = sLFGMgr->GetLFGDungeon(uint32(id));
+        std::string const name = dungeon ? dungeon->name : "?";
+
+        switch (WarbandTravelTo(player, uint32(id)))
+        {
+            case WarbandTravelResult::Ok:
+                handler->PSendSysMessage("WARBAND_TRAVELGO=ok=1;id={};name={}", uint32(id), name);
+                return true;
+            case WarbandTravelResult::InBattleground:
+                handler->PSendSysMessage("WARBAND_TRAVELGO=ok=0;id={};reason=battleground", uint32(id));
+                return true;
+            case WarbandTravelResult::Dead:
+                handler->PSendSysMessage("WARBAND_TRAVELGO=ok=0;id={};reason=dead", uint32(id));
+                return true;
+            case WarbandTravelResult::InCombat:
+                handler->PSendSysMessage("WARBAND_TRAVELGO=ok=0;id={};reason=combat", uint32(id));
+                return true;
+            case WarbandTravelResult::UnknownDungeon:
+                handler->PSendSysMessage("WARBAND_TRAVELGO=ok=0;id={};reason=noentrance", uint32(id));
+                return true;
+            case WarbandTravelResult::Refused:
+                handler->PSendSysMessage("WARBAND_TRAVELGO=ok=0;id={};reason=refused", uint32(id));
+                return true;
+        }
+
+        return true;
+    }
+
+    static void SendTravelList(ChatHandler* handler)
+    {
+        std::vector<WarbandDestination> const destinations = WarbandDestinations();
+
+        std::string chunk;
+
+        for (WarbandDestination const& destination : destinations)
+        {
+            // id|kind|difficulty|min|max|name, and ';' between entries; an empty line closes the list.
+            std::string entry = std::to_string(destination.id) + "|" + std::to_string(destination.kind)
+                + "|" + std::to_string(destination.difficulty) + "|" + std::to_string(destination.minLevel)
+                + "|" + std::to_string(destination.maxLevel) + "|" + destination.name;
+
+            if (chunk.empty())
+                chunk = entry;
+            else
+                chunk += ";" + entry;
+
+            // Keep each reply short enough for the client to show in one line.
+            if (chunk.size() > 160)
+            {
+                handler->PSendSysMessage("WARBAND_TRAVEL={}", chunk);
+                chunk.clear();
+            }
+        }
+
+        if (!chunk.empty())
+            handler->PSendSysMessage("WARBAND_TRAVEL={}", chunk);
+
+        handler->PSendSysMessage("WARBAND_TRAVEL=");
     }
     // Supplier prices: one multiplier per quality plus a floor. The values are saved in the world
     // database, and "apply" writes them onto the catalogue items, which is why the new prices are

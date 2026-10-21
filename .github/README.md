@@ -36,6 +36,9 @@ Two client addons come from those modules: `addons/MultiBot` (companion commands
 character windows) and `addons/PlayerbotManager` (companion management UI). Research material for
 other modules lives in `doc/` and is not installed.
 
+Two more client addons are Warband's own: `addons/Warband` (the settings panel, its pages, and the
+Dungeon Finder window it turns into the destination travel menu).
+
 ## What Warband adds
 
 Everything here is Warband's own code, in `modules/mod-warband` on the server and `addons/Warband`
@@ -55,7 +58,7 @@ value is saved, so it survives the next restart.
 | Gold find | a multiplier on looted coin and on what merchants pay for items sold to them, trash auto-sell and quest gold included. Default x3 | Panel â†’ Gold find, or `.warband goldfind <multiplier>` |
 | Trash auto-sell | grey loot is sold the moment it is picked up, for the leader and every companion, so bags stay empty; the vendor price times the gold multiplier goes to the leader's purse and the page counts only this Warband's sales. `.warband trash sell` empties what is already in the bags | Panel â†’ Trash sell, or `.warband trash [on\|off\|sell]` |
 | Instances stop restocking | a creature killed inside a dungeon or raid stays dead for the run, across logging out and server restarts; an instance reset still restores the dungeon | Panel â†’ Instances, or `.warband instance [on\|off]` |
-| Dungeon Finder travels the party | on a single-player server the queue matched nobody, so the finder's pick is answered with travel instead: choose a dungeon (or a Random Dungeon) and press Find Group, and the whole party lands at that dungeon's entrance, companions included. The retail rules still decide who may enter (level, attunement, raid group, the hourly instance limit), the entry's own difficulty is applied, and the instance exit portal brings the party back to where it entered | server-side rule, no switch |
+| Dungeon Finder travels the party | on a single-player server the queue matched nobody, so the finder's pick is answered with travel instead: choose a dungeon (or a Random Dungeon) and press Find Group, and the whole party lands at that dungeon's entrance, companions included. The retail rules still decide who may enter (level, attunement, raid group, the hourly instance limit), the entry's own difficulty is applied, and the instance exit portal brings the party back to where it entered. The finder window itself only draws the dungeons its own level data allows, so the Warband addon turns that whole window into the travel menu instead: opening the Dungeon Finder shows a plain panel listing the server's whole table — every dungeon, heroic and raid it has an entrance for, nothing filtered or greyed, coloured for your level and with a Travel button per row — and the queue view is never drawn | open the Dungeon Finder, or `.warband travel [<dungeon id>]` |
 | World scaling | open-world creatures present at each character's own level, **upward only**: a creature below you comes up to meet you, one above you is never brought down. Enabled for every zone; each character carries its own view, so a five-member party can fight the same boar at its own levels. Dungeons and raids are not touched by it (they belong to the instance scalers) | Panel â†’ World scaling, or `.warband worldscale [on\|off]` |
 | Quest level scaling | quests present at the highest **5-level step** the character has reached, so they never slide into the gray band as the character levels: a level-15 quest reads â€” and pays â€” as a level-20 quest once you are 20-24, then as level 25 from 25. The displayed level (quest log, con colour, XP preview), the awarded experience and the quest's equipment rewards all follow it. Never lowered; a quest already above the character keeps its own level | `Warband.Quests.ScaleStep` (`0` turns it off) and `ItemScaling.QuestRewards` |
 | Engineering bots priced by hand | the repair-and-vendor summoning bots are priced for actual use instead of the copper floor or a material-driven inflation: **Jeeves 1,000g**, Field Repair Bot 74A and 110G about **25s** each | the supplier's `warband_supplier_price` rows, applied by the catalogue update |
@@ -125,7 +128,7 @@ update is kept beside it in `data/sql/warband/` as a recovery script.
 | --- | --- |
 | [`modules/mod-warband/conf/mod_warband.conf.dist`](../modules/mod-warband/conf/mod_warband.conf.dist) | every Warband server option, installed as `bin/RelWithDebInfo/configs/modules/mod_warband.conf` |
 | [Module README](../modules/mod-warband/README.md) | each option in detail, and the command protocol |
-| [Addon README](../addons/Warband/README.md) | the client panel, page by page |
+| [Addon README](../addons/Warband/README.md) | the client panel page by page, and the Dungeon Finder's All destinations tab |
 | [Feature backlog](../doc/Warband-Feature-Backlog.md) | what exists, what is wanted, and what was decided against |
 | [Design record](../doc/Warband-Design.md), [implementation policy](../doc/Warband-Implementation-Policy.md) | the project's rationale and rules |
 | [Module shortlist](../doc/Warband-Server-Module-Shortlist.md), [module assessment](../doc/Warband-Module-Assessment.md) | the research the module choices came from |
