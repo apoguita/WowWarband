@@ -14,6 +14,15 @@ if not exist "%CONTROL%" (
   exit /b 1
 )
 
+rem Fresh item data on every launch: item stats (prices, requirements, the gold multiplier on sell
+rem prices) are cached by the game client per item and kept on disk, and nothing the worldserver
+rem sends can invalidate that cache. Clearing the WDB item cache here makes the first tooltip after
+rem this start re-query the server instead of showing a stale number. A running client simply keeps
+rem its current cache and the script says so.
+if exist "%ROOT%Warband-ClearClientCaches.ps1" (
+  powershell -NoProfile -ExecutionPolicy Bypass -File "%ROOT%Warband-ClearClientCaches.ps1"
+)
+
 powershell -NoProfile -ExecutionPolicy Bypass -File "%CONTROL%" start all
 if errorlevel 1 (
   echo.

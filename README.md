@@ -84,6 +84,7 @@ data for creation, skills and starting spells, the server's `CharStartOutfit.dbc
 | `Warband-Server.ps1 start all` / `stop all`, or the start/stop bats | load and unload the database, login server and world server, in order and gracefully |
 | `Build-WowWarband.bat` | incremental build with the existing CMake cache; the Playerbots isolate is validated in [the build notes](doc/Playerbots-Build-Validation.md) |
 | `Deploy-WarbandAddon.ps1` | copy `addons/Warband` into the client |
+| `Warband-ClearClientCaches.ps1` | rebuild the client item cache so tooltips re-query the server instead of showing a cached price; `Start-WowWarband.bat` runs it on every launch |
 | `Warband-Configs.ps1 -Action apply` | carry this project's configuration decisions onto the installed server configs â€” see below |
 | `Backup-WowWarband.ps1` | back up all four AzerothCore databases |
 | `Sync-ProjectReadme.ps1` | keep `.github/README.md` identical to this file |
