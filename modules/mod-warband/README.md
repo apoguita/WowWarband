@@ -379,6 +379,29 @@ hunter pet on the server, the leader's included.
     .warband hearthstone [on|off]   replies WARBAND_HEARTHSTONE=enabled=1;cleared=3
     .warband pets [on|off]          replies WARBAND_PETS=enabled=1
 
+## Quest level scaling
+
+Quests are fixed-level: play long enough and everything in the log is gray, and its rewards are junk.
+`Warband.Quests.ScaleStep` (default 5, `0` disables it) makes a quest **present at the highest
+multiple of the step the character has reached**, so it never falls into the -5 band:
+a level-15 quest reads and pays as level 20 once the character is 20-24, as level 25 from 25, and so
+on. Never lowered; a quest whose own level is already above the character keeps its level.
+
+Three places cooperate, all driven by the same number:
+
+- **Display** — the quest-query packet for that viewer carries the presented level instead of the
+  template's, so the quest log's level, con colour and XP preview follow it. That is a Warband core
+  deviation in `GossipDef.cpp` (`PlayerMenu::SendQuestQueryResponse`).
+- **Experience** — `PlayerScript::OnPlayerQuestComputeXP` reprices the award at the presented level
+  with a ratio of `Quest::XPValue`'s own arithmetic, so quest rates and auras that already multiplied
+  the amount survive untouched. The zone module's own per-zone quest pricing is off
+  (`ZoneScaling.Xp.Quests = 0`) so the two cannot correct the same award twice.
+- **Reward items** — `ItemScaling.QuestRewards` in `mod-item-level-scaling` grants the scaled variant
+  of an equipment reward at the same presented level (up only, enabled qualities, exclusions
+  honoured; random-suffix, quest-starter and scripted rewards keep their original). The reward
+  window itself still lists the original item — making the offer/choose packets advertise the
+  variant ids is a separate packet change that is not done yet.
+
 ## Instances stop restocking
 
 A Warband fights through a dungeon slowly, and the base game keeps putting the cleared trash back.

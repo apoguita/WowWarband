@@ -2171,10 +2171,12 @@ local function DynamicLines(kind)
 
         table.insert(lines, "- Soul shards: Drain Soul, Shadowburn, the Doomguard, any kill")
         table.insert(lines, "- Soulstones never expire, they wait for the death they were made for")
+        table.insert(lines, "- Quests: advance in 5-level steps, no grey quests as you level")
+        table.insert(lines, "- Engineering bots: Jeeves re-summons in 3 minutes, repair bots priced for use")
 
         if worldScale.known and worldScale.installed then
             table.insert(lines, worldScale.enabled
-                and "- World scaling: open-world creatures and loot at your level"
+                and "- World scaling: creatures below you come up to your level, higher ones stay put"
                 or "- World scaling: off, the open world keeps its own levels")
         end
 

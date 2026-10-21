@@ -18,7 +18,7 @@ The tree as it stands:
       Supplier prices     live - what the supplier merchants charge and pay, with Apply
       Trash sell          live - grey loot sold on pickup, with a sweep button
       Instances           live - killed instance creatures stay dead, with a counter
-      World scaling       live - the open-world scaler switch, off by default
+      World scaling       live - the open-world scaler switch, active upward only
       AoE loot            live - the area looting switch, off by default
       World bots          live - the random bot population, its switch and target
       Convenience         live - hearthstone without a cooldown, pets always happy
@@ -34,7 +34,8 @@ The panel always shows what the server accepted, never what it hoped to set.
 
 The **Features** page lists every feature the module adds, not only the switches that happen to be
 on: experience and catch-up, gathering, gear sharing, magic find, gold find, trash sell, auction
-house, instances, hearthstone, pets, world scaling, AoE loot, world bots, the trade gold panel and
+house, instances, hearthstone, pets, world scaling, quest level scaling, the engineering bot
+prices, AoE loot, world bots, the trade gold panel and
 the party roster. Each line follows the live state where the server reports one, so the page is a
 statement about the running server rather than a brochure.
 
