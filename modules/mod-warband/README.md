@@ -70,7 +70,7 @@ Keeping the two kinds of bot apart is what `WarbandPlayerRoles.h` is for:
 player, so the XP, catch-up, gathering and trading code never mistake the world's
 random bots for Warband followers.
 
-There are **four deliberate core changes**, and all are named here rather than hidden:
+There are **five deliberate core changes**, and all are named here rather than hidden:
 
 1. **Item binding** (`Item.cpp`): the module owns whether a bound item may move.
 2. **Soul shards on any kill** (`src/server/scripts/Spells/spell_warlock.cpp`): Drain Soul and
@@ -88,6 +88,11 @@ There are **four deliberate core changes**, and all are named here rather than h
    band as the character levels (`Warband.Quests.ScaleStep = 0` restores the shipped level). The
    client draws the quest log's level, con colour and XP preview from that field; the Warband quest
    XP hook and the item-scaling quest-reward hook price the same way, so display and payout agree.
+5. **Merchant payouts follow the gold multiplier** (`src/server/game/Handlers/ItemHandler.cpp`): what
+   a player receives for selling an item to a vendor is its own value multiplied by the Warband gold
+   multiplier - the same rate gold find pushes into `Rate.Drop.Money` for looted coin - so an item
+   worth one gold pays five when gold find is 5. Buying is untouched: the shop charges the item's
+   own value (see Supplier prices).
 
 Everything else the module does is implemented with public core API and needs no `src/` change at
 all.
