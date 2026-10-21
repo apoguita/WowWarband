@@ -27,6 +27,8 @@
 #include "SpellMgr.h"
 #include "WorldPacket.h"
 #include "WorldSession.h"
+#include "World.h"
+#include "WorldConfig.h"
 #include <cmath>
 
 #include "ItemPackets.h"
@@ -652,7 +654,12 @@ void WorldSession::HandleSellItemOpcode(WorldPackets::Item::SellItem& packet)
         {
             if (pProto->SellPrice > 0)
             {
-                uint32 money = pProto->SellPrice * packet.Count;
+                // Warband deviation: the merchant pays the item's own vendor value multiplied by
+                // the Warband gold multiplier. That multiplier is pushed into Rate.Drop.Money by
+                // WarbandGoldFind (it already covers looted coin); vendoring is the other half of
+                // the same rule, so an item worth 1 gold pays 5 when gold find is 5.
+                double const goldFindRate = double(sWorld->getRate(RATE_DROP_MONEY));
+                uint32 money = uint32(double(pProto->SellPrice * packet.Count) * goldFindRate);
                 if (_player->GetMoney() >= MAX_MONEY_AMOUNT - money)               // prevent exceeding gold limit
                 {
                     _player->SendEquipError(EQUIP_ERR_TOO_MUCH_GOLD, nullptr, nullptr);

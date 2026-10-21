@@ -186,8 +186,10 @@ Warband.GoldFind.Multiplier = 3.0
 #  on the item tooltip. It is stored once per catalogue item, so re-pricing always starts from the
 #  original and a multiplier can never compound.
 #
-#  The same price is charged and paid: the shops report both BuyPrice and SellPrice as this value,
-#  so there is no buying low and selling high.
+#  The same base price is charged and paid: the shops report both BuyPrice and SellPrice as this
+#  value. What a player receives for selling an item to a merchant is that value multiplied by the
+#  Warband gold multiplier (the one gold find pushes into the coin rate), so the multiplier is paid
+#  out on selling.
 #
 #  These keys only seed the first run. The live values live in the world database
 #  (warband_supplier_setting), which is what the panel's Supplier prices page and the .warband price
@@ -201,8 +203,9 @@ Warband.GoldFind.Multiplier = 3.0
 #  is re-priced by itself: prices change only when you press Apply or run .warband price apply.
 #
 #     Warband.Suppliers.Multiplier.<quality>
-#        One multiplier per item quality, 1.0 to 20.0. The shipped rule is 2 for poor through
-#        9 for heirloom.
+#        One multiplier per item quality, 1.0 to 20.0. The shipped rule is 2 for poor, 1 for
+#        normal, then 4 through 9 for uncommon to heirloom: a common item keeps its own vendor
+#        value (a Field Repair Bot stays at its 1 gold), the rarer qualities are raised.
 #
 #     Warband.Suppliers.Floor
 #        The lowest price, in copper, that a supplier charges or pays. 1 to 1000000.
@@ -211,7 +214,7 @@ Warband.GoldFind.Multiplier = 3.0
 #  <multiplier>, .warband price floor <copper>, .warband price apply, .warband price reset.
 #
 Warband.Suppliers.Multiplier.Poor = 2.0
-Warband.Suppliers.Multiplier.Normal = 3.0
+Warband.Suppliers.Multiplier.Normal = 1.0
 Warband.Suppliers.Multiplier.Uncommon = 4.0
 Warband.Suppliers.Multiplier.Rare = 5.0
 Warband.Suppliers.Multiplier.Epic = 6.0
@@ -334,3 +337,4 @@ Warband.Quests.ScaleStep = 5
 #  touch the party.
 
 ###################################################################################################
+

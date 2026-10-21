@@ -1,4 +1,4 @@
-/*
+﻿/*
  * WoW Warband supplier prices.
  *
  * The supplier merchants stock the game's craftables, materials, reagents and recipes without
@@ -49,7 +49,7 @@ namespace
 
     // The shipped rule: poor 2, normal 3, uncommon 4, rare 5, epic 6, legendary 7, artifact 8,
     // heirloom 9, with a ten copper floor.
-    constexpr std::array<float, TierCount> DefaultMultipliers = { 2.0f, 3.0f, 4.0f, 5.0f, 6.0f, 7.0f, 8.0f, 9.0f };
+    constexpr std::array<float, TierCount> DefaultMultipliers = { 2.0f, 1.0f, 4.0f, 5.0f, 6.0f, 7.0f, 8.0f, 9.0f };
     constexpr uint32 DefaultFloor = 10;
 
     constexpr std::array<char const*, TierCount> TierKeys =
@@ -441,3 +441,4 @@ void AddSC_warband_suppliers()
 {
     new WarbandSupplierSettings();
 }
+

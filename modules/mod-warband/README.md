@@ -324,15 +324,18 @@ applied as table rows. This section is what it charges and pays:
     price = max(floor, original sell price * multiplier[quality])
 
 `original sell price` is the item's own `item_template.SellPrice` as the game shipped it, which is
-the number on the item tooltip. The shipped rule is 2 for poor, 3 for normal, 4 uncommon, 5 rare,
-6 epic, 7 legendary, 8 artifact, 9 heirloom, with a ten copper floor, and the same price is both
-charged and paid.
+the number on the item tooltip - one gold for a Field Repair Bot. The shipped rule is 2 for poor,
+**1 for normal** (a common item keeps its own value, so the bot stays at 1 gold), then 4 uncommon,
+5 rare, 6 epic, 7 legendary, 8 artifact, 9 heirloom, all above a ten copper floor. The same base
+price is charged and paid to the item; what a player receives for **selling an item to a merchant**
+is that value multiplied by the Warband gold multiplier (gold find), so an item worth 1 gold pays 5
+when gold find is 5.
 
     .warband price                          read the eight multipliers and the floor
     .warband price rare 6                   set one quality (colour names work too)
     .warband price floor 25                 the lowest price, in copper
     .warband price apply                    write the prices onto the items
-    .warband price reset                    the shipped rule: 2/3/4/5/6/7/8/9 and 10 copper
+    .warband price reset                    the shipped rule: 2/1/4/5/6/7/8/9 and 10 copper
 
 **Why a price is written onto the item instead of being scaled when a player clicks.** The core
 charges `item_template.BuyPrice` (`Player::BuyItemFromVendorSlot`) and pays
