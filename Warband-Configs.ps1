@@ -178,7 +178,7 @@ function Invoke-Apply {
         }
 
         if ($touched) {
-            Set-Content -LiteralPath $installed -Value $lines -Encoding UTF8
+            [System.IO.File]::WriteAllLines($installed, [string[]]$lines, [System.Text.UTF8Encoding]::new($false))
             $changed++
         }
     }
@@ -231,7 +231,7 @@ function Invoke-Export {
             ''
         )
 
-        Set-Content -LiteralPath $target -Value ($header + $lines) -Encoding UTF8
+        [System.IO.File]::WriteAllLines($target, [string[]]($header + $lines), [System.Text.UTF8Encoding]::new($false))
         Write-Host "captured $relative : $($lines.Count) key(s)"
         $captured++
     }

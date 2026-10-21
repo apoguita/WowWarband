@@ -70,7 +70,7 @@ Keeping the two kinds of bot apart is what `WarbandPlayerRoles.h` is for:
 player, so the XP, catch-up, gathering and trading code never mistake the world's
 random bots for Warband followers.
 
-There are **three deliberate core changes**, and all are named here rather than hidden:
+There are **four deliberate core changes**, and all are named here rather than hidden:
 
 1. **Item binding** (`Item.cpp`): the module owns whether a bound item may move.
 2. **Soul shards on any kill** (`src/server/scripts/Spells/spell_warlock.cpp`): Drain Soul and
@@ -82,6 +82,12 @@ There are **three deliberate core changes**, and all are named here rather than 
    Soulstone Resurrection ranks replace the shipped 15-minute duration with the infinite entry the
    client data already contains, so a shard waits for the death it was made for instead of timing
    out. The buff is still consumed by the resurrection itself, so it pays out exactly once.
+4. **Quest level follows the character** (`src/server/game/Entities/Creature/GossipDef.cpp`): the
+   per-player quest-query packet sends the quest's level advanced to the highest
+   `Warband.Quests.ScaleStep` multiple the viewer has reached, so a quest never slides into the gray
+   band as the character levels (`Warband.Quests.ScaleStep = 0` restores the shipped level). The
+   client draws the quest log's level, con colour and XP preview from that field; the Warband quest
+   XP hook and the item-scaling quest-reward hook price the same way, so display and payout agree.
 
 Everything else the module does is implemented with public core API and needs no `src/` change at
 all.

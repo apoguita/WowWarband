@@ -16,6 +16,7 @@
  */
 
 #include "GossipDef.h"
+#include "Config.h"
 #include "Formulas.h"
 #include "Object.h"
 #include "ObjectMgr.h"
@@ -531,9 +532,27 @@ void PlayerMenu::SendQuestQueryResponse(Quest const* quest) const
 
     WorldPacket data(SMSG_QUEST_QUERY_RESPONSE, 100);       // guess size
 
+    // Warband quest scaling: the level the client shows for this quest, for THIS viewer. The quest's
+    // own level is advanced to the highest multiple of Warband.Quests.ScaleStep already reached by
+    // the viewer, so quests never fall into the gray band as the character levels; never lowered,
+    // and a quest whose own level is already above the viewer keeps its level. The client derives
+    // the quest log's level, con colour and XP preview from this field, so the awarded XP (priced
+    // the same way by the Warband quest-XP hook) matches what the player is shown.
+    uint32 questLevel = quest->GetQuestLevel();
+    if (Player* viewer = _session->GetPlayer())
+    {
+        uint32 const step = sConfigMgr->GetOption<uint32>("Warband.Quests.ScaleStep", 5);
+        if (step && questLevel > 0 && questLevel < 255 && viewer->GetLevel() > questLevel)
+        {
+            uint32 const reached = (uint32(viewer->GetLevel()) / step) * step;
+            if (reached > questLevel)
+                questLevel = reached;
+        }
+    }
+
     data << uint32(quest->GetQuestId());                    // quest id
     data << uint32(quest->GetQuestMethod());                // Accepted values: 0, 1 or 2. 0 == IsAutoComplete() (skip objectives/details)
-    data << uint32(quest->GetQuestLevel());                 // may be -1, static data, in other cases must be used dynamic level: Player::GetQuestLevel (0 is not known, but assuming this is no longer valid for quest intended for client)
+    data << uint32(questLevel);                             // may be -1, static data, in other cases must be used dynamic level: Player::GetQuestLevel (0 is not known, but assuming this is no longer valid for quest intended for client)
     data << uint32(quest->GetMinLevel());                   // min level
     data << uint32(quest->GetZoneOrSort());                 // zone or sort to display in quest log
 

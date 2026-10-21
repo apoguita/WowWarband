@@ -17,11 +17,15 @@
 
 #include "Config.h"
 #include "Creature.h"
+#include "DBCStores.h"
 #include "Log.h"
 #include "Pet.h"
 #include "Player.h"
+#include "QuestDef.h"
 #include "ScriptMgr.h"
 #include "WarbandPersistence.h"
+
+#include <algorithm>
 
 namespace
 {
@@ -33,6 +37,13 @@ constexpr uint32 NoPlaceLikeHomeSpell = 39937;
 bool hearthstoneAlwaysReady = true;
 bool petsAlwaysHappy = true;
 uint32 hearthstoneClears = 0;
+
+// Quest scaling. Quests present at the highest multiple of Warband.Quests.ScaleStep already
+// reached by the character, so a quest never slides into the gray band as the character levels.
+// The core's quest-query packet shows that level (Warband deviation in GossipDef.cpp); this hook
+// makes the awarded experience match what the player was shown. 0 disables the feature.
+uint32 warbandQuestScaleStep = 5;
+uint32 warbandQuestXpCorrections = 0;
 }
 
 bool GetWarbandHearthstoneAlwaysReady()
@@ -68,7 +79,8 @@ class WarbandConvenience final : public PlayerScript, public AllCreatureScript, 
 {
 public:
     WarbandConvenience() :
-        PlayerScript("WarbandConvenience", { PLAYERHOOK_ON_BEFORE_TELEPORT, PLAYERHOOK_ON_LOGIN }),
+        PlayerScript("WarbandConvenience",
+            { PLAYERHOOK_ON_BEFORE_TELEPORT, PLAYERHOOK_ON_LOGIN, PLAYERHOOK_ON_QUEST_COMPUTE_EXP }),
         AllCreatureScript("WarbandConvenience"),
         WorldScript("WarbandConvenience") { }
 
@@ -76,6 +88,9 @@ public:
     {
         hearthstoneAlwaysReady = sConfigMgr->GetOption<bool>("Warband.Hearthstone.AlwaysReady", true);
         petsAlwaysHappy = sConfigMgr->GetOption<bool>("Warband.Pets.AlwaysHappy", true);
+        warbandQuestScaleStep = sConfigMgr->GetOption<uint32>("Warband.Quests.ScaleStep", 5);
+        if (warbandQuestScaleStep > 20)
+            warbandQuestScaleStep = 20;
 
         // Saved values win over the configuration defaults.
         hearthstoneAlwaysReady =
@@ -84,9 +99,10 @@ public:
 
         LOG_INFO(
             "server.loading",
-            "Warband convenience: hearthstone always ready {}, pets always happy {}",
+            "Warband convenience: hearthstone always ready {}, pets always happy {}, quest scale step {}",
             hearthstoneAlwaysReady ? "yes" : "no",
-            petsAlwaysHappy ? "yes" : "no");
+            petsAlwaysHappy ? "yes" : "no",
+            warbandQuestScaleStep);
     }
 
     // The hearthstone's cast finishes into a teleport; that is the moment its cooldown starts, so
@@ -102,6 +118,32 @@ public:
     void OnPlayerLogin(Player* player) override
     {
         ClearHearthstone(player);
+    }
+
+    // Quest experience must match the level the client was shown for the quest (see the Warband
+    // deviation in GossipDef.cpp): price the quest at its presented level and keep the ratio, so
+    // quest rates and auras that already multiplied the amount survive untouched.
+    void OnPlayerQuestComputeXP(Player* player, Quest const* quest, uint32& xpValue) override
+    {
+        if (!warbandQuestScaleStep || !player || !quest || !xpValue)
+            return;
+
+        int32 const questLevel = quest->GetQuestLevel();
+        if (questLevel <= 0 || questLevel >= 255)
+            return;
+
+        uint32 const reached =
+            (uint32(player->GetLevel()) / warbandQuestScaleStep) * warbandQuestScaleStep;
+        if (reached <= uint32(questLevel))
+            return;
+
+        uint32 const before = QuestXpAt(questLevel, player->GetLevel(), quest->GetXPId());
+        uint32 const after = QuestXpAt(int32(reached), player->GetLevel(), quest->GetXPId());
+        if (!before || !after)
+            return;
+
+        xpValue = uint32(std::min<uint64>(uint64(xpValue) * after / before, UINT32_MAX));
+        ++warbandQuestXpCorrections;
     }
 
     // Pets: top the happiness power up whenever it has drained, instead of waiting for a feed that
@@ -123,6 +165,42 @@ public:
     }
 
 private:
+    // Quest::XPValue's arithmetic with the quest level under our control, so the presented level
+    // can be priced exactly like the core prices a quest of that level. Keep in sync with
+    // QuestDef.cpp::Quest::XPValue if the core formula ever changes.
+    static uint32 QuestXpAt(int32 questLevel, uint8 playerLevel, uint32 xpId)
+    {
+        QuestXPEntry const* xpentry = sQuestXPStore.LookupEntry(questLevel);
+        if (!xpentry || xpId >= 10)
+            return 0;
+
+        int32 diffFactor = 2 * (questLevel - int32(playerLevel)) + 20;
+        if (diffFactor < 1)
+            diffFactor = 1;
+        else if (diffFactor > 10)
+            diffFactor = 10;
+
+        uint32 xp = diffFactor * xpentry->Exp[xpId] / 10;
+        if (xp <= 100)
+        {
+            xp = 5 * ((xp + 2) / 5);
+        }
+        else if (xp <= 500)
+        {
+            xp = 10 * ((xp + 5) / 10);
+        }
+        else if (xp <= 1000)
+        {
+            xp = 25 * ((xp + 12) / 25);
+        }
+        else
+        {
+            xp = 50 * ((xp + 25) / 50);
+        }
+
+        return xp;
+    }
+
     static void ClearHearthstone(Player* player)
     {
         if (!hearthstoneAlwaysReady || !player)
