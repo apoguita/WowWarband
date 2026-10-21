@@ -44,6 +44,11 @@
 #include <utility>
 #include <vector>
 
+// Declared in WarbandGoldFind.cpp. The Warband gold multiplier is part of every sale, not only of
+// coin piles, so trash sold on pickup pays the same multiple a vendor pays when the item is sold
+// by hand.
+float GetWarbandGoldFindMultiplier();
+
 // Provided by WarbandAoeLoot.cpp: the looting module's own on/off state.
 bool WarbandAoeLootInstalled();
 bool GetWarbandAoeLootEnabled();
@@ -142,7 +147,8 @@ uint64 WarbandSellTrash(Player* holder, Item* item)
         return 0;
 
     uint32 const count = std::max<uint32>(item->GetCount(), 1);
-    uint64 const copper = uint64(proto->SellPrice) * uint64(count);
+    double const goldFind = double(GetWarbandGoldFindMultiplier());
+    uint64 const copper = uint64(double(proto->SellPrice) * double(count) * goldFind);
 
     // Positions are read before the item goes away; DestroyItem then removes it from that exact
     // slot and the update is flushed to the client.

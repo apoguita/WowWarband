@@ -1,20 +1,20 @@
 # WoW Warband
 
 WoW Warband turns World of Warcraft 3.3.5a into a solo experience. No other players are needed, and
-nobody else decides how the party is put together: you play the whole group — a leader plus four
+nobody else decides how the party is put together: you play the whole group â€” a leader plus four
 AI-driven companions who fight beside you, level with you, and are shaped as freely as your own
 character.
 
 That is the point of the project. Running a five-character party yourself is a different game from
 levelling one class: you choose who is in the group and what each of them becomes, you carry five
 sets of abilities and five sets of weaknesses at once, and the decisions that usually belong to a
-group of players — who tanks, who heals, who carries the gear, who the story belongs to — are yours
+group of players â€” who tanks, who heals, who carries the gear, who the story belongs to â€” are yours
 to make alone. The companions are permanent characters, not mercenaries hired for the afternoon:
 each keeps its own level, equipment and progress, and can be customised for the role it is meant to
 fill.
 
 It is built as a customization layer over the
-[Playerbot-compatible AzerothCore base](https://github.com/mod-playerbots/azerothcore-wotlk) — for
+[Playerbot-compatible AzerothCore base](https://github.com/mod-playerbots/azerothcore-wotlk) â€” for
 core installation and server administration, use that project's documentation. This page is the
 inventory: which modules run on the server, what Warband itself adds, and how to reach each option.
 
@@ -27,7 +27,7 @@ inventory: which modules run on the server, what Warband itself adds, and how to
 | `mod-multibot-bridge` | Third-party | Companion command bridge; its client half is `addons/MultiBot` |
 | `mod-progression` | Third-party | Content gating by progression phase |
 | `mod-ale` | Third-party | Lua scripting support |
-| REMOVED: `mod-ah-bot-plus` | Third-party, added | The auction-house market: it stocks all three houses and buys what the party lists. Withdrawn — the auction house it served is now the Warband merchant network below |
+| REMOVED: `mod-ah-bot-plus` | Third-party, added | The auction-house market: it stocks all three houses and buys what the party lists. Withdrawn â€” the auction house it served is now the Warband merchant network below |
 | `mod-autobalance` | Third-party, added | Instance difficulty scaling: five members can fight a raid built for forty, and a dungeon scales up once the party outlevels it |
 | `mod-item-level-scaling` | Third-party, added | Loot scaling: the same items with their stats moved to the party's level, never downward; also grants quest reward equipment at the quest's presented level (`ItemScaling.QuestRewards`) |
 | `mod-zone-scaling` | Third-party, added | Open-world per-player level scaling, active: creatures present at each character's own level, upward only (`ZoneScaling.Direction = "up"`), quest XP is owned by the Warband quest-scaling rule below |
@@ -39,32 +39,32 @@ other modules lives in `doc/` and is not installed.
 ## What Warband adds
 
 Everything here is Warband's own code, in `modules/mod-warband` on the server and `addons/Warband`
-on the client. Each option can be changed while the server runs — no rebuild, no restart — and the
+on the client. Each option can be changed while the server runs â€” no rebuild, no restart â€” and the
 value is saved, so it survives the next restart.
 
 | Option | What it does | How to change it |
 | --- | --- | --- |
-| Auction house replaced by merchants | every auctioneer, in every city, is now a Warband merchant: clicking one opens a category menu instead of the auction house, stocking **everything a profession can make** — 7,350 items, unlimited quantity — and buying anything you sell at the same price. The menu is Armor (type → slot → level range 1-10 … 71-80), Weapons (family, one- and two-handed), Containers, Materials and reagents, Consumables, Glyphs (by class), Gems, Recipes (by profession), Ammunition and Keys | Panel → Supplier prices, or `.warband price <tier> <multiplier>` / `floor` / `apply` / `reset` |
-| Soul shards from any kill | Drain Soul grants its Soul Shard on any kill, not only on a target that yields experience or honor, and its per-tick shard chance follows the same rule; Shadowburn's shard refund too | server-side rule, no switch — `.warband` has nothing to set |
+| Auction house replaced by merchants | every auctioneer, in every city, is now a Warband merchant: clicking one opens a category menu instead of the auction house, stocking **everything a profession can make** â€” 7,350 items, unlimited quantity â€” and buying anything you sell at the same price. The menu is Armor (type â†’ slot â†’ level range 1-10 â€¦ 71-80), Weapons (family, one- and two-handed), Containers, Materials and reagents, Consumables, Glyphs (by class), Gems, Recipes (by profession), Ammunition and Keys | Panel â†’ Supplier prices, or `.warband price <tier> <multiplier>` / `floor` / `apply` / `reset` |
+| Soul shards from any kill | Drain Soul grants its Soul Shard on any kill, not only on a target that yields experience or honor, and its per-tick shard chance follows the same rule; Shadowburn's shard refund too | server-side rule, no switch â€” `.warband` has nothing to set |
 | Soulstones never expire | the resurrection buff a Soulstone carries lasts until it is used, instead of the shipped 15 minutes, so a shard waits for the death it was made for | server-side rule, no switch |
-| XP multiplier | 1x–10x on every experience gain, followers included. Default 2x | Panel → XP Options, or `.warband xp set <1-10>` |
-| Follower catch-up XP | extra experience for a companion that is behind its leader, so a new recruit catches up | Panel → XP Options, or `.warband catchup step/floor/cap/on/off` |
-| Follower gathering | companions receive the leader's Herbalism, Mining and Skinning, so they work the same nodes and skin the same corpses. Raise-only | Panel → Follower gathering, or `.warband gather [on\|off\|auto on\|auto off]` |
-| Bound gear inside the Warband | with binding off, a soulbound piece trades, mails, auctions and moves to a companion or any other character like any other item; the switch puts the ordinary rule back | Panel → Item binding, or `.warband binding [on\|off]` |
-| Magic find | a multiplier per quality on drop chance — shipped x2 green, x4 blue, x6 purple and above. No extra rolls or items | Panel → Magic find, or `.warband magicfind <tier> <multiplier>` |
-| Gold find | a multiplier on looted coin. Default x3 | Panel → Gold find, or `.warband goldfind <multiplier>` |
-| Trash auto-sell | grey loot is sold the moment it is picked up, for the leader and every companion, so bags stay empty; the vendor price goes to the leader's purse and the page counts only this Warband's sales. `.warband trash sell` empties what is already in the bags | Panel → Trash sell, or `.warband trash [on\|off\|sell]` |
-| Instances stop restocking | a creature killed inside a dungeon or raid stays dead for the run, across logging out and server restarts; an instance reset still restores the dungeon | Panel → Instances, or `.warband instance [on\|off]` |
-| World scaling | open-world creatures present at each character's own level, **upward only**: a creature below you comes up to meet you, one above you is never brought down. Enabled for every zone; each character carries its own view, so a five-member party can fight the same boar at its own levels. Dungeons and raids are not touched by it (they belong to the instance scalers) | Panel → World scaling, or `.warband worldscale [on\|off]` |
-| Quest level scaling | quests present at the highest **5-level step** the character has reached, so they never slide into the gray band as the character levels: a level-15 quest reads — and pays — as a level-20 quest once you are 20-24, then as level 25 from 25. The displayed level (quest log, con colour, XP preview), the awarded experience and the quest's equipment rewards all follow it. Never lowered; a quest already above the character keeps its own level | `Warband.Quests.ScaleStep` (`0` turns it off) and `ItemScaling.QuestRewards` |
+| XP multiplier | 1xâ€“10x on every experience gain, followers included. Default 2x | Panel â†’ XP Options, or `.warband xp set <1-10>` |
+| Follower catch-up XP | extra experience for a companion that is behind its leader, so a new recruit catches up | Panel â†’ XP Options, or `.warband catchup step/floor/cap/on/off` |
+| Follower gathering | companions receive the leader's Herbalism, Mining and Skinning, so they work the same nodes and skin the same corpses. Raise-only | Panel â†’ Follower gathering, or `.warband gather [on\|off\|auto on\|auto off]` |
+| Bound gear inside the Warband | with binding off, a soulbound piece trades, mails, auctions and moves to a companion or any other character like any other item; the switch puts the ordinary rule back | Panel â†’ Item binding, or `.warband binding [on\|off]` |
+| Magic find | a multiplier per quality on drop chance â€” shipped x2 green, x4 blue, x6 purple and above. No extra rolls or items | Panel â†’ Magic find, or `.warband magicfind <tier> <multiplier>` |
+| Gold find | a multiplier on looted coin and on what merchants pay for items sold to them, trash auto-sell and quest gold included. Default x3 | Panel â†’ Gold find, or `.warband goldfind <multiplier>` |
+| Trash auto-sell | grey loot is sold the moment it is picked up, for the leader and every companion, so bags stay empty; the vendor price times the gold multiplier goes to the leader's purse and the page counts only this Warband's sales. `.warband trash sell` empties what is already in the bags | Panel â†’ Trash sell, or `.warband trash [on\|off\|sell]` |
+| Instances stop restocking | a creature killed inside a dungeon or raid stays dead for the run, across logging out and server restarts; an instance reset still restores the dungeon | Panel â†’ Instances, or `.warband instance [on\|off]` |
+| World scaling | open-world creatures present at each character's own level, **upward only**: a creature below you comes up to meet you, one above you is never brought down. Enabled for every zone; each character carries its own view, so a five-member party can fight the same boar at its own levels. Dungeons and raids are not touched by it (they belong to the instance scalers) | Panel â†’ World scaling, or `.warband worldscale [on\|off]` |
+| Quest level scaling | quests present at the highest **5-level step** the character has reached, so they never slide into the gray band as the character levels: a level-15 quest reads â€” and pays â€” as a level-20 quest once you are 20-24, then as level 25 from 25. The displayed level (quest log, con colour, XP preview), the awarded experience and the quest's equipment rewards all follow it. Never lowered; a quest already above the character keeps its own level | `Warband.Quests.ScaleStep` (`0` turns it off) and `ItemScaling.QuestRewards` |
 | Engineering bots priced by hand | the repair-and-vendor summoning bots are priced for actual use instead of the copper floor or a material-driven inflation: **Jeeves 1,000g**, Field Repair Bot 74A and 110G about **25s** each | the supplier's `warband_supplier_price` rows, applied by the catalogue update |
 | Jeeves on a 3-minute cooldown | the portable vendor/bank/repair bot can be re-summoned every 3 minutes instead of once an hour | server-side item data, no switch |
-| AoE loot | one loot window holds the nearby corpses' items and gold; the panel exposes the module's whole configuration — switch, group, login message, radius, corpse count, mail fallback — installed and off by default, with `.aoeloot on\|off` per character | Panel → AoE loot, or `.warband aoeloot [on\|off\|message\|group\|mail\|range <5-100>\|corpses <1-50>]` |
-| World bots | the random bots playerbots logs in and out by itself: switch the population off for an empty world, or pin how many stay online; the Warband's own companions are never touched, and the default is the playerbots configuration | Panel → World bots, or `.warband randombots [on\|off\|set <1-500>]` |
+| AoE loot | one loot window holds the nearby corpses' items and gold; the panel exposes the module's whole configuration â€” switch, group, login message, radius, corpse count, mail fallback â€” installed and off by default, with `.aoeloot on\|off` per character | Panel â†’ AoE loot, or `.warband aoeloot [on\|off\|message\|group\|mail\|range <5-100>\|corpses <1-50>]` |
+| World bots | the random bots playerbots logs in and out by itself: switch the population off for an empty world, or pin how many stay online; the Warband's own companions are never touched, and the default is the playerbots configuration | Panel â†’ World bots, or `.warband randombots [on\|off\|set <1-500>]` |
 | Companion pays in a trade | a small panel attaches to the trade window, showing the companion's purse and gold/silver/copper steppers, so a follower can pay without the bot's whisper sequence; the trade itself is an ordinary trade | the panel, or `.warband trade [gold <amount>]` |
 | Hearthstone without cooldown | the hearthstone is ready again the moment it is used | `.warband hearthstone [on\|off]` |
 | Pets always happy | every hunter pet stays at full happiness, follower pets included | `.warband pets [on\|off]` |
-| Party roster | every character on the account listed with level, class and online state, each with an Invite or Dismiss button | **Friends frame → Party tab** (`O`) |
+| Party roster | every character on the account listed with level, class and online state, each with an Invite or Dismiss button | **Friends frame â†’ Party tab** (`O`) |
 | Companion windows | a member strip above the bag frame and the character sheet opens a companion's inventory or character sheet in MultiBot (shift-click for the other) | click a name on the strip |
 
 The bag frame, the character sheet and the Friends frame are draggable and remember where they were
@@ -84,7 +84,7 @@ data for creation, skills and starting spells, the server's `CharStartOutfit.dbc
 | `Warband-Server.ps1 start all` / `stop all`, or the start/stop bats | load and unload the database, login server and world server, in order and gracefully |
 | `Build-WowWarband.bat` | incremental build with the existing CMake cache; the Playerbots isolate is validated in [the build notes](doc/Playerbots-Build-Validation.md) |
 | `Deploy-WarbandAddon.ps1` | copy `addons/Warband` into the client |
-| `Warband-Configs.ps1 -Action apply` | carry this project's configuration decisions onto the installed server configs — see below |
+| `Warband-Configs.ps1 -Action apply` | carry this project's configuration decisions onto the installed server configs â€” see below |
 | `Backup-WowWarband.ps1` | back up all four AzerothCore databases |
 | `Sync-ProjectReadme.ps1` | keep `.github/README.md` identical to this file |
 
@@ -103,17 +103,17 @@ Whole files are never copied: a `worldserver.conf` carries database credentials 
 excluded from `export` for that reason.
 
 What it currently carries: the local bind address, `EnablePlayerSettings`, eleven primary trade
-skills, **guild charters that need no signatures** (`MinPetitionSigns = 0` — a Warband is one player
+skills, **guild charters that need no signatures** (`MinPetitionSigns = 0` â€” a Warband is one player
 plus bots, and a bot cannot sign a charter), Playerbots' random-bot population and autologin (off)
 and **NEED rolls instead of greed**, AoE-loot mail fallback, AutoBalance's money and higher-level
 rules, and item-level scaling without scale-down.
 
-**Database content ships the same way — through AzerothCore's own updater.** Anything this project
+**Database content ships the same way â€” through AzerothCore's own updater.** Anything this project
 adds to the world database is committed as a pending update under
 `data/sql/updates/pending_db_world/`, which the worldserver applies once on its first start
 (`Updates.EnableDatabases` in `worldserver.conf`). Nothing has to be imported by hand: clone, build,
-start. The supplier merchants are distributed this way — 29 converted auctioneers, 83 menus, 434
-vendor lists, 7,350 items and their prices — and that file clears the rows it owns before inserting,
+start. The supplier merchants are distributed this way â€” 29 converted auctioneers, 83 menus, 434
+vendor lists, 7,350 items and their prices â€” and that file clears the rows it owns before inserting,
 so a database that already has them can run it again without error. The inverse of every such
 update is kept beside it in `data/sql/warband/` as a recovery script.
 
@@ -129,5 +129,6 @@ update is kept beside it in `data/sql/warband/` as a recovery script.
 | [Module shortlist](doc/Warband-Server-Module-Shortlist.md), [module assessment](doc/Warband-Module-Assessment.md) | the research the module choices came from |
 | [Setup and source layout](WowWarband-Setup.md) | local development workflow |
 
-Runtime files — the built server, the client copy, extracted map data, database files and local
-credentials — stay outside version control.
+Runtime files â€” the built server, the client copy, extracted map data, database files and local
+credentials â€” stay outside version control.
+

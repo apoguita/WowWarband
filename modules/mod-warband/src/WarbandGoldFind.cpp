@@ -13,8 +13,11 @@
  * wins over the value in worldserver.conf, and this module re-applies it whenever the configuration
  * is loaded or reloaded.
  *
- * What it does not touch: gold from vendoring, quest rewards, mail or the auction house. Those are
- * separate paths and separate rates (Rate.RewardQuestMoney, Rate.RewardBonusMoney for quests).
+ * What it covers: every coin pile the loot system generates, what a merchant pays for an item sold
+ * to it (the core deviation in ItemHandler.cpp multiplies the sale by this same rate), and the
+ * trash auto-sell path (vendor price times this rate) and a quest's own gold reward (paid in
+ * PlayerQuest.cpp with the same rate). Mail and the auction house are separate paths with their own
+ * rates and stay untouched.
  */
 
 #include "Config.h"

@@ -29,6 +29,8 @@
 #include "QuestPackets.h"
 #include "ReputationMgr.h"
 #include "ScriptMgr.h"
+#include "World.h"
+#include "WorldConfig.h"
 #include "SpellAuraEffects.h"
 #include "SpellMgr.h"
 #include "WorldSession.h"
@@ -787,6 +789,14 @@ void Player::RewardQuest(Quest const* quest, uint32 reward, Object* questGiver, 
             moneyRew = 0;
         else if (HasPlayerFlag(PLAYER_FLAGS_PARTIAL_PLAY_TIME))
             moneyRew /= 2;
+    }
+
+    // Warband deviation: quest gold follows the Warband gold multiplier, the same rate gold find
+    // pushes into Rate.Drop.Money for looted coin and that ItemHandler uses for sold items. Only a
+    // positive reward is multiplied; a quest that costs money keeps its cost.
+    if (moneyRew > 0)
+    {
+        moneyRew = int32(double(moneyRew) * double(sWorld->getRate(RATE_DROP_MONEY)));
     }
 
     if (moneyRew)
@@ -2441,6 +2451,11 @@ void Player::SendQuestReward(Quest const* quest, uint32 XP)
         questGiverQuestComplete.Experience = XP;
     else
         rewardMoney += quest->GetRewMoneyMaxLevel();
+
+    // Warband deviation: the reward window shows the same multiplied amount RewardQuest grants, so
+    // the number on screen matches the number paid out.
+    if (rewardMoney > 0 && rewardMoney < 2000000000u)
+        rewardMoney = uint32(double(rewardMoney) * double(sWorld->getRate(RATE_DROP_MONEY)));
 
     questGiverQuestComplete.RewardMoney = rewardMoney;
     questGiverQuestComplete.RewardHonor = 10 * quest->CalculateHonorGain(GetQuestLevel(quest));

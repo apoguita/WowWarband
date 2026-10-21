@@ -160,9 +160,10 @@ Warband.MagicFind.Gold = 6.0
 #  core's Rate.Drop.Money and re-applies this value whenever the configuration is loaded or reloaded,
 #  so this setting wins over Rate.Drop.Money in worldserver.conf.
 #
-#  It covers every coin pile the loot system produces - creatures, chests, mines and containers. It
-#  does not touch gold from vendoring, quest rewards, mail or the auction house; the two reward rates
-#  govern quest money separately.
+#  It covers every coin pile the loot system produces - creatures, chests, mines and containers - and
+#  it is also applied to what a merchant pays for a sold item, to the trash auto-sell payout and to a
+#  quest's own gold reward, so every gold a sale or a quest produces follows this one number. Mail
+#  and the auction house are separate paths with their own rates.
 #
 #  Rate.Drop.Money is a world rate, so unlike magic find this applies to every player rather than to
 #  the Warband's loot alone. On a single-player server that is the same thing.
@@ -337,4 +338,5 @@ Warband.Quests.ScaleStep = 5
 #  touch the party.
 
 ###################################################################################################
+
 
