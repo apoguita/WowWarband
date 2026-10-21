@@ -70,7 +70,7 @@ Keeping the two kinds of bot apart is what `WarbandPlayerRoles.h` is for:
 player, so the XP, catch-up, gathering and trading code never mistake the world's
 random bots for Warband followers.
 
-There are **six deliberate core changes**, and all are named here rather than hidden:
+There are **seven deliberate core changes**, and all are named here rather than hidden:
 
 1. **Item binding** (`Item.cpp`): the module owns whether a bound item may move.
 2. **Soul shards on any kill** (`src/server/scripts/Spells/spell_warlock.cpp`): Drain Soul and
@@ -96,6 +96,11 @@ There are **six deliberate core changes**, and all are named here rather than hi
 6. **Quest gold follows the gold multiplier** (`src/server/game/Entities/Player/PlayerQuest.cpp`): a
    positive quest money reward is multiplied by the same rate when it is paid, and the reward
    window's summary shows the multiplied amount. A quest that costs money keeps its cost.
+7. **The item's shown sell price follows the gold multiplier** (`src/server/game/Handlers/ItemHandler.cpp`,
+   item query response): the SellPrice the client draws its tooltip from is the item's value times
+   the gold multiplier, so the number on the item matches what a merchant pays for it. The client
+   caches item data per session, so a gold find change becomes visible in the tooltip after the item
+   cache is refreshed; the payout itself is always live.
 
 Everything else the module does is implemented with public core API and needs no `src/` change at
 all.

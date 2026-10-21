@@ -426,7 +426,12 @@ void WorldSession::HandleItemQuerySingleOpcode(WorldPacket& recvData)
         queryData << pProto->Flags;
         queryData << pProto->Flags2;
         queryData << pProto->BuyPrice;
-        queryData << pProto->SellPrice;
+        // Warband deviation: the item data the client draws its "Sell Price" line from carries the
+        // value a merchant actually pays for the item, i.e. the item's own value times the Warband
+        // gold multiplier (the same rate that multiplies the payout in the sell handler). The
+        // client caches this per item for its session, so changing gold find shows up after the
+        // item cache is refreshed, but the number shown always matches what the merchant pays.
+        queryData << uint32(double(pProto->SellPrice) * double(sWorld->getRate(RATE_DROP_MONEY)));
         queryData << pProto->InventoryType;
         queryData << pProto->AllowableClass;
         queryData << pProto->AllowableRace;
