@@ -60,7 +60,7 @@ value is saved, so it survives the next restart.
 | Instances stop restocking | a creature killed inside a dungeon or raid stays dead for the run, across logging out and server restarts; an instance reset still restores the dungeon | Panel â†’ Instances, or `.warband instance [on\|off]` |
 | Dungeon Finder travels the party | on a single-player server the queue matched nobody, so the finder's pick is answered with travel instead: choose a dungeon (or a Random Dungeon) and press Find Group, and the whole party lands at that dungeon's entrance, companions included. The retail rules still decide who may enter (level, attunement, raid group, the hourly instance limit), the entry's own difficulty is applied, and the instance exit portal brings the party back to where it entered. The finder window itself only draws the dungeons its own level data allows, so the Warband addon turns that whole window into the travel menu instead: opening the Dungeon Finder shows a plain panel listing the server's whole table — every dungeon, heroic and raid it has an entrance for, nothing filtered or greyed, coloured for your level and with a Travel button per row — and the queue view is never drawn | open the Dungeon Finder, or `.warband travel [<dungeon id>]` |
 | World scaling | open-world creatures present at each character's own level, **upward only**: a creature below you comes up to meet you, one above you is never brought down. Enabled for every zone; each character carries its own view, so a five-member party can fight the same boar at its own levels. Dungeons and raids are not touched by it (they belong to the instance scalers) | Panel â†’ World scaling, or `.warband worldscale [on\|off]` |
-| Quest level scaling | quests present at the highest **5-level step** the character has reached, so they never slide into the gray band as the character levels: a level-15 quest reads â€” and pays â€” as a level-20 quest once you are 20-24, then as level 25 from 25. The displayed level (quest log, con colour, XP preview), the awarded experience and the quest's equipment rewards all follow it. Never lowered; a quest already above the character keeps its own level | `Warband.Quests.ScaleStep` (`0` turns it off) and `ItemScaling.QuestRewards` |
+| Quest level scaling | the quest log and NPC lists keep each quest's original level; quest experience and eligible equipment rewards scale to the character's highest reached **5-level step** | `Warband.Quests.ScaleStep` (`0` turns scaling off) and `ItemScaling.QuestRewards` |
 | Engineering bots priced by hand | the repair-and-vendor summoning bots are priced for actual use instead of the copper floor or a material-driven inflation: **Jeeves 1,000g**, Field Repair Bot 74A and 110G about **25s** each | the supplier's `warband_supplier_price` rows, applied by the catalogue update |
 | Jeeves on a 3-minute cooldown | the portable vendor/bank/repair bot can be re-summoned every 3 minutes instead of once an hour | server-side item data, no switch |
 | AoE loot | one loot window holds the nearby corpses' items and gold; the panel exposes the module's whole configuration â€” switch, group, login message, radius, corpse count, mail fallback â€” installed and off by default, with `.aoeloot on\|off` per character | Panel â†’ AoE loot, or `.warband aoeloot [on\|off\|message\|group\|mail\|range <5-100>\|corpses <1-50>]` |
@@ -95,8 +95,8 @@ data for creation, skills and starting spells, the server's `CharStartOutfit.dbc
 
 ### Config decisions travel with the repository
 
-Anything the project deliberately changes in a server config is recorded in `data/configs/` and
-applied by `Warband-Configs.ps1`, so a fresh clone ends up with the same behaviour:
+Anything the project deliberately changes in a server config is recorded in `data/configs/`.
+After building a fresh clone, run `apply` before starting the server so those settings reach the installed configs:
 
     .\Warband-Configs.ps1 -Action check     report drift between data/configs and the installed configs
     .\Warband-Configs.ps1 -Action apply     write the recorded values into the installed configs
@@ -111,7 +111,7 @@ What it currently carries: the local bind address, `EnablePlayerSettings`, eleve
 skills, **guild charters that need no signatures** (`MinPetitionSigns = 0` â€” a Warband is one player
 plus bots, and a bot cannot sign a charter), Playerbots' random-bot population and autologin (off)
 and **NEED rolls instead of greed**, AoE-loot mail fallback, AutoBalance's money and higher-level
-rules, and item-level scaling without scale-down.
+rules, item-level scaling without scale-down, and open-world gear banding for eligible drops.
 
 **Database content ships the same way â€” through AzerothCore's own updater.** Anything this project
 adds to the world database is committed as a pending update under

@@ -305,13 +305,10 @@ Warband.Hearthstone.AlwaysReady = 1
 Warband.Pets.AlwaysHappy = 1
 
 #     Warband.Quests.ScaleStep
-#        Quests present at the highest multiple of this step the character has reached, so they
-#        never slide into the gray band as the character levels: a level-15 quest reads and pays
-#        as a level-20 quest once the character is 20-24, then as level 25 from 25, and so on
-#        (never lowered; a quest whose own level is already above the character keeps its level).
-#        The level the client shows is sent by the quest-query packet (a Warband core deviation);
-#        the awarded experience is corrected to match, and quest reward items are scaled to the
-#        same level by mod-item-level-scaling when ItemScaling.QuestRewards is on.
+#        Scale quest experience and eligible equipment rewards to the highest multiple of this
+#        step the character has reached. The quest itself keeps its original displayed level.
+#        A level-15 quest pays as level 20 once the character is 20-24, then as level 25 from 25.
+#        Reward items are scaled by mod-item-level-scaling when ItemScaling.QuestRewards is on.
 #        Default:     5 - five-level steps
 #                     0 - off, quests keep their own level
 #

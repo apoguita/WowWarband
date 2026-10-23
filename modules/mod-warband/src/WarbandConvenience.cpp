@@ -38,10 +38,9 @@ bool hearthstoneAlwaysReady = true;
 bool petsAlwaysHappy = true;
 uint32 hearthstoneClears = 0;
 
-// Quest scaling. Quests present at the highest multiple of Warband.Quests.ScaleStep already
-// reached by the character, so a quest never slides into the gray band as the character levels.
-// The core's quest-query packet shows that level (Warband deviation in GossipDef.cpp); this hook
-// makes the awarded experience match what the player was shown. 0 disables the feature.
+// Quest XP scaling. Awarded experience is repriced at the highest multiple of
+// Warband.Quests.ScaleStep already reached by the character. The quest keeps its original
+// displayed level. 0 disables the XP and reward-item scaling feature.
 uint32 warbandQuestScaleStep = 5;
 uint32 warbandQuestXpCorrections = 0;
 }
@@ -120,9 +119,9 @@ public:
         ClearHearthstone(player);
     }
 
-    // Quest experience must match the level the client was shown for the quest (see the Warband
-    // deviation in GossipDef.cpp): price the quest at its presented level and keep the ratio, so
-    // quest rates and auras that already multiplied the amount survive untouched.
+    // Quest experience is priced at the character's highest reached scale step while the client
+    // continues to show the template's original quest level. Keep the ratio so quest rates and
+    // auras that already multiplied the amount survive untouched.
     void OnPlayerQuestComputeXP(Player* player, Quest const* quest, uint32& xpValue) override
     {
         if (!warbandQuestScaleStep || !player || !quest || !xpValue)

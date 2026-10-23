@@ -400,26 +400,22 @@ hunter pet on the server, the leader's included.
 
 ## Quest level scaling
 
-Quests are fixed-level: play long enough and everything in the log is gray, and its rewards are junk.
-`Warband.Quests.ScaleStep` (default 5, `0` disables it) makes a quest **present at the highest
-multiple of the step the character has reached**, so it never falls into the -5 band:
-a level-15 quest reads and pays as level 20 once the character is 20-24, as level 25 from 25, and so
-on. Never lowered; a quest whose own level is already above the character keeps its level.
+Quests keep their original displayed level in NPC lists and the quest log. `Warband.Quests.ScaleStep`
+(default 5, `0` disables scaling) controls quest XP and eligible equipment reward levels instead.
+For example, a level-15 quest pays as level 20 once the character is 20-24, then as level 25 from
+25, while the client continues to show the original quest level.
 
-Three places cooperate, all driven by the same number:
+Two systems use the scale step:
 
-- **Display** â€” the quest-query packet for that viewer carries the presented level instead of the
-  template's, so the quest log's level, con colour and XP preview follow it. That is a Warband core
-  deviation in `GossipDef.cpp` (`PlayerMenu::SendQuestQueryResponse`).
-- **Experience** â€” `PlayerScript::OnPlayerQuestComputeXP` reprices the award at the presented level
-  with a ratio of `Quest::XPValue`'s own arithmetic, so quest rates and auras that already multiplied
-  the amount survive untouched. The zone module's own per-zone quest pricing is off
+- **Experience** — `PlayerScript::OnPlayerQuestComputeXP` reprices the award at the character's
+  highest reached step using a ratio of `Quest::XPValue`'s arithmetic, so quest rates and auras
+  already applied to the amount survive untouched. The zone module's per-zone quest pricing is off
   (`ZoneScaling.Xp.Quests = 0`) so the two cannot correct the same award twice.
-- **Reward items** â€” `ItemScaling.QuestRewards` in `mod-item-level-scaling` grants the scaled variant
-  of an equipment reward at the same presented level (up only, enabled qualities, exclusions
-  honoured; random-suffix, quest-starter and scripted rewards keep their original). The reward
-  window itself still lists the original item â€” making the offer/choose packets advertise the
-  variant ids is a separate packet change that is not done yet.
+- **Reward items** — `ItemScaling.QuestRewards` in `mod-item-level-scaling` grants a scaled variant
+  of eligible equipment rewards at the character's highest reached step. Scaling is upward only and
+  honours enabled qualities and exclusions; random-suffix, quest-starter and scripted rewards keep
+  their original. The reward window still lists the original item, while the scaled variant is
+  applied when the reward is granted.
 
 ## Instances stop restocking
 
