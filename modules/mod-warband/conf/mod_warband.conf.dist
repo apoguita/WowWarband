@@ -178,22 +178,28 @@ Warband.GoldFind.Multiplier = 3.0
 #
 #  The auctioneers are the supplier interface now: clicking one opens a category menu instead of the
 #  auction house window, stocking the game's craftables, materials, reagents and recipes without
-#  limit, and buying back anything. This section holds the two numbers that decide what one of them
+#  limit, and buying back anything. This section holds the numbers that decide what one of them
 #  charges and pays:
 #
-#      price = max(floor, original sell price * multiplier[quality])
+#      merchant price = max(floor, original sell price * multiplier[quality])
+#      charge         = merchant price + material cost
 #
 #  The "original sell price" is the item's own SellPrice as the game shipped it, which is the number
 #  on the item tooltip. It is stored once per catalogue item, so re-pricing always starts from the
 #  original and a multiplier can never compound.
 #
-#  The same base price is charged and paid: the shops report both BuyPrice and SellPrice as this
-#  value. What a player receives for selling an item to a merchant is that value multiplied by the
-#  Warband gold multiplier (the one gold find pushes into the coin rate), so the multiplier is paid
-#  out on selling.
+#  The merchant price is what a merchant pays for the item, and it is what the suppliers pay too.
+#  What they charge is that price plus the cost of the item's materials: an item worth 1 gold that
+#  takes 3 gold of materials is sold for 4. The material cost is computed from the crafting recipes
+#  and stored per item (warband_supplier_price.material_cost); stock with no recipe charges exactly
+#  its merchant price. That gap is what stops buying from a supplier and selling straight back from
+#  paying more than the purchase cost once the gold multiplier is applied to the sale.
+#
+#  What a player receives for selling an item to a merchant is the merchant price multiplied by the
+#  Warband gold multiplier (the one gold find pushes into the coin rate).
 #
 #  These keys only seed the first run. The live values live in the world database
-#  (warband_supplier_setting), which is what the panel's Supplier prices page and the .warband price
+#  (warband_setting), which is what the panel's Supplier prices page and the .warband price
 #  command edit, so a value set in game wins over this file and survives restarts. Change a key here
 #  and it takes effect only for a value nothing has saved yet. .warband price reset goes back to the
 #  shipped rule below.
@@ -202,6 +208,8 @@ Warband.GoldFind.Multiplier = 3.0
 #  reads the item's own prices and no hook can scale them per quality. The item table is read once at
 #  startup, so after pressing Apply the new prices are visible after a worldserver restart. Nothing
 #  is re-priced by itself: prices change only when you press Apply or run .warband price apply.
+#  Material costs are not recomputed by the module: they come from the catalogue generator
+#  (tools/warband-suppliers.py), so a change to the multipliers moves the merchant price part only.
 #
 #     Warband.Suppliers.Multiplier.<quality>
 #        One multiplier per item quality, 1.0 to 20.0. The shipped rule is 2 for poor, 1 for

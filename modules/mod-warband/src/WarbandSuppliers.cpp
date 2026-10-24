@@ -1,22 +1,32 @@
-﻿/*
+/*
  * WoW Warband supplier prices.
  *
  * The supplier merchants stock the game's craftables, materials, reagents and recipes without
- * limit. This file owns the two numbers that decide what they charge and what they pay:
+ * limit. This file owns the numbers that decide what they charge and what they pay:
  *
- *     price = max(floor, original sell price * multiplier[quality])
+ *     pay    = max(floor, original sell price * multiplier[quality])     // the merchant price
+ *     charge = pay + material cost
  *
  * One multiplier per item quality (poor .. heirloom) and a copper floor. Both live in the world
  * database, so a value set from the panel or from the command survives a restart, and there is
  * exactly one copy of them: the panel, the command and this file all read the same rows.
  *
- * Why the price is written onto the items instead of being scaled at runtime: the core charges
+ * Why the prices are written onto the items instead of being scaled at runtime: the core charges
  * `item_template.BuyPrice` (Player::BuyItemFromVendorSlot) and pays `item_template.SellPrice`, and
  * no hook can change either one per quality. The only price hook in that path,
  * OnPlayerGetReputationPriceDiscount, is per vendor and knows nothing about the item being priced,
  * so it cannot carry one multiplier per quality and cannot express a floor. The item templates are
  * read once at startup and there is no runtime reload, so an applied price becomes visible after
  * the worldserver restarts - the panel states that on the page.
+ *
+ * Two numbers, not one: what a merchant pays stays the merchant price, and what it charges is that
+ * price plus the cost of the item's materials. The material cost is computed once by
+ * tools/warband-suppliers.py from the crafting recipes (a material that is itself crafted costs its
+ * own charge, a gathered one costs its merchant price) and stored in
+ * `warband_supplier_price.material_cost`; 0 means the item has no recipe and charges exactly the
+ * merchant price. That gap between the two numbers is what stops buying from the merchants and
+ * selling straight back from paying more than the purchase cost once the Warband gold multiplier is
+ * applied to the payout - the multiplier is in the sale path, not here, so it needs no special case.
  *
  * `warband_supplier_price` keeps each catalogue item's ORIGINAL price. Every apply starts from it,
  * so pressing Apply twice never compounds a multiplier and Restore defaults is exact. Items that
@@ -35,7 +45,6 @@
 #include <cmath>
 #include <cstdint>
 #include <string>
-#include <utility>
 #include <vector>
 
 namespace
@@ -106,6 +115,14 @@ namespace
         WarbandSettingSet("supplier." + key, value);
     }
 
+    // One row of the catalogue: the two prices the apply writes onto the item.
+    struct PricedItem
+    {
+        uint32 entry;
+        uint32 charge;      // what the merchant charges: the merchant price plus the material cost
+        uint32 pay;         // what a merchant pays: the merchant price
+    };
+
     // The original prices live in their own table, because that is a catalogue, not a setting.
     void EnsurePriceTable()
     {
@@ -115,7 +132,20 @@ namespace
             "`quality` TINYINT UNSIGNED NOT NULL DEFAULT 0, "
             "`base_buy` INT UNSIGNED NOT NULL DEFAULT 0, "
             "`base_sell` INT UNSIGNED NOT NULL DEFAULT 0, "
+            "`material_cost` INT UNSIGNED NOT NULL DEFAULT 0, "
             "PRIMARY KEY (`entry`)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+
+        // A world that installed the catalogue before the material cost existed keeps its rows; the
+        // column is added here so the module does not depend on which SQL update has run yet.
+        QueryResult column = WorldDatabase.Query(
+            "SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() "
+            "AND TABLE_NAME = 'warband_supplier_price' AND COLUMN_NAME = 'material_cost'");
+
+        if (column && column->Fetch()[0].Get<uint32>() == 0)
+        {
+            WorldDatabase.DirectExecute(
+                "ALTER TABLE `warband_supplier_price` ADD COLUMN `material_cost` INT UNSIGNED NOT NULL DEFAULT 0");
+        }
     }
 
     void ReadConfig()
@@ -313,22 +343,24 @@ bool WarbandSupplierPricesAreCurrent()
     return true;
 }
 
-// Writes every catalogue item's price as max(floor, original price * multiplier[quality]). The
-// original price comes from warband_supplier_price, never from the item's current price, so the
+// Writes each catalogue item's two prices: what the merchant charges, which is the merchant price
+// plus the material cost, and what it pays, the merchant price. The material cost comes from the
+// row, the merchant price from the original sell price, never from the item's current price, so the
 // operation can be repeated safely. Returns the number of items priced; zero means nothing was
 // written and `note` says why.
 uint32 ApplyWarbandSupplierPrices(std::string& note)
 {
     note.clear();
 
-    QueryResult result = WorldDatabase.Query("SELECT `entry`, `quality`, `base_sell` FROM `warband_supplier_price`");
+    QueryResult result = WorldDatabase.Query(
+        "SELECT `entry`, `quality`, `base_sell`, `material_cost` FROM `warband_supplier_price`");
     if (!result)
     {
         note = "no catalogue is installed yet";
         return 0;
     }
 
-    std::vector<std::pair<uint32, uint32>> prices;
+    std::vector<PricedItem> prices;
     prices.reserve(4096);
 
     do
@@ -338,12 +370,14 @@ uint32 ApplyWarbandSupplierPrices(std::string& note)
         uint32 const entry = fields[0].Get<uint32>();
         uint8 const quality = fields[1].Get<uint8>();
         uint32 const baseSell = fields[2].Get<uint32>();
+        uint32 const materialCost = fields[3].Get<uint32>();
 
         float const multiplier = quality < TierCount ? multipliers[quality] : multipliers[uint8(ITEM_QUALITY_NORMAL)];
         uint64 const scaled = uint64(std::llround(double(baseSell) * double(multiplier)));
-        uint64 const price = std::max<uint64>(floorPrice, scaled);
+        uint64 const pay = std::max<uint64>(floorPrice, scaled);
+        uint64 const charge = pay + materialCost;
 
-        prices.emplace_back(entry, uint32(price));
+        prices.push_back({ entry, uint32(charge), uint32(pay) });
     } while (result->NextRow());
 
     if (prices.empty())
@@ -365,18 +399,16 @@ uint32 ApplyWarbandSupplierPrices(std::string& note)
 
         for (size_t index = start; index < end; ++index)
         {
-            std::string const branch =
-                " WHEN " + std::to_string(prices[index].first) + " THEN " + std::to_string(prices[index].second);
-
-            buyCase += branch;
-            sellCase += branch;
+            std::string const entry = std::to_string(prices[index].entry);
+            buyCase += " WHEN " + entry + " THEN " + std::to_string(prices[index].charge);
+            sellCase += " WHEN " + entry + " THEN " + std::to_string(prices[index].pay);
 
             if (index != start)
             {
                 entries += ',';
             }
 
-            entries += std::to_string(prices[index].first);
+            entries += entry;
         }
 
         std::string const sql =
@@ -403,7 +435,8 @@ uint32 ApplyWarbandSupplierPrices(std::string& note)
 
     LOG_INFO(
         "server.loading",
-        "Warband suppliers: priced {} items as max({} copper, original * multiplier)",
+        "Warband suppliers: priced {} items, charging the merchant price (floor {} copper, original * "
+        "multiplier) plus the material cost, and paying the merchant price",
         appliedItems,
         floorPrice);
 

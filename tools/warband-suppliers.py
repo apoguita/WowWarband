@@ -13,9 +13,10 @@ What it produces:
         script.
 
 The catalogue is what a profession can actually create, read from the client's Spell.dbc (an effect
-of type 24 makes an item), plus every trade good, gem and recipe. The tree below decides how a
-player clicks through it; each leaf becomes one vendor list, split only when it holds more than the
-150 items a 3.3.5 merchant window can show.
+of type 24 makes an item), plus every trade good, gem, recipe and glyph. Glyphs are included directly
+from item_template so minor glyphs are not lost when their creation spell is absent from Spell.dbc.
+The tree below decides how a player clicks through it; each leaf becomes one vendor list, split only
+when it holds more than the 150 items a 3.3.5 merchant window can show.
 
 The tree, in short:
 
@@ -27,7 +28,7 @@ The tree, in short:
     |                          leatherworking, other
     |-- Materials & Reagents . one list per kind (cloth, leather, herbs, metal, ...)
     |-- Consumables .......... one list per kind (potions, elixirs, flasks, ...)
-    |-- Glyphs ............... one list per class
+    |-- Glyphs ............... one list per class, plus Misc for unclassified glyphs
     |-- Gems ................. one list per colour
     |-- Recipes .............. one list per profession
     |-- Ammunition ........... arrows, bullets
@@ -40,10 +41,20 @@ recipes and gems are not split by level - a herb has no level - they stay one li
 only cut into "1 of 2" parts when a kind exceeds the 150-item window.
 
 Nothing here runs at server runtime. The prices are the only values the module owns: they are seeded
-into warband_supplier_setting, and warband_supplier_price keeps each item's original price so the
-Supplier prices page in the addon can re-price the catalogue without compounding anything.
+into warband_setting, and warband_supplier_price keeps each item's original price so the Supplier
+prices page in the addon can re-price the catalogue without compounding anything.
+
+What the merchant charges is not what it pays. The paid value stays the rarity formula
+max(10 copper, shipped sell price x multiplier[quality]); the charge is that same price plus what the
+item's materials cost, each material priced by this same rule. A material that has its own recipe (a
+bolt of cloth) contributes its own charge, a gathered one (raw cloth) contributes only its own price,
+so the charge resolves bottom-up. The gap between the two numbers is what keeps buying from the
+merchants and selling straight back from paying more than it cost, once the gold multiplier is
+applied to the payout. Stock with no recipe - the recipes themselves, raw trade goods, raw gems -
+charges exactly the merchant price.
 """
 import argparse
+import math
 import os
 import struct
 import subprocess
@@ -58,8 +69,13 @@ DATABASE = "acore_world"
 # step. The reverse lives beside it, outside the updater's directory, as the recovery script.
 OUT = r"data\sql\updates\pending_db_world"
 APPLY_NAME = "2026_10_19_00_warband_suppliers.sql"
+# The material-cost pass runs against an install that already has the catalogue, so it ships as its
+# own update file - the base file is never edited once it has been applied anywhere.
+PRICES_APPLY_NAME = "2026_10_24_02_warband_supplier_material_prices.sql"
 REVERT_DIR = r"data\sql\warband"
 REVERT_NAME = "revert_warband_suppliers.sql"
+PRICES_REVERT_NAME = "revert_warband_supplier_material_prices.sql"
+UPDATE_CHUNK = 400              # entries per generated statement
 SPELL_DBC = r"var\data\dbc\Spell.dbc"
 
 SOURCE_TEMPLATE = 8671          # Auctioneer Buckler: a plain humanoid to copy the holder templates from
@@ -72,8 +88,9 @@ GOSSIP_OPTION_VENDOR = 3
 NPCFLAG_GOSSIP = 1
 NPCFLAG_VENDOR = 128
 
-# The shipped rule: price = max(floor, original sell price * multiplier[quality]), charged and paid.
-MULTIPLIERS = [2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0]
+# The merchant price: max(floor, original sell price * multiplier[quality]). This is what a merchant
+# pays for the item; what the suppliers charge is this price plus the cost of its materials.
+MULTIPLIERS = [2.0, 1.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0]
 FLOOR = 10
 
 # Names of the qualities in the order the game numbers them, for the saved settings.
@@ -141,7 +158,7 @@ AMMUNITION_SUBCLASSES = {2: "Arrows", 3: "Bullets"}
 # Glyph subclasses are the class the glyph is for.
 GLYPH_CLASSES = {
     1: "Warrior", 2: "Paladin", 3: "Hunter", 4: "Rogue", 5: "Priest", 6: "Death Knight",
-    7: "Shaman", 8: "Mage", 9: "Warlock", 10: "Other glyphs", 11: "Druid",
+    7: "Shaman", 8: "Mage", 9: "Warlock", 10: "Misc", 11: "Druid",
 }
 
 
@@ -161,11 +178,17 @@ def sql_text(value):
 
 
 def read_spell_dbc(path):
-    """Every item a spell creates, read straight from the client's Spell.dbc.
+    """Every item a spell creates, and the reagents each of those spells consumes.
 
     Field 71/72/73 are the three effect slots and 107/108/109 the item each one creates; a create-item
-    effect is 24. The indices were confirmed against known crafting spells (a tailoring bolt) before
-    this file existed, and the script re-checks one of them on every run.
+    effect is 24. The eight reagent entries are fields 52-59 and their counts 60-67, as declared in
+    src/server/shared/DataStores/DBCStructure.h (SpellEntry, "m_reagent"/"m_reagentCount"). The indices
+    were confirmed against known crafting spells (a tailoring bolt) before this file existed, and the
+    script re-checks one of them on every run.
+
+    The return value is the set of crafted items and a map from item to the reagents of the first
+    spell that creates it - each item is priced from its own recipe, with no comparison between
+    candidate recipes.
     """
     raw = open(path, "rb").read()
     magic, records, fields, record_size, _string_size = struct.unpack_from("<4sIIII", raw, 0)
@@ -176,8 +199,11 @@ def read_spell_dbc(path):
 
     base = 20
     created = set()
+    recipes = {}
     effect_slots = (71, 72, 73)
     item_fields = (107, 108, 109)
+    reagent_fields = 52
+    reagent_count_fields = 60
 
     for index in range(records):
         record = struct.unpack_from("<%dI" % fields, raw, base + index * record_size)
@@ -186,11 +212,81 @@ def read_spell_dbc(path):
         if record[0] == 2963 and record[107] != 2996:
             raise SystemExit("Spell.dbc layout check failed: spell 2963 does not create item 2996")
 
-        for slot, item_field in zip(effect_slots, item_fields):
-            if record[slot] == 24 and record[item_field]:
-                created.add(record[item_field])
+        made = [record[item_field]
+                for slot, item_field in zip(effect_slots, item_fields)
+                if record[slot] == 24 and record[item_field]]
+        if not made:
+            continue
 
-    return created
+        created.update(made)
+
+        reagents = [(record[reagent_fields + offset], record[reagent_count_fields + offset])
+                    for offset in range(8)
+                    if record[reagent_fields + offset] and record[reagent_count_fields + offset]]
+        if not reagents:
+            continue
+
+        for entry in made:
+            recipes.setdefault(entry, reagents)
+
+    return created, recipes
+
+
+# --- pricing ------------------------------------------------------------------------------------
+
+def rarity_price(sell, quality):
+    """The merchant price: max(floor, shipped sell price * multiplier[quality])."""
+    multiplier = MULTIPLIERS[quality] if 0 <= quality < len(MULTIPLIERS) else 1.0
+    return max(FLOOR, int(math.floor(sell * multiplier + 0.5)))
+
+
+class PriceBook:
+    """The charge of every item: its own merchant price plus what the recipe's materials cost.
+
+    A material is priced by the same rule, so the materials have to be resolved before the item that
+    uses them; the memo makes that one pass per item. `materials()` reports the material sum alone,
+    which is what warband_supplier_price stores - 0 means the item has no recipe and charges exactly
+    its merchant price.
+    """
+
+    def __init__(self, items, recipes):
+        self.items = items          # entry -> dict with "quality" and "sell" (the shipped price)
+        self.recipes = recipes      # entry -> [(reagent entry, count)]
+        self._charge = {}
+        self._materials = {}
+        self._busy = set()
+
+    def rarity(self, entry):
+        item = self.items.get(entry)
+        if not item:
+            return 0
+        return rarity_price(item["sell"], item["quality"])
+
+    def materials(self, entry):
+        self.charge(entry)
+        return self._materials.get(entry, 0)
+
+    def charge(self, entry):
+        if entry in self._charge:
+            return self._charge[entry]
+
+        if entry in self._busy:
+            return self.rarity(entry)      # a cycle cannot exist in the game data; never recurse
+
+        base = self.rarity(entry)
+        if not base:
+            return 0
+
+        self._busy.add(entry)
+        total = 0
+        for reagent, count in self.recipes.get(entry, ()):
+            total += count * self.charge(reagent)
+        self._busy.discard(entry)
+
+        self._charge[entry] = base + total
+        self._materials[entry] = total
+
+        return self._charge[entry]
 
 
 # --- catalogue ----------------------------------------------------------------------------------
@@ -218,7 +314,8 @@ def load_catalogue():
     return items
 
 
-DEV_NAME_MARKERS = ("Monster -", "Monster ", "Deprecated", "OLD", "Test ", "Creature -", "UNUSED", "DND")
+DEV_NAME_MARKERS = (
+    "Monster -", "Monster ", "Deprecated", "OLD", "Test ", "Creature -", "NPC Equip ", "UNUSED", "DND")
 
 TRADE_GOODS = 7
 CONSUMABLES = 0
@@ -239,7 +336,7 @@ def is_dev_item(item):
 
 
 def build_catalogue(items, crafted):
-    """Crafts from the client data, plus every trade good, gem and recipe; dev leftovers dropped."""
+    """Crafted items plus all trade goods, gems, recipes and glyphs; dev leftovers dropped."""
     by_entry = {item["entry"]: item for item in items}
     chosen = {}
 
@@ -250,7 +347,9 @@ def build_catalogue(items, crafted):
         chosen[entry] = item
 
     for item in items:
-        if item["class"] in (TRADE_GOODS, GEMS, RECIPES) and not is_dev_item(item):
+        # Include every actual glyph item, even if its creation spell is absent from Spell.dbc.
+        # Minor glyphs are valid catalogue stock but can be missed by the crafted-item scan.
+        if item["class"] in (TRADE_GOODS, GEMS, RECIPES, GLYPHS) and not is_dev_item(item):
             chosen[item["entry"]] = item
 
     return sorted(chosen.values(), key=lambda item: item["entry"])
@@ -411,7 +510,7 @@ def build_tree(catalogue):
             name = CONTAINER_SUBCLASSES.get(item["subclass"], "Other containers")
             groups["containers"].setdefault((name,), []).append(item)
         elif item["class"] == GLYPHS:
-            name = GLYPH_CLASSES.get(item["subclass"], "Other glyphs")
+            name = GLYPH_CLASSES.get(item["subclass"], "Misc")
             groups["glyphs"].setdefault((name,), []).append(item)
         elif item["class"] == AMMUNITION:
             name = AMMUNITION_SUBCLASSES.get(item["subclass"], "Other ammunition")
@@ -454,13 +553,17 @@ def build_tree(catalogue):
             add_range_leaves(family_menu, groups["weapon"][(family, None)])
 
     # Everything else: one list per kind. Level ranges only make sense for something you wear or
-    # swing, so reagents, consumables, recipes, gems, bags, glyphs and ammunition stay a single list
-    # each (split only if a kind holds more than the 150 items a merchant window shows).
+    # swing, so reagents, consumables, recipes, gems, bags and ammunition stay a single list each
+    # (split only if a kind holds more than the 150 items a merchant window shows).
     for group_name, menu in (("containers", containers), ("materials", materials),
-                             ("consumables", consumables), ("glyphs", glyphs), ("gems", gems),
+                             ("consumables", consumables), ("gems", gems),
                              ("recipes", recipes), ("ammo", ammunition)):
         for key in sorted(groups[group_name]):
             add_leaf_chunks(menu, key[0], groups[group_name][key])
+
+    # Preserve the existing direct class categories; unclassified glyphs go under Misc.
+    for key in sorted(groups["glyphs"]):
+        add_leaf_chunks(glyphs, key[0], groups["glyphs"][key])
 
     # Keys and tools are one small list, so they hang straight off the root instead of a menu that
     # would hold a single option.
@@ -539,17 +642,63 @@ def creature_model_copy(entry):
         "FROM `creature_template_model` WHERE `CreatureID` = %d;" % (entry, SOURCE_TEMPLATE))
 
 
-def price_sql(entry, price):
-    return "UPDATE `item_template` SET `BuyPrice` = %d, `SellPrice` = %d WHERE `entry` = %d;" % (
-        price, price, entry)
+def price_catalogue(book, catalogue):
+    """Per catalogue item: its material cost, the merchant price it pays, and the charge."""
+    priced = []
+
+    for item in catalogue:
+        entry = item["entry"]
+        rarity = rarity_price(item["sell"], item["quality"])
+        materials = book.materials(entry)
+        priced.append({
+            "entry": entry,
+            "quality": item["quality"],
+            "buy": item["buy"],
+            "sell": item["sell"],
+            "materials": materials,
+            "rarity": rarity,
+            "charge": rarity + materials,
+        })
+
+    return priced
 
 
-def supplier_price(item):
-    multiplier = MULTIPLIERS[item["quality"]] if 0 <= item["quality"] < len(MULTIPLIERS) else 3.0
-    return max(FLOOR, int(round(item["sell"] * multiplier)))
+def price_updates(priced):
+    """`item_template` price statements, a few hundred entries per statement."""
+    statements = []
+
+    for start in range(0, len(priced), UPDATE_CHUNK):
+        chunk = priced[start:start + UPDATE_CHUNK]
+        buy_case = "".join(" WHEN %d THEN %d" % (item["entry"], item["charge"]) for item in chunk)
+        sell_case = "".join(" WHEN %d THEN %d" % (item["entry"], item["rarity"]) for item in chunk)
+        entries = ", ".join(str(item["entry"]) for item in chunk)
+        statements.append(
+            "UPDATE `item_template` SET "
+            "`BuyPrice` = CASE `entry`" + buy_case + " ELSE `BuyPrice` END, "
+            "`SellPrice` = CASE `entry`" + sell_case + " ELSE `SellPrice` END "
+            "WHERE `entry` IN (" + entries + ");")
+
+    return statements
 
 
-def generate(catalogue, root, menus, leaves, templates, spawns):
+def material_updates(priced):
+    """`warband_supplier_price.material_cost` statements, a few hundred entries per statement."""
+    statements = []
+
+    for start in range(0, len(priced), UPDATE_CHUNK):
+        chunk = priced[start:start + UPDATE_CHUNK]
+        case = "".join(" WHEN %d THEN %d" % (item["entry"], item["materials"]) for item in chunk)
+        entries = ", ".join(str(item["entry"]) for item in chunk)
+        statements.append(
+            "UPDATE `warband_supplier_price` SET `material_cost` = CASE `entry`"
+            + case + " ELSE `material_cost` END WHERE `entry` IN (" + entries + ");")
+
+    return statements
+
+
+def generate(catalogue, root, menus, leaves, templates, spawns, book):
+    priced = price_catalogue(book, catalogue)
+
     apply_lines = ["-- Warband suppliers: merchants, menus and prices. Generated by tools/warband-suppliers.py",
                    "-- Apply on a world with no supplier rows in place; revert.sql is the exact inverse.",
                    "START TRANSACTION;", ""]
@@ -578,6 +727,7 @@ def generate(catalogue, root, menus, leaves, templates, spawns):
     apply_lines.append("  `quality` TINYINT UNSIGNED NOT NULL DEFAULT 0,")
     apply_lines.append("  `base_buy` INT UNSIGNED NOT NULL DEFAULT 0,")
     apply_lines.append("  `base_sell` INT UNSIGNED NOT NULL DEFAULT 0,")
+    apply_lines.append("  `material_cost` INT UNSIGNED NOT NULL DEFAULT 0,")
     apply_lines.append("  PRIMARY KEY (`entry`)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;")
     apply_lines.append("")
 
@@ -599,16 +749,17 @@ def generate(catalogue, root, menus, leaves, templates, spawns):
                        % (HOLDER_BASE, HOLDER_BASE + len(leaves) - 1))
     apply_lines.append("")
 
-    # 3. The original price of every catalogue item, so nothing has to be guessed later.
-    apply_lines.append("-- original prices, kept for the Supplier prices page")
-    apply_lines.append("INSERT IGNORE INTO `warband_supplier_price` (`entry`, `quality`, `base_buy`, `base_sell`) VALUES")
-    rows = []
-    for item in catalogue:
-        rows.append("(%d, %d, %d, %d)" % (item["entry"], item["quality"], item["buy"], item["sell"]))
-    apply_lines.append(",\n".join(rows) + ";")
+    # 3. The original price of every catalogue item, so nothing has to be guessed later, and the
+    #    material cost that decides what the merchant charges for it.
+    apply_lines.append("-- original prices and material costs, kept for the Supplier prices page")
+    apply_lines.append("INSERT IGNORE INTO `warband_supplier_price` "
+                       "(`entry`, `quality`, `base_buy`, `base_sell`, `material_cost`) VALUES")
+    price_rows = ["(%d, %d, %d, %d, %d)" % (item["entry"], item["quality"], item["buy"],
+                                            item["sell"], item["materials"]) for item in priced]
+    apply_lines.append(",\n".join(price_rows) + ";")
     apply_lines.append("")
     revert_lines.append("-- prices back to how they shipped")
-    for item in catalogue:
+    for item in priced:
         revert_lines.append("UPDATE `item_template` SET `BuyPrice` = %d, `SellPrice` = %d WHERE `entry` = %d;"
                             % (item["buy"], item["sell"], item["entry"]))
     revert_lines.append("DELETE FROM `warband_supplier_price`;")
@@ -626,11 +777,12 @@ def generate(catalogue, root, menus, leaves, templates, spawns):
             % (npcflag, menu_id, entry))
     apply_lines.append("")
 
-    for guid, npcflag in spawns:
+    for guid, creature_id, npcflag in spawns:
         apply_lines.append(
-            "UPDATE `creature` SET `npcflag` = 0 WHERE `guid` = %s;" % guid)
+            "UPDATE `creature` SET `npcflag` = 0 WHERE `guid` = %s AND `id` = %s;" % (guid, creature_id))
         revert_lines.append(
-            "UPDATE `creature` SET `npcflag` = %s WHERE `guid` = %s;" % (npcflag, guid))
+            "UPDATE `creature` SET `npcflag` = %s WHERE `guid` = %s AND `id` = %s;"
+            % (npcflag, guid, creature_id))
 
     # 4. One holder template per leaf: never spawned, it only carries npc_vendor rows. A merchant
     #    window can show 150 items, so every leaf of the tree needs its own list - these rows are
@@ -720,10 +872,10 @@ def generate(catalogue, root, menus, leaves, templates, spawns):
         revert_lines.append("DELETE FROM `gossip_menu_option` WHERE `MenuID` = %d;" % menu.menu_id)
     apply_lines.append("")
 
-    # 7. Prices, and the settings rows the panel reads back.
-    apply_lines.append("-- prices: what a supplier charges and pays")
-    for item in catalogue:
-        apply_lines.append(price_sql(item["entry"], supplier_price(item)))
+    # 7. Prices, and the settings rows the panel reads back. What a supplier pays is the merchant
+    #    price; what it charges is that price plus the cost of its materials.
+    apply_lines.append("-- prices: what a supplier charges and what it pays")
+    apply_lines.extend(price_updates(priced))
     apply_lines.append("")
 
     apply_lines.append("-- the values the panel shows as applied")
@@ -756,15 +908,128 @@ def generate(catalogue, root, menus, leaves, templates, spawns):
     return apply_lines, revert_lines, menus, leaves
 
 
+def load_shop_originals():
+    """The installed catalogue and its shipped prices, read from the world database.
+
+    The shipped sell price comes from `warband_supplier_price.base_sell`, not from `item_template`,
+    because that column now carries the supplier price after an apply and pricing from it would
+    compound the multiplier on every run.
+    """
+    items = {}
+    for row in query("SELECT entry, quality, SellPrice FROM item_template"):
+        items[int(row[0])] = {"quality": int(row[1]), "sell": int(row[2])}
+
+    catalogue = []
+    for row in query("SELECT entry, quality, base_buy, base_sell FROM warband_supplier_price"):
+        entry = int(row[0])
+        quality = int(row[1])
+        sell = int(row[3])
+        catalogue.append({"entry": entry, "quality": quality, "buy": int(row[2]), "sell": sell})
+        items[entry] = {"quality": quality, "sell": sell}
+
+    return items, catalogue
+
+
+def prices_only(priced):
+    """The incremental update: the material_cost column and the charge of every catalogue item."""
+    lines = [
+        "-- Warband suppliers: what the merchants charge is the merchant price plus the cost of the",
+        "-- materials. Generated by tools/warband-suppliers.py --prices-only; applying it twice writes",
+        "-- the same values, and the shipped prices in warband_supplier_price are kept.",
+        "START TRANSACTION;",
+        "",
+        "-- the material cost sits beside the shipped price; 0 means the item has no recipe",
+        "SET @make_material_cost := IF((SELECT `COLUMN_NAME` FROM `information_schema`.`COLUMNS` "
+        "WHERE `TABLE_SCHEMA` = DATABASE() AND `TABLE_NAME` = 'warband_supplier_price' "
+        "AND `COLUMN_NAME` = 'material_cost') IS NULL, "
+        "'ALTER TABLE `warband_supplier_price` ADD COLUMN `material_cost` INT UNSIGNED NOT NULL DEFAULT 0', "
+        "'SELECT 1');",
+        "PREPARE add_material_cost FROM @make_material_cost;",
+        "EXECUTE add_material_cost;",
+        "DEALLOCATE PREPARE add_material_cost;",
+        "",
+    ]
+
+    lines.append("-- what the materials of each stock item cost")
+    lines.extend(material_updates(priced))
+    lines.append("")
+    lines.append("-- what the merchants charge (merchant price + material cost) and pay (merchant price)")
+    lines.extend(price_updates(priced))
+    lines.append("")
+    lines.append("COMMIT;")
+
+    return lines
+
+
+def prices_only_revert():
+    """Back to one number per item: the shipped buy price, which equals the rarity value."""
+    return [
+        "-- Warband suppliers: back to a single price per item - BuyPrice = the shipped price, and no",
+        "-- material cost is remembered. Generated; safe to apply twice.",
+        "START TRANSACTION;",
+        "",
+        "UPDATE `item_template` AS `i`",
+        "  JOIN `warband_supplier_price` AS `p` ON `p`.`entry` = `i`.`entry`",
+        "  SET `i`.`BuyPrice` = `p`.`base_buy`;",
+        "UPDATE `warband_supplier_price` SET `material_cost` = 0;",
+        "",
+        "COMMIT;",
+    ]
+
+
+def report(priced):
+    """What the dry run says, before anything is written."""
+    with_recipe = [item for item in priced if item["materials"]]
+    dearer = [item for item in priced if item["charge"] > item["rarity"]]
+
+    print("  %d catalogue items, %d have a recipe and charge their materials on top of the merchant "
+          "price, %d charge the merchant price alone" % (len(priced), len(dearer), len(priced) - len(dearer)))
+
+    if dearer:
+        ratios = sorted(
+            ((float(item["charge"]) / item["rarity"], item["entry"]) for item in dearer),
+            reverse=True)
+        top = ratios[0]
+        print("  largest charge/merchant-price ratio: %.1fx on item %d" % (top[0], top[1]))
+
+    names = {int(row[0]): row[1] for row in query("SELECT entry, name FROM item_template")}
+    samples = [2996, 2589, 2592]      # Bolt of Linen Cloth, Linen Cloth, Wool Cloth
+    for item in priced:
+        if item["entry"] in samples:
+            print("  %-24s pays %7d copper, materials %7d, charges %7d"
+                  % (names.get(item["entry"], "?"), item["rarity"], item["materials"], item["charge"]))
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--allow-existing", action="store_true",
-                        help="generate even if the catalogue table already has rows")
+                        help="generate the full update even if the catalogue table already has rows")
     parser.add_argument("--dry-run", action="store_true",
                         help="report what the tree would contain, write nothing")
+    parser.add_argument("--prices-only", action="store_true",
+                        help="write only the material-cost update and its revert, for an installed catalogue")
     arguments = parser.parse_args()
 
-    os.makedirs(OUT, exist_ok=True)
+    print("reading %s ..." % SPELL_DBC)
+    crafted, recipes = read_spell_dbc(SPELL_DBC)
+    print("  %d items are created by a spell, %d of them have reagents" % (len(crafted), len(recipes)))
+
+    if arguments.prices_only:
+        items, catalogue = load_shop_originals()
+        if not catalogue:
+            raise SystemExit("warband_supplier_price is empty - install the catalogue first")
+
+        priced = price_catalogue(PriceBook(items, recipes), catalogue)
+        report(priced)
+
+        if arguments.dry_run:
+            print("dry run: nothing written")
+            return
+
+        write_lines(os.path.join(OUT, PRICES_APPLY_NAME), prices_only(priced))
+        write_lines(os.path.join(REVERT_DIR, PRICES_REVERT_NAME), prices_only_revert())
+        print("wrote %s\\%s and %s\\%s" % (OUT, PRICES_APPLY_NAME, REVERT_DIR, PRICES_REVERT_NAME))
+        return
 
     existing = query("SELECT COUNT(*) FROM information_schema.TABLES WHERE TABLE_SCHEMA = '%s' "
                      "AND TABLE_NAME = 'warband_supplier_price'" % DATABASE)[0][0]
@@ -775,13 +1040,13 @@ def main():
                 "warband_supplier_price already holds %s original prices. Run revert.sql first, or pass "
                 "--allow-existing if you know the prices in the world are the original ones." % rows)
 
-    print("reading %s ..." % SPELL_DBC)
-    crafted = read_spell_dbc(SPELL_DBC)
-    print("  %d items are created by a spell" % len(crafted))
-
     items = load_catalogue()
     catalogue = build_catalogue(items, crafted)
     print("  catalogue: %d items" % len(catalogue))
+
+    book = PriceBook({item["entry"]: item for item in items}, recipes)
+    priced = price_catalogue(book, catalogue)
+    report(priced)
 
     root = build_tree(catalogue)
     menus, leaves = allocate_ids(root)
@@ -793,7 +1058,7 @@ def main():
             print("  WARNING: menu %r has %d options (32 is the limit)" % (menu.title, len(menu.options)))
 
     spawns = query(
-        "SELECT c.guid, c.npcflag FROM creature c "
+        "SELECT c.guid, c.id, c.npcflag FROM creature c "
         "JOIN creature_template ct ON ct.entry = c.id "
         "WHERE ct.name LIKE 'Auctioneer%%' ORDER BY c.guid")
 
@@ -805,7 +1070,7 @@ def main():
     print("  auctioneers to convert: %d templates, %d spawns" % (len(templates), len(spawns)))
 
     apply_lines, revert_lines, menus, leaves = generate(
-        catalogue, root, menus, leaves, templates, spawns)
+        catalogue, root, menus, leaves, templates, spawns, book)
 
     total_rows = sum(len(leaf.items) for leaf in leaves)
 
@@ -814,17 +1079,18 @@ def main():
               % (len(menus), len(leaves), total_rows))
         return
 
-    os.makedirs(OUT, exist_ok=True)
-    os.makedirs(REVERT_DIR, exist_ok=True)
-
-    with open(os.path.join(OUT, APPLY_NAME), "w", encoding="utf-8", newline="\n") as handle:
-        handle.write("\n".join(apply_lines) + "\n")
-
-    with open(os.path.join(REVERT_DIR, REVERT_NAME), "w", encoding="utf-8", newline="\n") as handle:
-        handle.write("\n".join(revert_lines) + "\n")
+    write_lines(os.path.join(OUT, APPLY_NAME), apply_lines)
+    write_lines(os.path.join(REVERT_DIR, REVERT_NAME), revert_lines)
 
     print("wrote %s\\%s (%d vendor rows) and %s\\%s"
           % (OUT, APPLY_NAME, total_rows, REVERT_DIR, REVERT_NAME))
+
+
+def write_lines(path, lines):
+    os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
+
+    with open(path, "w", encoding="utf-8", newline="\n") as handle:
+        handle.write("\n".join(lines) + "\n")
 
 
 if __name__ == "__main__":
