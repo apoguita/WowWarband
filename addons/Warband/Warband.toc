@@ -2,7 +2,7 @@
 ## Title: WoW Warband
 ## Notes: Configure server settings and view Warband features.
 ## Author: WoW Warband
-## Version: 0.5.0
+## Version: 0.6.0
 ## SavedVariables: WarbandDB
 
 Warband.lua

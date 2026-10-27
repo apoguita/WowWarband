@@ -6,7 +6,7 @@ rem Windows opens .ps1 files in Notepad by default, so the script is invoked thr
 rem with the execution policy bypassed for this run only.
 rem
 rem Optional first argument is the version string, for example:
-rem     Package-WowWarband.bat 0.5.0
+rem     Package-WowWarband.bat 0.6.0
 
 set "ROOT=%~dp0"
 set "ROOT=%ROOT:~0,-1%"
