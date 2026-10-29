@@ -143,6 +143,12 @@ COPY --chown=$USER_ID:$GROUP_ID \
      --chmod=755 \
      apps/docker/entrypoint.sh /azerothcore/entrypoint.sh
 
+# Applies the tracked Warband config deltas (data/configs) to the installed configuration
+# directory. The warband-config service in docker-compose.warband.yml runs it before the servers.
+COPY --chown=$USER_ID:$GROUP_ID \
+     --chmod=755 \
+     apps/docker/warband-apply-config.sh /azerothcore/warband/apply-config.sh
+
 USER $DOCKER_USER
 
 ENTRYPOINT ["/usr/bin/env", "bash", "/azerothcore/entrypoint.sh"]
@@ -186,6 +192,13 @@ ENV AC_CLOSE_IDLE_CONNECTIONS=0
 COPY --chown=$DOCKER_USER:$DOCKER_USER \
      --from=build \
      /azerothcore/env/dist/bin/worldserver /azerothcore/env/dist/bin/worldserver
+
+# The playerbots module owns a database of its own (acore_playerbots) and opens/populates it on
+# the first world start through the core's module update pool. The update path comes from
+# SourceDirectory, so the module SQL has to be in the image; without it the world server stops at
+# "Directory ... not exist". The core databases are still the db-import container's job.
+COPY --chown=$DOCKER_USER:$DOCKER_USER \
+     modules/mod-playerbots/data/sql /azerothcore/modules/mod-playerbots/data/sql
 
 VOLUME /azerothcore/env/dist/etc
 

@@ -1,0 +1,50 @@
+# Warband overrides for the published container stack.
+#
+# The base docker-compose.yml builds the servers from this checkout and pulls upstream's
+# acore/wotlk images. This file points every service at the Warband images published by
+# .github/workflows/docker_publish.yml and adds the one-shot `warband-config` service that
+# carries data/configs onto the installed configuration before the servers start.
+#
+#   docker compose -f docker-compose.yml -f docker-compose.warband.yml up -d --pull always --no-build
+#
+# WowWarband-Docker.md walks through the prerequisites, the first account and the client.
+
+services:
+  ac-db-import:
+    image: ${WARBAND_IMAGE_PREFIX:-ghcr.io/apoguita/wowwarband}-db-import:${WARBAND_IMAGE_TAG:-latest}
+
+  ac-client-data-init:
+    image: ${WARBAND_IMAGE_PREFIX:-ghcr.io/apoguita/wowwarband}-client-data:${WARBAND_IMAGE_TAG:-latest}
+
+  ac-worldserver:
+    image: ${WARBAND_IMAGE_PREFIX:-ghcr.io/apoguita/wowwarband}-worldserver:${WARBAND_IMAGE_TAG:-latest}
+    depends_on:
+      warband-config:
+        condition: service_completed_successfully
+
+  ac-authserver:
+    image: ${WARBAND_IMAGE_PREFIX:-ghcr.io/apoguita/wowwarband}-authserver:${WARBAND_IMAGE_TAG:-latest}
+    depends_on:
+      warband-config:
+        condition: service_completed_successfully
+
+  ac-tools:
+    image: ${WARBAND_IMAGE_PREFIX:-ghcr.io/apoguita/wowwarband}-tools:${WARBAND_IMAGE_TAG:-latest}
+
+  ac-dev-server:
+    image: ${WARBAND_IMAGE_PREFIX:-ghcr.io/apoguita/wowwarband}-dev-server:${WARBAND_IMAGE_TAG:-latest}
+
+  # One-shot: seeds the configuration directory the same way the server images do, then writes
+  # the tracked Warband deltas from data/configs into it. It is idempotent, so it can run on
+  # every start; the servers wait for it to finish.
+  warband-config:
+    container_name: warband-config
+    image: ${WARBAND_IMAGE_PREFIX:-ghcr.io/apoguita/wowwarband}-worldserver:${WARBAND_IMAGE_TAG:-latest}
+    networks:
+      - ac-network
+    volumes:
+      - ${DOCKER_VOL_ETC:-./env/dist/etc}:/azerothcore/env/dist/etc
+      - ./data/configs:/warband/configs:ro
+    environment:
+      CONF_DIR: /azerothcore/env/dist/etc
+    entrypoint: ["/usr/bin/env", "bash", "/azerothcore/warband/apply-config.sh"]

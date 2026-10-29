@@ -91,6 +91,7 @@ data for creation, skills and starting spells, the server's `CharStartOutfit.dbc
 | `Warband-ClearClientCaches.ps1` | rebuild the client item cache so tooltips re-query the server instead of showing a cached price; `Start-WowWarband.bat` runs it on every launch |
 | `Warband-Configs.ps1 -Action apply` | carry this project's configuration decisions onto the installed server configs â€” see below |
 | `Backup-WowWarband.ps1` | back up all four AzerothCore databases |
+| `docker compose -f docker-compose.yml -f docker-compose.warband.yml up -d --no-build` | run the published container stack from the GHCR images, no build — see [Docker deployment](WowWarband-Docker.md) |
 | `Sync-ProjectReadme.ps1` | keep `.github/README.md` identical to this file |
 
 ### Config decisions travel with the repository
@@ -133,6 +134,8 @@ update is kept beside it in `data/sql/warband/` as a recovery script.
 | [Design record](doc/Warband-Design.md), [implementation policy](doc/Warband-Implementation-Policy.md) | the project's rationale and rules |
 | [Module shortlist](doc/Warband-Server-Module-Shortlist.md), [module assessment](doc/Warband-Module-Assessment.md) | the research the module choices came from |
 | [Setup and source layout](WowWarband-Setup.md) | local development workflow |
+| [Install a release](WowWarband-Install.md) | prerequisites, database, map data and first start, for a new machine |
+| [Docker deployment](WowWarband-Docker.md) | the published GHCR images: prerequisites, first start, account, client, updating |
 
 Runtime files â€” the built server, the client copy, extracted map data, database files and local
 credentials â€” stay outside version control.

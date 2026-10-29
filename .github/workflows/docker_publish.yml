@@ -1,0 +1,121 @@
+name: docker-publish
+
+# Publishes the Warband server images to GHCR.
+#
+#   push of a v* tag   -> ghcr.io/<owner>/wowwarband-<component>:<version> and :latest
+#   workflow_dispatch  -> ghcr.io/<owner>/wowwarband-<component>:edge
+#
+# A single job on purpose: every component target is built from the same "build" stage in
+# apps/docker/Dockerfile, so the C++ / Playerbots compile runs once and the later targets only
+# copy their binaries out of the BuildKit cache. The layout follows the upstream docker_build.yml
+# of mod-playerbots/azerothcore-wotlk.
+#
+# Packages created by the workflow's GITHUB_TOKEN start private; make them public under the
+# repository settings (Packages -> the package -> Package settings -> Change visibility) so the
+# pull in WowWarband-Docker.md works without a login.
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+concurrency:
+  group: docker-publish-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  # One value per run: it busts the cached build stage between runs while still letting the
+  # components of this run share it.
+  CACHEBUST: ${{ github.run_id }}
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 300
+    steps:
+      - name: Free up disk space
+        run: |
+          sudo rm -rf /usr/local/lib/android
+          sudo rm -rf /usr/share/dotnet
+          sudo rm -rf /opt/ghc
+          sudo rm -rf "$AGENT_TOOLSDIRECTORY"
+
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Check out the module submodules the image build needs
+        run: git submodule update --init --recursive --jobs 4 modules
+
+      - name: Resolve the image prefix and the version tag
+        id: vars
+        run: |
+          owner="$(printf '%s' "${GITHUB_REPOSITORY_OWNER}" | tr '[:upper:]' '[:lower:]')"
+          if [[ "${GITHUB_REF}" == refs/tags/v* ]]; then
+            version="${GITHUB_REF#refs/tags/v}"
+            latest=1
+          else
+            version=edge
+            latest=0
+          fi
+          {
+            echo "image_prefix=ghcr.io/${owner}/wowwarband"
+            echo "version=${version}"
+            echo "latest=${latest}"
+          } >> "${GITHUB_OUTPUT}"
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build and push the image set
+        env:
+          IMAGE_PREFIX: ${{ steps.vars.outputs.image_prefix }}
+          VERSION: ${{ steps.vars.outputs.version }}
+          PUSH_LATEST: ${{ steps.vars.outputs.latest }}
+        run: |
+          set -euo pipefail
+
+          # component | build target | dockerfile
+          table=(
+            'worldserver|worldserver|apps/docker/Dockerfile'
+            'authserver|authserver|apps/docker/Dockerfile'
+            'db-import|db-import|apps/docker/Dockerfile'
+            'client-data|client-data|apps/docker/Dockerfile'
+            'tools|tools|apps/docker/Dockerfile'
+            'dev-server|dev|apps/docker/Dockerfile.dev-server'
+          )
+
+          for row in "${table[@]}"; do
+            IFS='|' read -r component target dockerfile <<< "${row}"
+            tags=( -t "${IMAGE_PREFIX}-${component}:${VERSION}" )
+            if [[ "${PUSH_LATEST}" == "1" ]]; then
+              tags+=( -t "${IMAGE_PREFIX}-${component}:latest" )
+            fi
+            echo "::group::${component}"
+            docker buildx build \
+              --file "${dockerfile}" \
+              --target "${target}" \
+              --platform linux/amd64 \
+              --build-arg USER_ID=1000 \
+              --build-arg GROUP_ID=1000 \
+              --build-arg DOCKER_USER=acore \
+              --build-arg CACHEBUST="${CACHEBUST}" \
+              --label "org.opencontainers.image.source=https://github.com/${GITHUB_REPOSITORY}" \
+              --label "org.opencontainers.image.version=${VERSION}" \
+              --push \
+              "${tags[@]}" \
+              .
+            echo "::endgroup::"
+          done
