@@ -235,6 +235,7 @@ enum PlayerHook
     PLAYERHOOK_ON_BEFORE_RECEIVE_SPELL_LIST_FROM_TRAINER,
     PLAYERHOOK_ON_GET_TRAINER_SPELL_STATE,
     PLAYERHOOK_ON_AFTER_TRAIN_SPELL,
+    PLAYERHOOK_ON_MODIFY_OUT_OF_COMBAT_REGEN,
     PLAYERHOOK_END
 };
 
@@ -966,6 +967,20 @@ public:
      * @param spellId The id of the trainer spell that was bought
      */
     virtual void OnPlayerAfterTrainSpell(Player* /*player*/, Creature* /*trainer*/, uint32 /*spellId*/) {}
+
+    /**
+     * @brief This hook is called for the regeneration a player receives while out of combat, right
+     *        before it is applied - once per regeneration for mana and once for health.
+     *
+     * Only the out-of-combat amount is passed: the in-combat regeneration (and the mana a caster gets
+     * under the five second rule) is a different value and is never handed to this hook, so a script
+     * that multiplies what it is given cannot quieten a fight.
+     *
+     * @param player Contains information about the Player
+     * @param power Which regeneration this is: POWER_MANA or POWER_HEALTH
+     * @param amount The regeneration about to be applied, to be read and overwritten
+     */
+    virtual void OnPlayerModifyOutOfCombatRegen(Player* /*player*/, Powers /*power*/, float& /*amount*/) {}
 };
 
 #endif

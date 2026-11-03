@@ -15,6 +15,7 @@ The tree as it stands:
       Item binding        live - the party binding policy switch
       Magic find          live - one multiplier per quality
       Gold find           live - the coin multiplier
+      Regeneration        live - out-of-combat mana x4 and health x2
       Supplier prices     live - what the supplier merchants charge and pay, with Apply
       Trash sell          live - grey loot sold on pickup, with a sweep button
       Instances           live - killed instance creatures stay dead, with a counter
@@ -148,6 +149,22 @@ Server > Gold find is one row: `-` and `+` in steps of 0.5 between 1 and 20, plu
 is `WARBAND_GOLDFIND=3.00`. It multiplies the coin that loot generates — creatures, chests, mines
 and containers — and leaves vendoring, quest rewards, mail and the auction house alone.
 
+## Regeneration
+
+Server > Regeneration is two rows — **Mana** and **Health** — each with `-` and `+` in steps of 0.5
+between 1 and 20, and one reset that returns them to the shipped **x4** and **x2**. The reply is
+`WARBAND_REGEN=mana=4.00;health=2.00`, and a click sends `.warband regen mana <x>` or
+`.warband regen health <x>`.
+
+The multipliers apply to the regeneration a character gets **while out of combat** and to nothing
+else: the server scales the out-of-combat half of each rate, so a fight, and the reduced mana under
+the five second rule, regenerate exactly as they always did. Every party member benefits, companions
+included; creatures never do. Both values are saved on the server, so they survive a restart, and the
+page always shows what the server answered rather than what it hoped to set.
+
+The worked example line under the rows recalculates as you click — "a character who regenerates 100
+mana a tick now gets 400, and 200 health for every 100".
+
 ## Supplier prices
 
 Server > Supplier prices is what the Warband suppliers charge and pay. Eight rows — poor, normal,
@@ -264,24 +281,62 @@ cached in `WarbandDB`, so the second visit costs nothing and **Refresh** asks ag
 without the command is reported as "Unavailable: this worldserver does not answer .warband travel
 yet." rather than as an empty page.
 
+### Tabs: one expansion at a time
+
+One flat list of everything the server can reach is 130-odd rows, which mixes Deadmines with Icecrown.
+So the window is three tabs — **Vanilla**, **TBC**, **WotLK** — and each tab is read in two groups,
+**Dungeons** and **Raids**, each headed by its own count.
+
+A dungeon is a 5-man and anything else is a raid: Upper Blackrock Spire is a 10-man and sits under
+Raids with `Raid 10` in its kind column, Trial of the Champion is a 5-man and sits under Dungeons, and a
+heroic is the same 5-man at the harder difficulty, so it is filed with the dungeons and labelled
+`Heroic`. Raid rows state their size — `Raid 10 / 20 / 25 / 40` — since that is the only column where
+a 10-man and a 40-man differ.
+
+**The levels are the content's, not the finder's.** LFGDungeons.dbc publishes entry windows like
+`55-65` for Lower Blackrock Spire and `60-83` for Molten Core — that is "who may walk in during
+Wrath", not what the content is for, and using it put level-80 numbers inside the vanilla tab. The
+window now shows the levels each dungeon and raid is actually played at: **Vanilla ends at 60, TBC at
+70, WotLK at 80**, and the row colour is computed from the level the content starts at.
+
+The list is the menu: `DungeonTravel.lua` carries one curated table of
+`id = { expansion, min level, max level, is raid, raid size }` for the 127 destinations the window
+offers, and an entry that is not in it is not drawn. That is what keeps the four holiday bosses (the
+Headless Horseman, Coren Direbrew, the Crown Chemical Co., Ahune) out of the vanilla and TBC tabs,
+where the finder files them even though they are level 80 events.
+
+Two entries of the vanilla list cannot be shown, because the server has no destination for them: the
+40-man **Naxxramas** and **Onyxia's Lair** were removed by 3.3.5's own finder data, which carries them
+only as the WotLK 10/25 versions (both appear in the WotLK tab).
+
+Switching tabs re-renders the rows from the cached list: no command, no refresh, nothing created.
+
 Presentation and plumbing:
 
 - the panel is the whole window — full size, plain black, one frame level above everything Blizzard
   would have drawn there;
+- it is **mouse-transparent** on purpose: it covers the whole frame, and with the mouse enabled it
+  would swallow the press that starts the window's own drag (BlizzMove puts its handler on
+  `LFDParentFrame` itself), which is what stops the window being moved. The tabs, rows, scroll bar and
+  Refresh button are children and still take their own clicks; everything else falls through to the
+  window, which keeps behaving as it always did;
 - Blizzard's `LFDQueueFrame` is hidden on every open, and hooked so anything that re-shows it is put
   back down: hiding it also removes its artwork, which is what used to show around the panel;
 - Blizzard's close button is a direct child of the window and would be swallowed by a full-size
   panel, so its frame level is raised above ours — the X keeps working, and so does Escape.
 
 Every row is coloured for your level with the game's own rule: `GetQuestDifficultyColor`, the same
-function the finder's list uses, applied to the entry's *recommended* level (its `recLevel`, not its
-minimum — the two differ by up to six levels in the shipped data). The thresholds are Blizzard's:
+function the finder's list uses, applied to the level the content starts at. The thresholds are
+Blizzard's:
 
     +5 and up          red      (too high)
     +3 to +4           orange   (close to the limit)
     -2 to +2           yellow   (at your level)
     -3 .. green range  green    (lower than you; GetQuestGreenRange() is 5 at 80)
     beyond that        grey     (trivial)
+
+Both the name and the level window take the colour, and both are set on every render, so a pooled row
+never keeps the colour of the line it showed a moment ago.
 
 ## Party roster (`PartyRoster.lua`)
 

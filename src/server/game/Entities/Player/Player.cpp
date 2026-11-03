@@ -1925,6 +1925,11 @@ void Player::Regenerate(Powers power)
                     addvalue += GetFloatValue(UNIT_FIELD_POWER_REGEN_INTERRUPTED_FLAT_MODIFIER + AsUnderlyingType(POWER_MANA)) *  ManaIncreaseRate * 0.001f * m_regenTimer;
                 else
                     addvalue += GetFloatValue(UNIT_FIELD_POWER_REGEN_FLAT_MODIFIER + AsUnderlyingType(POWER_MANA)) * ManaIncreaseRate * 0.001f * m_regenTimer;
+
+                // Out of combat only: scripts may scale the regeneration a player gets while nothing
+                // is fighting them. In combat the value above is the interrupted one and is left alone.
+                if (!IsInCombat())
+                    sScriptMgr->OnPlayerModifyOutOfCombatRegen(this, POWER_MANA, addvalue);
             }
             break;
         case POWER_RAGE:                                    // Regenerate rage
@@ -2062,6 +2067,11 @@ void Player::RegenerateHealth()
             ApplyPct(addvalue, GetTotalAuraModifier(SPELL_AURA_MOD_REGEN_DURING_COMBAT));
         }
     }
+
+    // Out of combat only, and only the part computed above: the bonuses below are "always", fight or
+    // not, so they are added after any script has had its say.
+    if (!IsInCombat())
+        sScriptMgr->OnPlayerModifyOutOfCombatRegen(this, POWER_HEALTH, addvalue);
 
     // always regeneration bonus (including combat)
     addvalue += GetTotalAuraModifier(SPELL_AURA_MOD_HEALTH_REGEN_IN_COMBAT);

@@ -1004,6 +1004,11 @@ void ScriptMgr::OnPlayerAfterTrainSpell(Player* player, Creature* trainer, uint3
     CALL_ENABLED_HOOKS(PlayerScript, PLAYERHOOK_ON_AFTER_TRAIN_SPELL, script->OnPlayerAfterTrainSpell(player, trainer, spellId));
 }
 
+void ScriptMgr::OnPlayerModifyOutOfCombatRegen(Player* player, Powers power, float& amount)
+{
+    CALL_ENABLED_HOOKS(PlayerScript, PLAYERHOOK_ON_MODIFY_OUT_OF_COMBAT_REGEN, script->OnPlayerModifyOutOfCombatRegen(player, power, amount));
+}
+
 PlayerScript::PlayerScript(char const* name, std::vector<uint16> enabledHooks)
     : ScriptObject(name, PLAYERHOOK_END)
 {

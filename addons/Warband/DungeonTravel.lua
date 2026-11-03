@@ -24,12 +24,15 @@ local travelState = {
     incoming = nil,
     requesting = false,
     deadline = 0,
+    tab = 0,
 }
 
 local warbandLFDPage
 local warbandLFDScroll
 local warbandLFDScrollContent
 local warbandLFDStatus
+local warbandLFDRefresh
+local warbandLFDTabs = {}
 local warbandLFDRows = {}
 local warbandLFDBuilt = false
 
@@ -51,20 +54,155 @@ local function KindLabel(kind, difficulty)
     return "Dungeon"
 end
 
--- The level a dungeon is "for", which is what WoW colours a finder entry by: the entry's
--- recommended level (LFGDungeonInfo's recLevel), asked of the client's own copy of the dungeon data.
--- If that lookup is not available, the listed minimum level is the closest honest answer.
-local function RecommendedLevel(id, fallbackMin)
-    if type(GetLFGDungeonInfo) == "function" and id then
-        local _, _, _, minLevel, _, recLevel = GetLFGDungeonInfo(id)
-        local resolved = tonumber(recLevel) or tonumber(minLevel)
+-- The curated list, as one table: id = { expansion, min level, max level, is raid, raid size }.
+--
+-- The levels are the content's own, not the finder's entry windows. LFGDungeons.dbc publishes windows
+-- like 55-65 for Lower Blackrock Spire or 60-83 for Molten Core, which is "who may walk in during
+-- Wrath", not "what this content is for" - using those put level-80 numbers in a vanilla tab. These
+-- are the levels the content is actually played at, so the vanilla tab ends at 60, TBC at 70 and
+-- WotLK at 80, and the colour of a row means something useful again.
+--
+-- A dungeon is a 5-man and anything else is a raid: Upper Blackrock Spire is a 10-man and sits under
+-- Raids with a size, Trial of the Champion is a 5-man and sits under Dungeons, and a heroic is the
+-- same 5-man at the harder difficulty, so it is filed with the dungeons and says Heroic.
+--
+-- The list is the menu: an entry that is not in this table is not drawn at all. That is what keeps the
+-- four holiday bosses (the Headless Horseman, Coren Direbrew, the Crown Chemical Co., Ahune) out of
+-- the vanilla and TBC tabs, where the finder files them despite them being level 80 events.
+local DUNGEON_DATA = {
+    [4] = { 0, 13, 18, 0, 0 }, [1] = { 0, 15, 25, 0, 0 }, [6] = { 0, 17, 23, 0, 0 },
+    [8] = { 0, 18, 30, 0, 0 }, [12] = { 0, 22, 30, 0, 0 }, [10] = { 0, 24, 32, 0, 0 },
+    [163] = { 0, 26, 45, 0, 0 }, [164] = { 0, 26, 45, 0, 0 }, [18] = { 0, 26, 45, 0, 0 },
+    [165] = { 0, 26, 45, 0, 0 }, [14] = { 0, 29, 38, 0, 0 }, [16] = { 0, 30, 40, 0, 0 },
+    [20] = { 0, 40, 50, 0, 0 }, [22] = { 0, 42, 52, 0, 0 }, [24] = { 0, 44, 54, 0, 0 },
+    [26] = { 0, 46, 55, 0, 0 }, [273] = { 0, 46, 55, 0, 0 }, [272] = { 0, 46, 55, 0, 0 },
+    [28] = { 0, 50, 60, 0, 0 }, [30] = { 0, 52, 60, 0, 0 }, [276] = { 0, 52, 60, 0, 0 },
+    [34] = { 0, 55, 60, 0, 0 }, [38] = { 0, 55, 60, 0, 0 }, [36] = { 0, 55, 60, 0, 0 },
+    [32] = { 0, 55, 60, 0, 0 }, [2] = { 0, 58, 60, 0, 0 }, [40] = { 0, 58, 60, 0, 0 },
+    [274] = { 0, 58, 60, 0, 0 }, [160] = { 0, 60, 60, 1, 20 }, [161] = { 0, 60, 60, 1, 40 },
+    [50] = { 0, 60, 60, 1, 40 }, [48] = { 0, 60, 60, 1, 40 }, [44] = { 0, 60, 60, 1, 10 },
+    [42] = { 0, 60, 60, 1, 20 }, [136] = { 1, 58, 62, 0, 0 }, [137] = { 1, 61, 63, 0, 0 },
+    [140] = { 1, 62, 64, 0, 0 }, [146] = { 1, 63, 65, 0, 0 }, [148] = { 1, 64, 66, 0, 0 },
+    [149] = { 1, 65, 67, 0, 0 }, [170] = { 1, 66, 68, 0, 0 }, [150] = { 1, 67, 69, 0, 0 },
+    [151] = { 1, 68, 70, 0, 0 }, [138] = { 1, 69, 70, 0, 0 }, [172] = { 1, 69, 70, 0, 0 },
+    [147] = { 1, 69, 70, 0, 0 }, [178] = { 1, 70, 70, 0, 0 }, [187] = { 1, 70, 70, 0, 0 },
+    [188] = { 1, 70, 70, 0, 0 }, [198] = { 1, 70, 70, 0, 0 }, [201] = { 1, 70, 70, 0, 0 },
+    [179] = { 1, 70, 70, 0, 0 }, [180] = { 1, 70, 70, 0, 0 }, [181] = { 1, 70, 70, 0, 0 },
+    [189] = { 1, 70, 70, 0, 0 }, [184] = { 1, 70, 70, 0, 0 }, [174] = { 1, 70, 70, 0, 0 },
+    [190] = { 1, 70, 70, 0, 0 }, [171] = { 1, 70, 70, 0, 0 }, [182] = { 1, 70, 70, 0, 0 },
+    [173] = { 1, 70, 70, 0, 0 }, [191] = { 1, 70, 70, 0, 0 }, [183] = { 1, 70, 70, 0, 0 },
+    [192] = { 1, 70, 70, 0, 0 }, [185] = { 1, 70, 70, 0, 0 }, [186] = { 1, 70, 70, 0, 0 },
+    [196] = { 1, 70, 70, 1, 25 }, [177] = { 1, 70, 70, 1, 25 }, [195] = { 1, 70, 70, 1, 25 },
+    [175] = { 1, 70, 70, 1, 10 }, [176] = { 1, 70, 70, 1, 25 }, [194] = { 1, 70, 70, 1, 25 },
+    [193] = { 1, 70, 70, 1, 25 }, [199] = { 1, 70, 70, 1, 25 }, [197] = { 1, 70, 70, 1, 10 },
+    [202] = { 2, 70, 72, 0, 0 }, [225] = { 2, 71, 73, 0, 0 }, [204] = { 2, 72, 74, 0, 0 },
+    [218] = { 2, 73, 75, 0, 0 }, [214] = { 2, 74, 76, 0, 0 }, [220] = { 2, 75, 77, 0, 0 },
+    [216] = { 2, 76, 78, 0, 0 }, [208] = { 2, 77, 79, 0, 0 }, [207] = { 2, 78, 80, 0, 0 },
+    [209] = { 2, 78, 80, 0, 0 }, [219] = { 2, 80, 80, 0, 0 }, [241] = { 2, 80, 80, 0, 0 },
+    [215] = { 2, 80, 80, 0, 0 }, [217] = { 2, 80, 80, 0, 0 }, [212] = { 2, 80, 80, 0, 0 },
+    [255] = { 2, 80, 80, 0, 0 }, [256] = { 2, 80, 80, 0, 0 }, [213] = { 2, 80, 80, 0, 0 },
+    [253] = { 2, 80, 80, 0, 0 }, [254] = { 2, 80, 80, 0, 0 }, [210] = { 2, 80, 80, 0, 0 },
+    [251] = { 2, 80, 80, 0, 0 }, [252] = { 2, 80, 80, 0, 0 }, [226] = { 2, 80, 80, 0, 0 },
+    [206] = { 2, 80, 80, 0, 0 }, [211] = { 2, 80, 80, 0, 0 }, [245] = { 2, 80, 80, 0, 0 },
+    [249] = { 2, 80, 80, 0, 0 }, [242] = { 2, 80, 80, 0, 0 }, [203] = { 2, 80, 80, 0, 0 },
+    [205] = { 2, 80, 80, 0, 0 }, [221] = { 2, 80, 80, 0, 0 }, [279] = { 2, 80, 80, 1, 10 },
+    [280] = { 2, 80, 80, 1, 25 }, [159] = { 2, 80, 80, 1, 10 }, [227] = { 2, 80, 80, 1, 25 },
+    [46] = { 2, 80, 80, 1, 10 }, [257] = { 2, 80, 80, 1, 25 }, [293] = { 2, 80, 80, 1, 10 },
+    [294] = { 2, 80, 80, 1, 25 }, [223] = { 2, 80, 80, 1, 10 }, [237] = { 2, 80, 80, 1, 25 },
+    [224] = { 2, 80, 80, 1, 10 }, [238] = { 2, 80, 80, 1, 25 }, [246] = { 2, 80, 80, 1, 10 },
+    [248] = { 2, 80, 80, 1, 25 }, [247] = { 2, 80, 80, 1, 10 }, [250] = { 2, 80, 80, 1, 25 },
+    [243] = { 2, 80, 80, 1, 10 }, [244] = { 2, 80, 80, 1, 25 }, [239] = { 2, 80, 80, 1, 10 },
+    [240] = { 2, 80, 80, 1, 25 },
+}
 
-        if resolved then
-            return resolved
-        end
+local EXPANSION_TABS = {
+    { label = "Vanilla" },
+    { label = "TBC" },
+    { label = "WotLK" },
+}
+
+-- The two groups a tab is read in. A heroic is a dungeon at the harder difficulty, so it is filed
+-- with the dungeons and says "Heroic" in its kind column.
+local LIST_GROUPS = {
+    { key = "dungeons", title = "Dungeons" },
+    { key = "raids", title = "Raids" },
+}
+
+-- The curated list's row for a destination, or nil when the list does not carry it - in which case
+-- the window does not draw it either.
+local function DungeonData(destination)
+    return DUNGEON_DATA[destination.id]
+end
+
+local function DungeonExpansion(destination)
+    local data = DungeonData(destination)
+
+    if data then
+        return data[1]
     end
 
-    return fallbackMin
+    return nil
+end
+
+-- A raid is anything that is not a 5-man: the table says which, and the row's own kind is only the
+-- fallback for an id the list does not carry.
+local function DungeonIsRaid(destination)
+    local data = DungeonData(destination)
+
+    if data then
+        return data[4] == 1
+    end
+
+    return destination.kind == 2
+end
+
+local function DungeonGroup(destination)
+    if DungeonIsRaid(destination) then
+        return "raids"
+    end
+
+    return "dungeons"
+end
+
+-- How many players a raid takes, 0 for anything that is not a raid. It is in the table because the
+-- kind column is the only place a 10-man and a 40-man differ, and the LFG difficulty that separates
+-- 10 from 25 says nothing at all about the classic raids, which were fixed-size.
+local function DungeonRaidSize(destination)
+    local data = DungeonData(destination)
+
+    if not data or data[4] ~= 1 then
+        return 0
+    end
+
+    return data[5] or 0
+end
+
+-- The level window the row shows: the content's own, from the curated list. The wire's window is only
+-- there for an id the list does not carry - it is the finder's "who may walk in" range, inflated for
+-- 3.3.5 (55-65 for Lower Blackrock Spire, 60-83 for Molten Core) and useless as content levels.
+local function DungeonLevelRange(destination)
+    local data = DungeonData(destination)
+
+    if data then
+        return data[2], data[3]
+    end
+
+    return destination.minLevel, destination.maxLevel
+end
+
+-- The level a row is coloured by: the level the content starts at, so a dungeon opens orange or red
+-- while the character is below it and turns yellow when they reach it. A 0 is not a level, so the top
+-- of the window answers for a row that carries nothing.
+local function DungeonColourLevel(destination)
+    local minimum = DungeonLevelRange(destination)
+
+    if minimum and tonumber(minimum) and tonumber(minimum) > 0 then
+        return tonumber(minimum)
+    end
+
+    local _, maximum = DungeonLevelRange(destination)
+
+    return tonumber(maximum) or destination.minLevel
 end
 
 -- The game's own con colour for a dungeon's level: the same GetQuestDifficultyColor the Dungeon
@@ -179,40 +317,117 @@ local function CreateTravelRow(index)
     return row
 end
 
+-- Which tab looks chosen. The panel button template has no selected state of its own, so the chosen
+-- one keeps its highlight locked on and the others release it.
+local function ShowSelectedTab()
+    for index, tab in ipairs(warbandLFDTabs) do
+        if index - 1 == travelState.tab then
+            tab:LockHighlight()
+        else
+            tab:UnlockHighlight()
+        end
+    end
+end
+
 local function RenderTravel()
     if not warbandLFDBuilt or not travelState.destinations then
         return
     end
 
     local destinations = travelState.destinations
+    local tab = travelState.tab or 0
+
+    -- The lines this tab shows: a heading per group, then that group's destinations.
+    local lines = {}
+
+    for _, group in ipairs(LIST_GROUPS) do
+        local members = {}
+
+        for _, destination in ipairs(destinations) do
+            -- Only what the curated list carries is drawn: an entry that is not on it is not part of
+            -- what this window offers, holiday bosses included.
+            if DungeonExpansion(destination) == tab and DungeonGroup(destination) == group.key then
+                table.insert(members, destination)
+            end
+        end
+
+        if #members > 0 then
+            table.insert(lines, { title = string.format("%s (%d)", group.title, #members) })
+
+            for _, destination in ipairs(members) do
+                table.insert(lines, { destination = destination })
+            end
+        end
+    end
+
+    ShowSelectedTab()
 
     if #destinations == 0 then
         SetTravelStatus("The server reported no destination it can reach.", 0.62, 0.62, 0.62)
     else
-        SetTravelStatus(string.format("%d destinations, nothing filtered.", #destinations), 0.1, 1, 0.1)
+        local counted = 0
+
+        for _, line in ipairs(lines) do
+            if line.destination then
+                counted = counted + 1
+            end
+        end
+
+        SetTravelStatus(string.format("%d in %s, %d destinations in all.", counted,
+            EXPANSION_TABS[(tab or 0) + 1].label, #destinations), 0.1, 1, 0.1)
     end
 
     local shown = 0
 
-    for index, destination in ipairs(destinations) do
+    for index, line in ipairs(lines) do
         local row = warbandLFDRows[index] or CreateTravelRow(index)
 
-        row.destinationId = destination.id
-        row.destinationName = destination.name
-        row.name:SetText(destination.name)
-        row.level:SetText(string.format("%d-%d", destination.minLevel, destination.maxLevel))
+        if line.title then
+            row.destinationId = nil
+            row.destinationName = nil
+            row.name:SetText(line.title)
+            row.name:SetTextColor(1, 0.82, 0)
+            row.level:Hide()
+            row.kind:Hide()
+            row.action:Hide()
+        else
+            local destination = line.destination
+            local minimum, maximum = DungeonLevelRange(destination)
 
-        -- The whole row takes the difficulty colour the game would give it: grey for trivial, green
-        -- for easy, yellow at your level, orange for three or four above, red for five or more.
-        local difficulty = DifficultyColor(RecommendedLevel(destination.id, destination.minLevel))
+            row.destinationId = destination.id
+            row.destinationName = destination.name
+            row.name:SetText(destination.name)
+            row.level:SetText(string.format("%d-%d", minimum, maximum))
+            row.level:Show()
 
-        if difficulty then
-            row.name:SetTextColor(difficulty.r, difficulty.g, difficulty.b)
-            row.level:SetTextColor(difficulty.r, difficulty.g, difficulty.b)
+            -- The whole row takes the difficulty colour the game would give it: grey for trivial,
+            -- green for easy, yellow at your level, orange for three or four above, red for five or
+            -- more. A row is reused for whatever this tab needs there, so the colour is set either
+            -- way - a heading's gold must not be left on a destination.
+            local difficulty = DifficultyColor(DungeonColourLevel(destination))
+
+            if difficulty then
+                row.name:SetTextColor(difficulty.r, difficulty.g, difficulty.b)
+                row.level:SetTextColor(difficulty.r, difficulty.g, difficulty.b)
+            else
+                row.name:SetTextColor(1, 1, 1)
+                row.level:SetTextColor(0.62, 0.62, 0.62)
+            end
+
+            -- The kind column: a raid by its size, so a 40-man, a 25-man and a 10-man never read the
+            -- same, and a dungeon or heroic as such.
+            local raidSize = DungeonRaidSize(destination)
+
+            if raidSize > 0 then
+                row.kind:SetText(string.format("Raid %d", raidSize))
+            else
+                row.kind:SetText(KindLabel(destination.kind, destination.difficulty))
+            end
+
+            row.kind:SetTextColor(1, 0.82, 0)
+            row.kind:Show()
+            row.action:Show()
         end
-
-        row.kind:SetText(KindLabel(destination.kind, destination.difficulty))
-        row.kind:SetTextColor(1, 0.82, 0)
 
         row:Show()
         shown = index
@@ -222,7 +437,7 @@ local function RenderTravel()
         warbandLFDRows[index]:Hide()
     end
 
-    local height = math.max(#destinations * ROW_HEIGHT, ROW_HEIGHT)
+    local height = math.max(#lines * ROW_HEIGHT, ROW_HEIGHT)
     warbandLFDScrollContent:SetHeight(height)
     warbandLFDScroll:UpdateScrollChildRect()
 
@@ -280,7 +495,12 @@ local function BuildTravelPanel()
     warbandLFDPage:SetAllPoints(parent)
     warbandLFDPage:SetFrameStrata(parent:GetFrameStrata())
     warbandLFDPage:SetFrameLevel(parent:GetFrameLevel() + PAGE_LEVEL_OFFSET)
-    warbandLFDPage:EnableMouse(true)
+    -- Deliberately mouse-transparent: the panel covers the whole frame, and with the mouse enabled it
+    -- would swallow the press that starts the window's own drag (BlizzMove puts its drag handler on
+    -- LFDParentFrame itself), which is what stopped the window being moved. Nothing is lost: the tabs,
+    -- rows, scroll bar and Refresh button are children and still get their own clicks - everything
+    -- else falls through to the window, which keeps working exactly as it did before this panel.
+    warbandLFDPage:EnableMouse(false)
 
     local black = warbandLFDPage:CreateTexture(nil, "BACKGROUND")
     black:SetAllPoints(warbandLFDPage)
@@ -327,9 +547,38 @@ local function BuildTravelPanel()
     warbandLFDStatus:SetJustifyH("LEFT")
     warbandLFDStatus:SetText("Reading the destination list from the server...")
 
+    -- One tab per expansion. Switching is a redraw of the same cached list: no command, no refresh.
+    local previousTab
+
+    for index, config in ipairs(EXPANSION_TABS) do
+        local tab = CreateFrame("Button", "WarbandLFDTab" .. index, warbandLFDPage, "UIPanelButtonTemplate")
+        tab:SetSize(104, 20)
+        tab:SetText(config.label)
+
+        if previousTab then
+            tab:SetPoint("LEFT", previousTab, "RIGHT", 4, 0)
+        else
+            tab:SetPoint("TOPLEFT", warbandLFDPage, "TOPLEFT", 14, -50)
+        end
+
+        tab.tabIndex = index - 1
+        tab:SetScript("OnClick", function(self)
+            travelState.tab = self.tabIndex
+            RenderTravel()
+
+            local bar = _G[warbandLFDScroll:GetName() .. "ScrollBar"]
+            if bar then
+                bar:SetValue(0)
+            end
+        end)
+
+        warbandLFDTabs[index] = tab
+        previousTab = tab
+    end
+
     warbandLFDScroll = CreateFrame("ScrollFrame", "WarbandLFDScroll", warbandLFDPage,
         "UIPanelScrollFrameTemplate")
-    warbandLFDScroll:SetPoint("TOPLEFT", warbandLFDPage, "TOPLEFT", 14, -48)
+    warbandLFDScroll:SetPoint("TOPLEFT", warbandLFDPage, "TOPLEFT", 14, -76)
     warbandLFDScroll:SetPoint("BOTTOMRIGHT", warbandLFDPage, "BOTTOMRIGHT", -28, 62)
 
     warbandLFDScrollContent = CreateFrame("Frame", "WarbandLFDScrollContent", warbandLFDScroll)

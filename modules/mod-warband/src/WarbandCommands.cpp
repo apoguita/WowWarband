@@ -20,6 +20,10 @@
  *   .warband goldfind                              read the coin multiplier
  *   .warband goldfind <multiplier>                 x1 to x20 on looted coin
  *   .warband goldfind reset                        back to x1
+ *   .warband regen                                 read the out-of-combat regeneration multipliers
+ *   .warband regen mana <multiplier>               x1 to x20 on mana regeneration out of combat
+ *   .warband regen health <multiplier>             x1 to x20 on health regeneration out of combat
+ *   .warband regen reset                           back to the shipped x4 and x2
  *   .warband price                                 read the supplier multipliers and the floor
  *   .warband price <tier> <multiplier>             x1 to x20 on one quality, by colour or quality
  *   .warband price floor <copper>                  the lowest price a supplier charges
@@ -46,6 +50,7 @@
  *   WARBAND_BINDING=enforced=0
  *   WARBAND_MAGICFIND=green=2.00;blue=4.00;purple=6.00;orange=6.00;gold=6.00
  *   WARBAND_GOLDFIND=3.00
+ *   WARBAND_REGEN=mana=4.00;health=2.00
  *   WARBAND_SUPPLIER=poor=2.00;normal=3.00;uncommon=4.00;rare=5.00;epic=6.00;legendary=7.00;
  *                    artifact=8.00;heirloom=9.00;floor=10;items=3412;current=1
  *   WARBAND_TRASHSELL=enabled=1;sold=12;copper=3456;swept=0
@@ -108,6 +113,11 @@ void ResetWarbandMagicFindMultipliers();
 float GetWarbandGoldFindMultiplier();
 bool SetWarbandGoldFindMultiplier(float multiplier);
 void ResetWarbandGoldFindMultiplier();
+float GetWarbandManaRegenMultiplier();
+float GetWarbandHealthRegenMultiplier();
+bool SetWarbandManaRegenMultiplier(float multiplier);
+bool SetWarbandHealthRegenMultiplier(float multiplier);
+void ResetWarbandRegenMultipliers();
 bool GetWarbandTrashSellEnabled();
 bool SetWarbandTrashSellEnabled(bool enabled);
 uint32 GetWarbandTrashSoldItems(Player* leader);
@@ -173,6 +183,9 @@ char const* const MagicFindUsage =
 
 char const* const GoldFindUsage =
     "Usage: .warband goldfind [<multiplier 1-20>] [reset]";
+
+char const* const RegenUsage =
+    "Usage: .warband regen [<mana|health> <multiplier 1-20>] [reset]";
 
 char const* const PriceUsage =
     "Usage: .warband price [<poor|normal|uncommon|rare|epic|legendary|artifact|heirloom> <multiplier 1-20>]"
@@ -319,6 +332,7 @@ public:
             {"mf",        HandleMagicFindCommand, SEC_PLAYER, Console::No},
             {"goldfind", HandleGoldFindCommand,   SEC_PLAYER, Console::No},
             {"gf",       HandleGoldFindCommand,   SEC_PLAYER, Console::No},
+            {"regen",    HandleRegenCommand,      SEC_PLAYER, Console::No},
             {"price",    HandlePriceCommand,      SEC_PLAYER, Console::No},
             {"prices",   HandlePriceCommand,      SEC_PLAYER, Console::No},
             {"trash",    HandleTrashCommand,      SEC_PLAYER, Console::No},
@@ -717,6 +731,78 @@ private:
 
         SendGoldFind(handler);
         return true;
+    }
+
+    // Out-of-combat regeneration: how much faster mana and health come back while nothing is fighting
+    // the party. Reached through the same hook the core calls for the out-of-combat part of both.
+    static bool HandleRegenCommand(ChatHandler* handler, char const* args)
+    {
+        while (*args == ' ')
+            ++args;
+
+        if (!*args)
+        {
+            SendRegen(handler);
+            return true;
+        }
+
+        if (strncmp(args, "reset", 5) == 0 && (args[5] == '\0' || args[5] == ' '))
+        {
+            ResetWarbandRegenMultipliers();
+            SendRegen(handler);
+            return true;
+        }
+
+        bool isMana;
+        if (strncmp(args, "mana", 4) == 0 && (args[4] == '\0' || args[4] == ' '))
+        {
+            isMana = true;
+            args += 4;
+        }
+        else if (strncmp(args, "health", 6) == 0 && (args[6] == '\0' || args[6] == ' '))
+        {
+            isMana = false;
+            args += 6;
+        }
+        else
+        {
+            handler->SendSysMessage(RegenUsage);
+            return false;
+        }
+
+        while (*args == ' ')
+            ++args;
+
+        char* end = nullptr;
+        float const multiplier = std::strtof(args, &end);
+
+        if (end == args || (*end != '\0' && *end != ' ') || !std::isfinite(multiplier))
+        {
+            handler->SendSysMessage(RegenUsage);
+            return false;
+        }
+
+        bool const applied = isMana ? SetWarbandManaRegenMultiplier(multiplier)
+            : SetWarbandHealthRegenMultiplier(multiplier);
+
+        if (!applied)
+        {
+            handler->SendSysMessage(RegenUsage);
+            return false;
+        }
+
+        SendRegen(handler);
+        return true;
+    }
+
+    static void SendRegen(ChatHandler* handler)
+    {
+        char mana[16] = { 0 };
+        char health[16] = { 0 };
+        std::snprintf(mana, sizeof(mana), "%.2f", GetWarbandManaRegenMultiplier());
+        std::snprintf(health, sizeof(health), "%.2f", GetWarbandHealthRegenMultiplier());
+
+        handler->SendSysMessage(std::string("WARBAND_REGEN=mana=") + mana + ";health=" + health);
     }
 
     static void SendGoldFind(ChatHandler* handler)

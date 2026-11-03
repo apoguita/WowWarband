@@ -174,6 +174,27 @@ Warband.MagicFind.Gold = 6.0
 Warband.GoldFind.Multiplier = 3.0
 
 ###################################################################################################
+#  Out-of-combat regeneration
+#
+#  How much faster mana and health come back while a character is out of combat. A Warband fights as
+#  one party and the wait between pulls is the same wait five times over, so both regeneration rates
+#  are multiplied.
+#
+#  Only the out-of-combat regeneration is touched: the in-combat figures, and the reduced mana a
+#  caster receives under the five second rule, are exactly as AzerothCore computes them, so nothing
+#  here shortens a fight. Creatures are never affected.
+#
+#  Values are 1.0 (no change) to 20.0. The panel's Regeneration page edits both live; the commands
+#  are .warband regen mana <multiplier> and .warband regen health <multiplier>, and
+#  .warband regen reset returns them to the shipped x4 and x2.
+#
+#  Both values are saved in the world database when changed in game, so a saved value wins over
+#  these defaults and survives a restart.
+#
+Warband.Regen.Mana = 4.0
+Warband.Regen.Health = 2.0
+
+###################################################################################################
 #  Supplier prices
 #
 #  The auctioneers are the supplier interface now: clicking one opens a category menu instead of the

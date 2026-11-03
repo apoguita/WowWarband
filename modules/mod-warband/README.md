@@ -3,7 +3,8 @@
 The in-house server module for WoW Warband. Everything Warband-specific that
 needs the server lives here: today the XP multiplier, follower catch-up
 experience, follower gathering, bound gear moving inside the Warband, magic find,
-gold find, the supplier prices, and the control surface for the open-world scaler.
+gold find, out-of-combat mana and health regeneration, the supplier prices, and the
+control surface for the open-world scaler.
 The client panel in `addons/Warband` drives the runtime settings through this
 module's `.warband` chat commands.
 
@@ -25,6 +26,11 @@ world database, `warband_setting(setting VARCHAR(48) PRIMARY KEY, value DOUBLE)`
 
     WarbandSettingGet("goldfind.multiplier", <config default>)
     WarbandSettingSet("goldfind.multiplier", value)      // called by every setter
+
+    WarbandSettingGet("regen.mana", <config default>)
+    WarbandSettingSet("regen.mana", value)
+    WarbandSettingGet("regen.health", <config default>)
+    WarbandSettingSet("regen.health", value)
 
 The rule is the same everywhere: **the configuration file supplies the default and a saved value
 wins over it.** A switch flipped in the panel, a multiplier typed into the command, a reset button -
@@ -55,6 +61,7 @@ default just because its script ran early.
 | Bound gear inside the Warband | Built; not yet verified in game | `Item.cpp` (core), `WarbandTrading.cpp` |
 | Magic find | Built; not yet verified in game | `WarbandMagicFind.cpp`, `WarbandCommands.cpp` |
 | Gold find | Built; not yet verified in game | `WarbandGoldFind.cpp`, `WarbandCommands.cpp` |
+| Out-of-combat regeneration | Built; not yet verified in game | `WarbandRegen.cpp`, `Player.cpp` (core hook) |
 | Supplier prices | Built; not yet verified in game | `WarbandSuppliers.cpp`, `WarbandCommands.cpp` |
 | Trash auto-sell | Built; not yet verified in game | `WarbandTrashSell.cpp`, `WarbandCommands.cpp` |
 | Instances stop restocking | Built; not yet verified in game | `WarbandInstances.cpp`, `WarbandCommands.cpp` |
@@ -325,6 +332,38 @@ thing, and unlike magic find there is no per-looter hook to hang a narrower rule
 merchant pays for an item sold to it, the trash auto-sell payout and a quest's own gold reward use
 the same rate, so every gold a sale or a quest produces follows this one number. Mail and the
 auction house are different paths with their own rates and stay untouched.
+
+## Out-of-combat regeneration
+
+A Warband fights as one party, so the wait between pulls is the same wait five times over. Two
+multipliers speed up what a character regains while nothing is fighting them: **mana x4** and
+**health x2** by default, both between x1 and x20, both live and both saved in the world database.
+
+    .warband regen                   read both multipliers
+    .warband regen mana <1-20>       how much faster mana comes back out of combat
+    .warband regen health <1-20>     how much faster health comes back out of combat
+    .warband regen reset             back to the shipped x4 and x2
+
+The reply is `WARBAND_REGEN=mana=4.00;health=2.00`. The panel's Regeneration page shows both rows
+with minus/plus buttons, a reset button and a worked example.
+
+Only the out-of-combat half is multiplied, and that is enforced by where the hook sits rather than by
+a check inside the module:
+
+- mana is computed in `Player::Regenerate(POWER_MANA)`, which uses `UNIT_FIELD_POWER_REGEN_FLAT_MODIFIER`
+  when the caster is not under the five second rule and the interrupted field when they are. The hook
+  is called for the amount computed while the player is out of combat, so the five second rule keeps
+  its own reduced figure and a fight regenerates exactly as it did before;
+- health is computed in `Player::RegenerateHealth()`, which builds the out-of-combat amount and then
+  adds the "always" bonuses (including `SPELL_AURA_MOD_HEALTH_REGEN_IN_COMBAT`). The hook sits between
+  the two, so only the out-of-combat part is scaled.
+
+The hook itself, `PLAYERHOOK_ON_MODIFY_OUT_OF_COMBAT_REGEN` / `OnPlayerModifyOutOfCombatRegen`, is the
+one place this feature touches the core: two call sites and the hook declaration. Everything on top -
+the defaults, the bounds, the storage, the command and the page - lives in `WarbandRegen.cpp`.
+
+Creatures are never affected: the hook is a `PlayerScript`. Party companions are, which is the point -
+they regenerate at the same rate as the character being played.
 
 Because the module owns the rate, its value wins over `Rate.Drop.Money` in `worldserver.conf`.
 

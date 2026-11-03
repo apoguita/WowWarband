@@ -33,6 +33,7 @@ local TEXT_GATHER_NO_REPLY = "Unavailable: this worldserver does not answer .war
 local TEXT_BINDING_NO_REPLY = "Unavailable: this worldserver does not answer .warband binding yet."
 local TEXT_MAGIC_FIND_NO_REPLY = "Unavailable: this worldserver does not answer .warband magicfind yet."
 local TEXT_GOLD_FIND_NO_REPLY = "Unavailable: this worldserver does not answer .warband goldfind yet."
+local TEXT_REGEN_NO_REPLY = "Unavailable: this worldserver does not answer .warband regen yet."
 local TEXT_TRASH_SELL_NO_REPLY = "Unavailable: this worldserver does not answer .warband trash yet."
 
 local COLOR_GREEN = { 0.1, 1, 0.1 }
@@ -63,6 +64,7 @@ local Tree = {
             { id = "binding", text = "Item binding", status = "live", page = "binding" },
             { id = "magicfind", text = "Magic find", status = "live", page = "magicfind" },
             { id = "goldfind", text = "Gold find", status = "live", page = "goldfind" },
+            { id = "regen", text = "Regeneration", status = "live", page = "regen" },
             { id = "supplierprices", text = "Supplier prices", status = "live", page = "supplierprices" },
             { id = "trashsell", text = "Trash sell", status = "live", page = "trashsell" },
             { id = "instances", text = "Instances", status = "live", page = "instances" },
@@ -161,6 +163,16 @@ local GOLD_MAX = 20
 local goldFind = { known = false, mult = 3 }
 local goldFindRequest = { pending = false, deadline = nil }
 
+-- Out-of-combat regeneration: two multipliers, mana and health, applied by the module whenever the
+-- core computes the out-of-combat half of either. Only the out-of-combat amount is multiplied, so a
+-- fight regenerates exactly as the shipped rules say.
+local REGEN_STEP = 0.5
+local REGEN_MIN = 1
+local REGEN_MAX = 20
+
+local regen = { known = false, mana = 4, health = 2 }
+local regenRequest = { pending = false, deadline = nil }
+
 -- Supplier prices: what the Warband supplier merchants charge and pay. One multiplier per item
 -- quality plus a copper floor. The values live on the server and survive a restart; "apply" writes
 -- them onto the item prices, which the worldserver only reads at startup, so the page says a
@@ -248,6 +260,10 @@ local SetConvenienceStatus
 local UpdateGoldFindDisplay
 local SetGoldFindStatus
 local goldFindValue
+local UpdateRegenDisplay
+local SetRegenStatus
+local regenManaValue
+local regenHealthValue
 local UpdateMagicFindDisplay
 local SetMagicFindStatus
 local magicFindRows = {}
@@ -328,6 +344,14 @@ local function RequestGoldFindState()
     end
 
     StartRequest(goldFindRequest, ".warband goldfind")
+end
+
+local function RequestRegenState()
+    if UpdateRegenDisplay then
+        UpdateRegenDisplay()
+    end
+
+    StartRequest(regenRequest, ".warband regen")
 end
 
 local function RequestTrashSellState()
@@ -454,6 +478,11 @@ function Warband_OnUpdate()
         SetGoldFindStatus(TEXT_GOLD_FIND_NO_REPLY, COLOR_GREY)
     end
 
+    if regenRequest.pending and GetTime() >= regenRequest.deadline then
+        ClearRequest(regenRequest)
+        SetRegenStatus(TEXT_REGEN_NO_REPLY, COLOR_GREY)
+    end
+
     if trashSellRequest.pending and GetTime() >= trashSellRequest.deadline then
         ClearRequest(trashSellRequest)
         SetTrashSellStatus(TEXT_TRASH_SELL_NO_REPLY, COLOR_GREY)
@@ -554,6 +583,28 @@ function Warband_OnEvent(self, event, ...)
 
         if UpdateGoldFindDisplay then
             UpdateGoldFindDisplay()
+        end
+
+        if RefreshDynamicPage then
+            RefreshDynamicPage()
+        end
+        return
+    end
+    if string.find(message or "", "WARBAND_REGEN=", 1, true) then
+        for key, value in string.gmatch(message, "([%a_]+)=([%d%.]+)") do
+            local number = tonumber(value)
+            if key == "mana" and number then
+                regen.mana = number
+            elseif key == "health" and number then
+                regen.health = number
+            end
+        end
+
+        ClearRequest(regenRequest)
+        regen.known = true
+
+        if UpdateRegenDisplay then
+            UpdateRegenDisplay()
         end
 
         if RefreshDynamicPage then
@@ -1461,6 +1512,110 @@ function Warband_AdjustGoldFind(delta)
     StartRequest(goldFindRequest, string.format(".warband goldfind %.2f", wanted))
 end
 
+-- Regeneration: two multiplier rows, mana and health, built once. The server multiplies the
+-- out-of-combat half of each, so a x1 row is the shipped behaviour and nothing here can shorten a
+-- fight.
+SetRegenStatus = function(text, color)
+    WarbandPageRegenStatus:SetText(text)
+    WarbandPageRegenStatus:SetTextColor(color[1], color[2], color[3])
+end
+
+local function BuildRegenRow(isMana, label, y)
+    local rowLabel = WarbandPageRegen:CreateFontString(nil, "ARTWORK", "GameFontNormal")
+    rowLabel:SetPoint("TOPLEFT", WarbandPageRegen, "TOPLEFT", 0, y)
+    rowLabel:SetWidth(120)
+    rowLabel:SetJustifyH("LEFT")
+    rowLabel:SetText(label)
+
+    local value = WarbandPageRegen:CreateFontString(nil, "ARTWORK", "GameFontHighlight")
+    value:SetPoint("TOPLEFT", WarbandPageRegen, "TOPLEFT", 130, y)
+    value:SetWidth(160)
+    value:SetJustifyH("LEFT")
+
+    local down = CreateFrame("Button", nil, WarbandPageRegen, "UIPanelButtonTemplate")
+    down:SetSize(28, 20)
+    down:SetPoint("TOPLEFT", WarbandPageRegen, "TOPLEFT", 300, y + 4)
+    down:SetText("-")
+    down:SetScript("OnClick", function() Warband_AdjustRegen(isMana, -REGEN_STEP) end)
+
+    local up = CreateFrame("Button", nil, WarbandPageRegen, "UIPanelButtonTemplate")
+    up:SetSize(28, 20)
+    up:SetPoint("TOPLEFT", WarbandPageRegen, "TOPLEFT", 334, y + 4)
+    up:SetText("+")
+    up:SetScript("OnClick", function() Warband_AdjustRegen(isMana, REGEN_STEP) end)
+
+    return value
+end
+
+local regenRowsBuilt
+
+local function BuildRegenRows()
+    if regenRowsBuilt then
+        return
+    end
+
+    regenRowsBuilt = true
+
+    regenManaValue = BuildRegenRow(true, "Mana", -104)
+    regenHealthValue = BuildRegenRow(false, "Health", -140)
+
+    local reset = CreateFrame("Button", nil, WarbandPageRegen, "UIPanelButtonTemplate")
+    reset:SetSize(170, 22)
+    reset:SetPoint("TOPLEFT", WarbandPageRegen, "TOPLEFT", 0, -176)
+    reset:SetText("Reset to x4 and x2")
+    reset:SetScript("OnClick", function()
+        SetRegenStatus("Restoring the shipped multipliers...", COLOR_AMBER)
+        StartRequest(regenRequest, ".warband regen reset")
+    end)
+end
+
+UpdateRegenDisplay = function()
+    BuildRegenRows()
+
+    local mana = regen.mana or 1
+    local health = regen.health or 1
+
+    if not regen.known then
+        SetRegenStatus("Reading the regeneration multipliers...", COLOR_AMBER)
+    elseif mana > 1 or health > 1 then
+        SetRegenStatus(string.format(
+            "Live - out of combat: mana x%.2f, health x%.2f", mana, health), COLOR_GREEN)
+    else
+        SetRegenStatus("Neutral - out-of-combat regeneration is exactly as shipped", COLOR_GREY)
+    end
+
+    regenManaValue:SetText(string.format("x%.2f", mana))
+    regenHealthValue:SetText(string.format("x%.2f", health))
+
+    if mana > 1 or health > 1 then
+        WarbandPageRegenExample:SetText(string.format(
+            "A character who regenerates 100 mana a tick now gets %d, and %d health for every 100",
+            math.floor(100 * mana), math.floor(100 * health)))
+    else
+        WarbandPageRegenExample:SetText("")
+    end
+end
+
+function Warband_AdjustRegen(isMana, delta)
+    local current = isMana and (regen.mana or 1) or (regen.health or 1)
+    local wanted = math.max(REGEN_MIN, math.min(REGEN_MAX, current + delta))
+
+    if wanted == current then
+        return
+    end
+
+    if isMana then
+        regen.mana = wanted
+    else
+        regen.health = wanted
+    end
+
+    UpdateRegenDisplay()
+    SetRegenStatus("Applying the multiplier...", COLOR_AMBER)
+    StartRequest(regenRequest, string.format(".warband regen %s %.2f",
+        isMana and "mana" or "health", wanted))
+end
+
 -- Supplier prices: eight multipliers and a floor, then one button that writes them onto the items.
 -- The row values are the server's, not the panel's: every change asks the server and shows what it
 -- accepted, so the page can never drift from what a shop will charge.
@@ -2146,6 +2301,11 @@ local function DynamicLines(kind)
             table.insert(lines, string.format("- Gold find: looted coin x%.1f", goldFind.mult or 1))
         end
 
+        if regen.known then
+            table.insert(lines, string.format("- Out of combat: mana x%.1f, health x%.1f",
+                regen.mana or 1, regen.health or 1))
+        end
+
         if magicFind.known then
             table.insert(lines, "- Magic find: green x" .. string.format("%.1f", magicFind.mult.green or 1)
                 .. ", blue x" .. string.format("%.1f", magicFind.mult.blue or 1)
@@ -2240,6 +2400,7 @@ local function ShowNode(node)
     WarbandPageBinding:Hide()
     WarbandPageMagicFind:Hide()
     WarbandPageGoldFind:Hide()
+    WarbandPageRegen:Hide()
     WarbandPageSupplierPrices:Hide()
     WarbandPageTrashSell:Hide()
     WarbandPageInstance:Hide()
@@ -2277,6 +2438,15 @@ local function ShowNode(node)
         end
 
         WarbandPageGoldFind:Show()
+        return
+    end
+
+    if node.page == "regen" then
+        if UpdateRegenDisplay then
+            UpdateRegenDisplay()
+        end
+
+        WarbandPageRegen:Show()
         return
     end
 
@@ -2381,6 +2551,7 @@ function Warband_OnShow()
     RequestBindingState()
     RequestMagicFindState()
     RequestGoldFindState()
+    RequestRegenState()
     RequestSupplierState()
     RequestTrashSellState()
     RequestInstanceState()
