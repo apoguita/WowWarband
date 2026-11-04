@@ -29,7 +29,7 @@ A shortlist link in the Origin column is a citation of where the behaviour was s
 | `mod-playerbots` fork | Supplies controllable followers; the pinned fork the build targets |
 | `mod-ale` | Lua scripting path used by local scripts |
 | `mod-multibot-bridge` | Server side of the MultiBot controls |
-| `mod-progression` | Installed and configured at **phase 6** — the last vanilla phase: level 60 cap, TBC and WotLK closed. Supplies phase gating and its own rules; the phase is raised by hand in `data/configs/modules/mod_progression.conf`, nothing in the game advances it |
+| `mod-progression` | Installed and configured at **phase 6** — the last vanilla phase: level 60 cap, TBC and WotLK closed. Supplies phase gating and its own rules; the phase is chosen in game (Warband panel → Progression phase, or `.warband phase set <0-18>`), saved by `mod-warband` and written into the module's file, and applies on the next world start |
 | `mod-zone-scaling` | Open-world per-player level scaling (pinned dependency, pre-release upstream); installed disabled and controlled only through the Warband panel's World scaling switch |
 | `mod-aoe-loot` | Area looting: one loot window merges the nearby corpses (pinned dependency); installed disabled and controlled only through the Warband panel's AoE loot switch |
 | MultiBot and Playerbot Manager addons | Existing client-side companion controls |

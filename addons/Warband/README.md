@@ -22,6 +22,7 @@ The tree as it stands:
       World scaling       live - the open-world scaler switch, active upward only
       AoE loot            live - the area looting switch, off by default
       World bots          live - the random bot population, its switch and target
+      Progression phase   live - the server phase from 0 to 18, applied on the next start
       Convenience         live - hearthstone without a cooldown, pets always happy
     Features              what this Warband adds, listed live
     About                 author and project description
@@ -32,6 +33,13 @@ inside the tab it belongs to rather than getting a tab of its own.
 
 Every value the panel changes is saved on the server, in the world database, so a restart keeps it.
 The panel always shows what the server accepted, never what it hoped to set.
+
+**The panel asks one page at a time.** Opening it asks every page for its state, and the server
+mutes a player who sends more than `ChatFlood.MessageCount` (10) chat messages inside
+`ChatFlood.MessageDelay` (1 second). Fifteen requests in the same instant meant the last pages —
+World bots, Progression phase and Convenience — were dropped, so those pages sat on "Waiting for the
+server". The commands now leave one at a time, about six a second, and the limit is 30 for headroom
+when clicking quickly.
 
 The **Features** page lists every feature the module adds, not only the switches that happen to be
 on: experience and catch-up, gathering, gear sharing, magic find, gold find, trash sell, auction
@@ -230,6 +238,30 @@ population off (the ones online are logged out at once) or back on; the target s
 10) pins how many stay online. The Warband's own companions are never random bots, so the switch
 cannot touch the party. Both choices are written into the playerbots configuration, so they survive a
 restart; the default until you touch it is the playerbots configuration, unchanged.
+
+## Progression phase
+
+Server > Progression phase is the server's phase: which expansion's content is open, from 0 to 18
+(vanilla 0–6, TBC 7–12, WotLK 13–18). The status line reports three numbers — what the running world
+is on, what the database reflects, and what the next start will use — plus the level cap it implies.
+It says `No reply from the server yet` rather than guessing when the server has not answered. The
+line at the bottom shows the last command sent and the last reply received, so a click that behaves
+oddly can be read off the page.
+Below it, one clickable row per phase shows what that phase unlocks; the running phase is gold and a
+chosen-but-not-yet-applied phase is pale yellow. Clicking a row sends `.warband phase set <0-18>`.
+
+The list itself is built from a table in `Warband.lua` (`PHASE_TABLE`), mirroring the module's own
+phase list, so the page is never empty while it waits for the server. The server answers with a
+single line — `WARBAND_PHASE=effective=6;db=6;requested=6;pending=0;reset=0;cap=60;expansion=0` —
+which drives the status line; if that line never arrives the status says so instead of showing
+plausible-looking defaults.
+
+A phase cannot change under a running world: the module reads the phase once at startup, and the
+level cap and expansion are built into tables that load with the server. So a click *saves the
+choice* — the server writes it, and the `Progression.Reset` the change needs, into its own
+progression file — and the page says plainly that the world applies it on its next start. Restart
+the world server and the panel reports the new phase. Moving to a lower phase re-applies the phase
+content locks on that start; the server clears the reset flag itself afterwards.
 
 ## Trade gold panel (`TradePanel.lua`)
 

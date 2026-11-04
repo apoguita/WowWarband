@@ -42,6 +42,8 @@
  *                                                  party roster: name, class, level, online, grouped
  *   .warband travel                                every destination the server knows, unfiltered
  *   .warband travel <dungeon id>                   travel the party to that destination
+ *   .warband phase                                 read the server phase: running, database, requested
+ *   .warband phase set <0-18>                      choose the phase the next world start uses
  *
  * Every reply is a single machine-readable line, which is how the Warband addon reads state:
  *   WARBAND_XP=3
@@ -61,6 +63,7 @@
  *   WARBAND_TRAVELGO=ok=1;id=574;name=Utgarde Keep
  *   WARBAND_HEARTHSTONE=enabled=1;cleared=3
  *   WARBAND_PETS=enabled=1
+ *   WARBAND_PHASE=effective=6;db=6;requested=6;pending=0;reset=0;cap=60;expansion=0
  */
 
 #include "Bag.h"
@@ -81,6 +84,7 @@
 #include "WarbandPersistence.h"
 #include "WarbandTrade.h"
 
+#include <algorithm>
 #include <cmath>
 #include <cstdlib>
 #include <cstring>
@@ -163,6 +167,8 @@ void ResetWarbandSupplierSettings();
 uint32 WarbandSupplierCatalogueSize();
 bool WarbandSupplierPricesAreCurrent();
 uint32 ApplyWarbandSupplierPrices(std::string& note);
+bool WarbandPhaseSet(uint8 target, std::string const& actor, std::string& error);
+void WarbandPhaseSendStatus(ChatHandler* handler);
 
 using namespace Acore::ChatCommands;
 
@@ -177,6 +183,9 @@ char const* const GatherUsage =
 char const* const BindingUsage =
     "Usage: .warband binding [on|off] - on is the ordinary rule, off lets bound gear move;"
     " .warband binding items lists each carried item's flags";
+
+char const* const PhaseUsage =
+    "Usage: .warband phase [set <0-18>] - a change applies to the next world-server start";
 
 char const* const MagicFindUsage =
     "Usage: .warband magicfind [<green|blue|purple|orange|gold> <multiplier 1-20>] [reset]";
@@ -345,6 +354,7 @@ public:
             {"pets",     HandlePetsCommand,       SEC_PLAYER, Console::No},
             {"party",    HandlePartyCommand,      SEC_PLAYER, Console::No},
             {"travel",   HandleTravelCommand,     SEC_PLAYER, Console::No},
+            {"phase",    HandlePhaseCommand,      SEC_PLAYER, Console::No},
         };
 
         static ChatCommandTable commandTable =
@@ -1593,6 +1603,53 @@ private:
         line += tail;
 
         handler->SendSysMessage(line);
+    }
+
+    // Phase management. The phase is server-wide and needs a restart, so setting it writes the
+    // next start's choice and nothing else: no approval, no timing, no hidden state. Whoever is on
+    // the server can move it.
+    static bool HandlePhaseCommand(ChatHandler* handler, char const* args)
+    {
+        while (*args == ' ')
+            ++args;
+
+        Player* player = handler->GetSession() ? handler->GetSession()->GetPlayer() : nullptr;
+        std::string const actor = player ? player->GetName() : std::string("server console");
+
+        // Logged because a phase change lands on the next restart: when a click appears not to have
+        // worked, this line is what says whether the server ever saw it.
+        LOG_INFO("module", "Warband phase: command '{}' from {}", args, actor);
+
+        if (strncmp(args, "set ", 4) == 0)
+        {
+            uint32 target = 0;
+            if (!ParseCount(args + 4, target) || target > 18)
+            {
+                handler->SendSysMessage(PhaseUsage);
+                return false;
+            }
+
+            std::string error;
+            if (!WarbandPhaseSet(uint8(target), actor, error))
+            {
+                handler->SendSysMessage(error);
+                return false;
+            }
+
+            WarbandPhaseSendStatus(handler);
+            handler->SendSysMessage(
+                "Restart the world server (Stop-WowWarband.bat, then Start-WowWarband.bat) to apply it.");
+            return true;
+        }
+
+        if (*args)
+        {
+            handler->SendSysMessage(PhaseUsage);
+            return false;
+        }
+
+        WarbandPhaseSendStatus(handler);
+        return true;
     }
 };
 

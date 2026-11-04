@@ -71,6 +71,7 @@ value is saved, so it survives the next restart.
 | Pets always happy | every hunter pet stays at full happiness, follower pets included | `.warband pets [on\|off]` |
 | Party roster | every character on the account listed with level, class and online state, each with an Invite or Dismiss button | **Friends frame â†’ Party tab** (`O`) |
 | Companion windows | a member strip above the bag frame and the character sheet opens a companion's inventory or character sheet in MultiBot (shift-click for the other) | click a name on the strip |
+| Progression phase | which expansion's content is open, as a phase from 0 to 18 (vanilla phases 0-6, TBC 7-12, WotLK 13-18). Clicking a phase saves it and writes it into the server's own progression file; the world applies it on its next start, and moving down re-applies the phase content locks on that start | Panel → Progression phase, or `.warband phase [set <0-18>]` |
 
 The bag frame, the character sheet and the Friends frame are draggable and remember where they were
 put.

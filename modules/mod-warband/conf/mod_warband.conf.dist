@@ -364,5 +364,28 @@ Warband.Quests.ScaleStep = 5
 #  touch the party.
 
 ###################################################################################################
+#  Progression phase
+#
+#  mod-progression reads its phase once, at startup, and the core offers no way to change a config
+#  value while the server runs. This module therefore owns the decision and the paperwork: a game
+#  master picks a phase with `.warband phase set <0-18>`, the module saves it and writes it - with
+#  the Progression.Reset the change needs - into mod-progression's own file, and the next start
+#  applies it. `.warband phase restart` restarts the world server to do that.
+#
+#     Warband.Progression.Phase        the phase a server that has never been told otherwise runs
+#     Warband.Progression.ConfigFile   the file the choice is written into, relative to the
+#                                      worldserver's working directory
+#
+#  The saved choice in `warband_setting` wins over this default, so a phase set in game survives
+#  restarts and config applies. Default: 6 - the last vanilla phase, TBC and WotLK closed.
+#
+#     Warband.Progression.Phase = 6
+#     Warband.Progression.ConfigFile = "configs/modules/mod_progression.conf"
+#
+
+Warband.Progression.Phase = 6
+Warband.Progression.ConfigFile = "configs/modules/mod_progression.conf"
+
+###################################################################################################
 
 

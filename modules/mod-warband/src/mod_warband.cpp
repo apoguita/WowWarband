@@ -14,6 +14,7 @@ void AddSC_warband_instances();
 void AddSC_warband_dungeonfinder();
 void AddSC_warband_convenience();
 void AddSC_warband_commands();
+void AddSC_warband_phase();
 
 void Addmod_warbandScripts()
 {
@@ -29,4 +30,5 @@ void Addmod_warbandScripts()
     AddSC_warband_dungeonfinder();
     AddSC_warband_convenience();
     AddSC_warband_commands();
+    AddSC_warband_phase();
 }

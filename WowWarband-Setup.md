@@ -30,26 +30,21 @@ and pet damage x0.6, healing x0.5, no battleground XP, no quest markers or spark
 BoP trading off, mail expires in three days. Naxxramas stays locked even at this phase because the
 module has not implemented it.
 
-**The phase does not advance itself.** Nothing in the game raises it; it is a deliberate edit. The
-phase SQL is already recorded in the database, so a lower phase alone changes nothing — the re-apply
-happens only when `Progression.Reset` is `1` for the start that follows:
+**The phase is chosen in game, from the Warband panel** (Progression phase page) or with
+`.warband phase set <0-18>`. Anyone on the server may set it. `mod-warband` saves the choice in
+`warband_setting` and writes it — with the `Progression.Reset` the change needs — into
+`configs/modules/mod_progression.conf`; the world applies it on its next start:
 
-1. `Warband-Server.ps1 stop world`
-2. in `data\configs\modules\mod_progression.conf`, set `Progression.Phase` to the new phase and
-   `Progression.Reset = 1`
-3. `Warband-Server.ps1 start world` — the start applies the tracked configuration itself
-4. once it is up, set `Progression.Reset` back to `0` in the tracked file so the phase SQL does not
-   run again on every start
+1. pick the phase (panel or command) — the panel shows what is running, what the database reflects
+   and what the next start will use
+2. `Stop-WowWarband.bat`, then `Start-WowWarband.bat`
 
-The gate belongs to the installation, not to a config somebody edited on one machine:
-`data\configs\modules\mod_progression.conf` is the tracked source of truth, and
-`Warband-Configs.ps1 -Action apply` writes it into the installed `configs\modules\mod_progression.conf`.
-That apply runs automatically — `Build-WowWarband.bat` after every successful install,
-`Warband-Server.ps1` before it starts the world server, and `Package-WowWarband.ps1` when it stages a
-release — and it creates a missing `.conf` from the shipped `.dist` first, so a fresh clone that is
-built and started is already at phase 6 without a manual step. Editing the installed `.conf` by hand
-lasts only until the next apply; `Warband-Configs.ps1 -Action export` is how a new decision gets
-recorded in the tracked file.
+Moving to a *lower* phase also re-applies the phase SQL, which restores the content locks the higher
+phases had removed; the module clears `Progression.Reset` by itself after that start, so nothing has
+to be reset by hand. A server that has never been told otherwise starts at
+`Warband.Progression.Phase` (default 6); the tracked `Progression.Phase` in
+`data\configs\modules\mod_progression.conf` is only a **seed** for a fresh install, so applying the
+tracked configuration never undoes a phase chosen in game.
 
 `Progression.DungeonFinder.Enforced` is `0` on purpose: the module would otherwise switch the
 Dungeon Finder off below phase 17, and Warband's travel menu joins through it. Which dungeons may be

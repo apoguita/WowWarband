@@ -19,6 +19,14 @@ local XP_MIN = 1
 local XP_MAX = 10
 local XP_DEFAULT = 2
 local REPLY_TIMEOUT = 5
+
+-- The panel's own commands are sent one at a time: the server mutes a player who sends more than
+-- ChatFlood.MessageCount (10) chat messages within ChatFlood.MessageDelay (1 second), and opening
+-- the panel used to ask fifteen pages for their state in the same instant. Six a second stays
+-- clear of the limit and drains a full panel in about two and a half seconds.
+local REQUEST_SPACING = 0.16
+local requestQueue = {}
+local lastRequestSentAt = 0
 local MINIMAP_RADIUS = 80
 
 local ROW_HEIGHT = 24
@@ -71,6 +79,7 @@ local Tree = {
             { id = "worldscale", text = "World scaling", status = "live", page = "worldscale" },
             { id = "aoeloot", text = "AoE loot", status = "live", page = "aoeloot" },
             { id = "randombots", text = "World bots", status = "live", page = "randombots" },
+            { id = "phase", text = "Progression phase", status = "live", page = "phase" },
             { id = "convenience", text = "Convenience", status = "live", page = "convenience" },
         },
     },
@@ -268,6 +277,50 @@ local UpdateMagicFindDisplay
 local SetMagicFindStatus
 local magicFindRows = {}
 
+-- Progression phase, as mod-progression defines it. The server sends each phase's name and what it
+-- unlocks too (WARBAND_PHASE_ROW); those replace these lines when they arrive. The copy here is what
+-- makes the list show up at all, instead of an empty page when a reply is late or lost.
+local PHASE_TABLE = {
+    [0] = "Leveling & dungeons",
+    [1] = "Maraudon, Molten Core, Onyxia's Lair",
+    [2] = "Dire Maul, Azuregos, Lord Kazzak, Alterac Valley, Warsong Gulch",
+    [3] = "Blackwing Lair, Darkmoon Faire, Arathi Basin",
+    [4] = "Zul'Gurub, Dragons of Nightmare",
+    [5] = "Ahn'Qiraj, Stranglethorn Fishing Extravaganza",
+    [6] = "Naxxramas, Scourge Invasion",
+    [7] = "Blood Elf, Draenei, Outland leveling & dungeons, Jewelcrafting, Eye of the Storm",
+    [8] = "Karazhan, Gruul's Lair, Magtheridon's Lair, Arena Season 1",
+    [9] = "Serpentshrine Cavern, The Eye, Ogri'la, Sha'tari Skyguard, Arena Season 2",
+    [10] = "Battle for Mount Hyjal, Black Temple, Arena Season 3",
+    [11] = "Zul'Aman",
+    [12] = "Isle of Quel'Danas, Magister's Terrace, Sunwell Plateau, Arena Season 4",
+    [13] = "Death Knight, WotLK leveling & dungeons, Strand of the Ancients",
+    [14] = "Naxxramas, Eye of Eternity, Obsidian Sanctum, Vault of Archavon, Arena Season 5",
+    [15] = "Ulduar, Isle of Conquest, Arena Season 6",
+    [16] = "Trial of the Crusader, Trial of the Champion, Argent Tournament, Onyxia, Season 7",
+    [17] = "Forge of Souls, Pit of Saron, Halls of Reflection, Icecrown Citadel, Season 8",
+    [18] = "Ruby Sanctum",
+}
+
+-- Progression phase as the server reports it. Nothing here is assumed: until the server answers,
+-- the page says it does not know, rather than showing a plausible default.
+local phase = {
+    known = false,
+    effective = nil,
+    database = nil,
+    requested = nil,
+    pending = false,
+    reset = false,
+    cap = nil,
+    expansion = 0,
+    rows = {},
+    lastSent = nil,
+    lastReply = nil,
+}
+
+local phaseRequest = { pending = false, deadline = nil }
+local UpdatePhaseDisplay
+
 local rowPool = {}
 local textLinePool = {}
 local minimapButton
@@ -286,9 +339,28 @@ local function UpdateRateDisplay(value)
 end
 
 local function StartRequest(request, text)
-    request.pending = true
-    request.deadline = GetTime() + REPLY_TIMEOUT
-    SendChatMessage(text, "SAY")
+    -- Queued, not sent: opening the panel asks fifteen pages for their state at once, and the
+    -- server mutes a player who sends more than ChatFlood.MessageCount (10) messages in
+    -- ChatFlood.MessageDelay (1s). Everything after the tenth message was simply dropped, which is
+    -- why the last pages of the panel never showed live values. One command leaves at a time now.
+    table.insert(requestQueue, { request = request, text = text })
+end
+
+local function PumpRequestQueue()
+    if #requestQueue == 0 then
+        return
+    end
+
+    if GetTime() - lastRequestSentAt < REQUEST_SPACING then
+        return
+    end
+
+    local item = table.remove(requestQueue, 1)
+    lastRequestSentAt = GetTime()
+
+    item.request.pending = true
+    item.request.deadline = GetTime() + REPLY_TIMEOUT
+    SendChatMessage(item.text, "SAY")
 end
 
 local function ClearRequest(request)
@@ -403,6 +475,15 @@ local function RequestConvenienceState()
     StartRequest(petsRequest, ".warband pets")
 end
 
+local function RequestPhaseState()
+    if UpdatePhaseDisplay then
+        UpdatePhaseDisplay()
+    end
+
+    phase.lastSent = ".warband phase"
+    StartRequest(phaseRequest, phase.lastSent)
+end
+
 -- Sends the value the panel shows. Repeating the last accepted value is skipped so a click that
 -- changes nothing does not produce needless chat traffic.
 local function CommitRate()
@@ -447,6 +528,8 @@ function Warband_OnSliderMouseUp()
 end
 
 function Warband_OnUpdate()
+    PumpRequestQueue()
+
     if xpRequest.pending and GetTime() >= xpRequest.deadline then
         ClearRequest(xpRequest)
         lastSentRate = nil
@@ -523,6 +606,11 @@ function Warband_OnUpdate()
         SetConvenienceStatus("Unavailable: this worldserver does not answer .warband pets.",
             COLOR_GREY)
     end
+
+    if phaseRequest.pending and GetTime() >= phaseRequest.deadline then
+        ClearRequest(phaseRequest)
+        WarbandPagePhaseStatus:SetText("Unavailable: this worldserver does not answer .warband phase yet.")
+    end
 end
 
 function Warband_OnEvent(self, event, ...)
@@ -538,6 +626,67 @@ function Warband_OnEvent(self, event, ...)
     end
 
     local message = ...
+
+    -- One line per phase: id|name|what it unlocks|cur=1 req=0 db=1
+    if string.find(message or "", "WARBAND_PHASE_ROW=", 1, true) then
+        local body = message:match("WARBAND_PHASE_ROW=(.*)$")
+        local id, name, unlocks, flags = (body or ""):match("^(%d+)|([^|]*)|([^|]*)|(.*)$")
+        local number = tonumber(id or "")
+
+        if number then
+            local rowFlags = flags or ""
+            phase.rows[number] =
+            {
+                name = name,
+                unlocks = unlocks,
+                cur = rowFlags:find("cur=1", 1, true) ~= nil,
+                req = rowFlags:find("req=1", 1, true) ~= nil,
+                db = rowFlags:find("db=1", 1, true) ~= nil,
+            }
+
+            -- The rows arrive after the state line, so the redraw the state line already did is
+            -- stale by now: draw again, or the list stays empty until the page is reopened.
+            if UpdatePhaseDisplay then
+                UpdatePhaseDisplay()
+            end
+        end
+
+        return
+    end
+
+    if string.find(message or "", "WARBAND_PHASE=", 1, true) then
+        for key, value in string.gmatch(message, "([%a_]+)=([%d%.]+)") do
+            local number = tonumber(value)
+            if key == "effective" then
+                phase.effective = number or phase.effective
+            elseif key == "db" then
+                phase.database = number or phase.database
+            elseif key == "requested" then
+                phase.requested = number or phase.requested
+            elseif key == "pending" then
+                phase.pending = number == 1
+            elseif key == "reset" then
+                phase.reset = number == 1
+            elseif key == "cap" then
+                phase.cap = number or phase.cap
+            elseif key == "expansion" then
+                phase.expansion = number or phase.expansion
+            end
+        end
+
+        ClearRequest(phaseRequest)
+        phase.known = true
+        phase.lastReply = message
+
+        if UpdatePhaseDisplay then
+            UpdatePhaseDisplay()
+        end
+
+        if RefreshDynamicPage then
+            RefreshDynamicPage()
+        end
+        return
+    end
 
     if string.find(message or "", "WARBAND_GATHER=", 1, true) then
         for key, value in string.gmatch(message, "([%a_]+)=([%d%.]+)") do
@@ -2241,6 +2390,112 @@ UpdateConvenienceDisplay = function()
     end
 end
 
+-- ---------------------------------------------------------------------------
+-- Progression phase: one clickable row per phase
+-- ---------------------------------------------------------------------------
+
+local phaseRowFrames = {}
+
+local function PhaseStatusText()
+    if not phase.known then
+        return "No reply from the server yet - open the page again, or check the chat for an error."
+    end
+
+    local text = string.format("World: phase %d - database: phase %d", phase.effective, phase.database)
+
+    if phase.requested ~= phase.effective then
+        text = text .. string.format(" - next start: phase %d (restart needed)", phase.requested)
+    else
+        text = text .. " - in step"
+    end
+
+    return text .. string.format(" - level cap %d", phase.cap)
+end
+
+local function Shorten(text, limit)
+    text = text or ""
+
+    if string.len(text) <= limit then
+        return text
+    end
+
+    return string.sub(text, 1, limit - 3) .. "..."
+end
+
+local function BuildPhaseRows()
+    if phaseRowFrames[0] then
+        return
+    end
+
+    for index = 0, 18 do
+        local row = CreateFrame("Button", "WarbandPhaseRow" .. index, WarbandPagePhase)
+        row:SetSize(700, 19)
+        row:SetPoint("TOPLEFT", WarbandPagePhase, "TOPLEFT", 0, -84 - (index * 19))
+        row.phase = index
+
+        local label = row:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
+        label:SetPoint("LEFT", row, "LEFT", 0, 0)
+        label:SetJustifyH("LEFT")
+        label:SetWidth(690)
+        row.label = label
+
+        row:SetScript("OnClick", function(self)
+            phase.lastSent = ".warband phase set " .. self.phase
+            StartRequest(phaseRequest, phase.lastSent)
+
+            if UpdatePhaseDisplay then
+                UpdatePhaseDisplay()
+            end
+        end)
+
+        phaseRowFrames[index] = row
+    end
+end
+
+UpdatePhaseDisplay = function()
+    if not WarbandPagePhase then
+        return
+    end
+
+    BuildPhaseRows()
+
+    WarbandPagePhaseStatus:SetText(PhaseStatusText())
+
+    -- What the page sent and what came back, so a click that does not do what it looks like can be
+    -- read off the page instead of guessed at from the outside.
+    local detail = "Sent: " .. (phase.lastSent or "nothing yet")
+    if phase.lastReply then
+        detail = detail .. "  |  Server: " .. Shorten(phase.lastReply, 120)
+    end
+    WarbandPagePhaseDetail:SetText(Shorten(detail, 160))
+
+    for index = 0, 18 do
+        local row = phaseRowFrames[index]
+        local entry = phase.rows[index]
+        local unlocks = PHASE_TABLE[index]
+
+        if entry and entry.unlocks then
+            unlocks = entry.unlocks
+        end
+
+        if row and unlocks then
+            row.label:SetText("Phase " .. index .. " - " .. Shorten(unlocks, 96))
+
+            if index == phase.effective then
+                row.label:SetTextColor(1, 0.82, 0)
+            elseif index == phase.requested then
+                row.label:SetTextColor(1, 1, 0.6)
+            else
+                row.label:SetTextColor(0.72, 0.72, 0.72)
+            end
+
+            row:Show()
+        elseif row then
+            row:Hide()
+        end
+    end
+end
+
 function Warband_ToggleHearthstone()
     if convenience.hearthstoneKnown and convenience.hearthstone then
         SetConvenienceStatus("Switching the hearthstone cooldown back on...", COLOR_AMBER)
@@ -2407,6 +2662,7 @@ local function ShowNode(node)
     WarbandPageWorldScale:Hide()
     WarbandPageAoeLoot:Hide()
     WarbandPageRandomBots:Hide()
+    WarbandPagePhase:Hide()
     WarbandPageConvenience:Hide()
 
     if node.page == "experience" then
@@ -2512,6 +2768,22 @@ local function ShowNode(node)
         return
     end
 
+    if node.page == "phase" then
+        -- Asked for here, not in Warband_OnShow: the phase must show the moment the page opens, and
+        -- the window opening already sends fourteen other requests. One command asked for at the
+        -- moment it is needed is the one that always arrives.
+        if WarbandConfigFrame:IsShown() then
+            RequestPhaseState()
+        end
+
+        if UpdatePhaseDisplay then
+            UpdatePhaseDisplay()
+        end
+
+        WarbandPagePhase:Show()
+        return
+    end
+
     if node.page == "convenience" then
         if UpdateConvenienceDisplay then
             UpdateConvenienceDisplay()
@@ -2562,6 +2834,11 @@ function Warband_OnShow()
 end
 
 function Warband_OnHide()
+    -- Nothing queued should go out after the window is closed.
+    for index = #requestQueue, 1, -1 do
+        requestQueue[index] = nil
+    end
+
     ClearRequest(xpRequest)
     ClearRequest(catchUpRequest)
     ClearRequest(gatherRequest)
@@ -2576,6 +2853,7 @@ function Warband_OnHide()
     ClearRequest(randomBotsRequest)
     ClearRequest(hearthstoneRequest)
     ClearRequest(petsRequest)
+    ClearRequest(phaseRequest)
 end
 
 function Warband_OnCloseClick()

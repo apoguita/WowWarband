@@ -96,6 +96,39 @@ function Get-OverrideFiles {
     return @(Get-ChildItem -Recurse -LiteralPath $OverridesRoot -Filter '*.conf' -File)
 }
 
+# Keys listed in a `# seed: Key1, Key2` line are only seeds: apply writes them into a file the
+# server has not touched yet, and leaves alone a file whose value already differs from the shipped
+# template. That is how a setting the server itself maintains (the progression phase, which a game
+# master changes in game) can still ship a sensible starting value without the next apply undoing
+# the change.
+function Read-SeedKeys([string]$path) {
+    $keys = @()
+    if (-not (Test-Path -LiteralPath $path)) { return $keys }
+
+    foreach ($line in Get-Content -LiteralPath $path) {
+        if ($line.Trim() -match '^#\s*seed:\s*(.+)$') {
+            foreach ($name in ($matches[1] -split ',')) {
+                $clean = $name.Trim()
+                if ($clean) { $keys += $clean }
+            }
+        }
+    }
+
+    return $keys
+}
+
+# The shipped value of a key, from the template the installed file was copied from. Absent when the
+# template or the key cannot be found.
+function Get-ShippedValue([string]$relativePath, [string]$key) {
+    $template = Get-TemplatePath $relativePath
+    if (-not $template) { return $null }
+
+    $shipped = Read-Settings $template
+    if ($shipped.Contains($key)) { return $shipped[$key] }
+
+    return $null
+}
+
 function Test-Check {
     $files = Get-OverrideFiles
     if ($files.Count -eq 0) {
@@ -110,11 +143,26 @@ function Test-Check {
         $installed = Join-Path $ConfigRoot $relative
         $wanted = Read-Settings $file.FullName
         $actual = Read-Settings $installed
+        $seedKeys = Read-SeedKeys $file.FullName
 
         $report = @()
+        $notes = @()
         foreach ($key in $wanted.Keys) {
             if (-not $actual.Contains($key)) { $report += "    $key : missing (tracked value '$($wanted[$key])')" }
-            elseif ($actual[$key] -ne $wanted[$key]) { $report += "    $key : installed '$($actual[$key])' but tracked '$($wanted[$key])'" }
+            elseif ($actual[$key] -ne $wanted[$key]) {
+                $shipped = Get-ShippedValue $relative $key
+                if (($seedKeys -contains $key) -and $null -ne $shipped -and $actual[$key] -ne $shipped) {
+                    $notes += "    $key : $($actual[$key]) (changed in the install; seed only, tracked '$($wanted[$key])')"
+                }
+                else {
+                    $report += "    $key : installed '$($actual[$key])' but tracked '$($wanted[$key])'"
+                }
+            }
+        }
+
+        if ($notes.Count -gt 0) {
+            Write-Host "seeded, then changed by the server: $relative"
+            $notes | ForEach-Object { Write-Host $_ }
         }
 
         if ($report.Count -gt 0) {
@@ -166,6 +214,7 @@ function Invoke-Apply {
         $lines = @(Get-Content -LiteralPath $installed)
         $touched = $false
         $appended = @()
+        $seedKeys = Read-SeedKeys $file.FullName
 
         for ($index = 0; $index -lt $lines.Count; $index++) {
             $trimmed = $lines[$index].Trim()
@@ -175,9 +224,22 @@ function Invoke-Apply {
             $key = $matches[1]
             if (-not $wanted.Contains($key)) { continue }
 
+            $installedValue = $matches[2].Trim()
+
+            # A seed key is written only while the installed file still carries the shipped value.
+            # Once the server or a game master has changed it, the change is the newer decision.
+            if ($seedKeys -contains $key) {
+                $shipped = Get-ShippedValue $relative $key
+                if ($null -ne $shipped -and $installedValue -ne $shipped) {
+                    Write-Host "  $relative : $key kept as $installedValue (seed only)"
+                    $appended += $key
+                    continue
+                }
+            }
+
             # Compare the value, not the line: the installed files pad the keys with spaces and a
             # rewrite for padding alone would make apply look busy on every run.
-            if ($matches[2].Trim() -ne $wanted[$key]) {
+            if ($installedValue -ne $wanted[$key]) {
                 $lines[$index] = "$key = $($wanted[$key])"
                 $touched = $true
                 Write-Host "  $relative : $key = $($wanted[$key])"
