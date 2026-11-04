@@ -21,6 +21,40 @@ Playerbots is especially costly; see the
 
 Rebuilds must use the pinned module revisions and a clean database. Do not import database files from the previous packaged server.
 
+## Progression phase
+
+The world is gated by `mod-progression`, whose single setting `Progression.Phase` decides which
+expansion's content is open. Warband runs **phase 6**, the last vanilla phase: level cap 60, no
+Outland or Northrend, no TBC or WotLK instances, and the module's own classic rules apply — player
+and pet damage x0.6, healing x0.5, no battleground XP, no quest markers or sparkles, dual talent and
+BoP trading off, mail expires in three days. Naxxramas stays locked even at this phase because the
+module has not implemented it.
+
+**The phase does not advance itself.** Nothing in the game raises it; it is a deliberate edit. The
+phase SQL is already recorded in the database, so a lower phase alone changes nothing — the re-apply
+happens only when `Progression.Reset` is `1` for the start that follows:
+
+1. `Warband-Server.ps1 stop world`
+2. in `data\configs\modules\mod_progression.conf`, set `Progression.Phase` to the new phase and
+   `Progression.Reset = 1`
+3. `Warband-Server.ps1 start world` — the start applies the tracked configuration itself
+4. once it is up, set `Progression.Reset` back to `0` in the tracked file so the phase SQL does not
+   run again on every start
+
+The gate belongs to the installation, not to a config somebody edited on one machine:
+`data\configs\modules\mod_progression.conf` is the tracked source of truth, and
+`Warband-Configs.ps1 -Action apply` writes it into the installed `configs\modules\mod_progression.conf`.
+That apply runs automatically — `Build-WowWarband.bat` after every successful install,
+`Warband-Server.ps1` before it starts the world server, and `Package-WowWarband.ps1` when it stages a
+release — and it creates a missing `.conf` from the shipped `.dist` first, so a fresh clone that is
+built and started is already at phase 6 without a manual step. Editing the installed `.conf` by hand
+lasts only until the next apply; `Warband-Configs.ps1 -Action export` is how a new decision gets
+recorded in the tracked file.
+
+`Progression.DungeonFinder.Enforced` is `0` on purpose: the module would otherwise switch the
+Dungeon Finder off below phase 17, and Warband's travel menu joins through it. Which dungeons may be
+entered is still decided by the phase's own map locks — the core refuses the teleport.
+
 ## Local Windows runtime
 
 `Start-WowWarband.bat` starts the local-only MySQL database when needed, then opens separate login-server and world-server consoles. Leave both consoles open during play. To stop cleanly, close the world-server console first, then the login-server console, and finally the minimized database window if you also want MySQL stopped. The extracted client and addon copies live in `var/client/`; generated `dbc`, `maps`, `vmaps`, `mmaps`, and camera data live in `var/data/`. Local database credentials are stored only in ignored runtime configuration.
@@ -63,6 +97,14 @@ as validated.
   Configuring can perform compiler feature checks, but does not build or install
   the server. Source files added to the recursively collected lists require
   explicit reconfiguration because those lists use ordinary CMake globs.
+- `Warband-Configs.ps1` carries the project's deliberate settings as `key = value`
+  overrides in `data\configs`, mirroring the installed config layout, instead of
+  whole config files that would carry someone else's credentials. `-Action apply`
+  writes the tracked keys into the installation — creating a missing `.conf` from
+  its shipped `.dist` first — and runs automatically after every install, before
+  every world-server start, and when a release is packaged. `-Action check`
+  reports drift; `-Action export` records a new decision from a tuned server.
+  A hand edit of an installed `.conf` therefore lasts only until the next apply.
 - The cache inspected on 16 October 2026 uses `MODULES=static` and
   `SCRIPTS=static`. Earlier dynamic-build notes and the removed
   `Configure-WarbandModules.bat` / `Build-WarbandModules.bat` helpers do not

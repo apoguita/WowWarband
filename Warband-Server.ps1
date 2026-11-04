@@ -902,8 +902,31 @@ function Show-ComponentLog {
 
 # --- Actions ------------------------------------------------------------------------------------
 
+# The project's tracked configuration (data\configs) belongs to the installation rather than to a
+# .conf somebody edited on one machine, so it is applied before the world server reads its files.
+# That covers both a rebuild that regenerated a shipped .conf.dist and a hand-edited local file:
+# the tracked value is what the server starts with. See Warband-Configs.ps1.
+function Invoke-ConfigApply {
+    param([string[]]$Keys)
+
+    if ($Keys -notcontains 'world') { return }
+
+    $configScript = Join-Path $projectRoot 'Warband-Configs.ps1'
+    if (-not (Test-Path -LiteralPath $configScript)) { return }
+
+    Write-Host '  applying the project''s tracked configuration (data\configs)'
+    try {
+        & $configScript -Action apply -ConfigRoot (Join-Path $binDirectory 'configs')
+    }
+    catch {
+        Write-Warn "  could not apply the tracked configuration: $_"
+    }
+}
+
 function Invoke-Start {
     param([string[]]$Keys)
+
+    Invoke-ConfigApply -Keys $Keys
 
     $ok = $true
     foreach ($key in $Keys) {

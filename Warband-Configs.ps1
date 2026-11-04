@@ -20,6 +20,12 @@
 #
 # apply preserves everything else in each file: only the keys named in data\configs are touched,
 # and a key that is missing from the installed file is appended with a note saying where it came from.
+# A file that the install has not created yet is created from its shipped .dist template first, so
+# a fresh install ends up carrying the tracked decisions without a manual step.
+#
+# This runs automatically - Build-WowWarband.bat applies it after every install, and
+# Warband-Server.ps1 applies it before it starts the world server - so data\configs, not a local
+# .conf, is what decides a tracked setting. Change the tracked file, then apply.
 #
 # export is how a new decision gets recorded: tune the server, run export, commit data\configs.
 # It compares the installed config against the shipped .dist template and keeps every difference
@@ -139,8 +145,22 @@ function Invoke-Apply {
         $wanted = Read-Settings $file.FullName
 
         if (-not (Test-Path -LiteralPath $installed)) {
-            Write-Host "skipped (no installed file): $relative"
-            continue
+            # A freshly installed server has only the shipped .dist templates; a .conf appears when
+            # the server first starts. Creating it here is what makes the install itself carry the
+            # project's decisions, instead of leaving them to whoever edits a config afterwards.
+            $template = Get-TemplatePath $relative
+            if (-not $template) {
+                Write-Host "skipped (no installed file and no template): $relative"
+                continue
+            }
+
+            $installedDirectory = Split-Path -Parent $installed
+            if (-not (Test-Path -LiteralPath $installedDirectory)) {
+                New-Item -ItemType Directory -Path $installedDirectory -Force | Out-Null
+            }
+
+            Copy-Item -LiteralPath $template -Destination $installed -Force
+            Write-Host "  $relative : created from $(Split-Path -Leaf $template)"
         }
 
         $lines = @(Get-Content -LiteralPath $installed)

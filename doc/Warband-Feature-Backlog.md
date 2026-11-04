@@ -29,7 +29,7 @@ A shortlist link in the Origin column is a citation of where the behaviour was s
 | `mod-playerbots` fork | Supplies controllable followers; the pinned fork the build targets |
 | `mod-ale` | Lua scripting path used by local scripts |
 | `mod-multibot-bridge` | Server side of the MultiBot controls |
-| `mod-progression` | Installed and configured at phase 18; supplies phase gating and its own rules |
+| `mod-progression` | Installed and configured at **phase 6** — the last vanilla phase: level 60 cap, TBC and WotLK closed. Supplies phase gating and its own rules; the phase is raised by hand in `data/configs/modules/mod_progression.conf`, nothing in the game advances it |
 | `mod-zone-scaling` | Open-world per-player level scaling (pinned dependency, pre-release upstream); installed disabled and controlled only through the Warband panel's World scaling switch |
 | `mod-aoe-loot` | Area looting: one loot window merges the nearby corpses (pinned dependency); installed disabled and controlled only through the Warband panel's AoE loot switch |
 | MultiBot and Playerbot Manager addons | Existing client-side companion controls |
@@ -37,6 +37,10 @@ A shortlist link in the Origin column is a citation of where the behaviour was s
 Delivered and verified separately, documented in the README: XP multiplier, follower catch-up,
 follower gathering, gear sharing inside the Warband, magic find, gold find, the 100 race/class
 combinations, the 11 primary professions, and trash auto-sell.
+
+The 100 combinations are all in the data, but a vanilla phase creates only the classic ones:
+`Expansion = 0` blocks Blood Elf and Draenei creation until phase 7 and Death Knight until phase 13,
+so a character of those races keeps playing but a new one cannot be made.
 
 ## Features wanted
 

@@ -25,7 +25,7 @@ inventory: which modules run on the server, what Warband itself adds, and how to
 | `mod-warband` | In-house | Every Warband option listed in the next section |
 | `mod-playerbots` | Third-party | The companion AI the project is built around |
 | `mod-multibot-bridge` | Third-party | Companion command bridge; its client half is `addons/MultiBot` |
-| `mod-progression` | Third-party | Content gating by progression phase |
+| `mod-progression` | Third-party | Content gating by progression phase; the server runs **phase 6**, so the world is vanilla at level 60 and TBC/WotLK stay closed until the phase is raised by hand |
 | `mod-ale` | Third-party | Lua scripting support |
 | REMOVED: `mod-ah-bot-plus` | Third-party, added | The auction-house market: it stocks all three houses and buys what the party lists. Withdrawn â€” the auction house it served is now the Warband merchant network below |
 | `mod-autobalance` | Third-party, added | Instance difficulty scaling: five members can fight a raid built for forty, and a dungeon scales up once the party outlevels it |

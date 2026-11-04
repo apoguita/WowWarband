@@ -51,6 +51,15 @@ copy /Y "%OPENSSL_ROOT_DIR%\bin\libcrypto-3-x64.dll" "%BIN%\libcrypto-3-x64.dll"
 copy /Y "%OPENSSL_ROOT_DIR%\bin\libssl-3-x64.dll" "%BIN%\libssl-3-x64.dll" >nul
 if errorlevel 1 goto failed
 
+rem The install ships the modules' own .conf.dist templates; the project's decisions (progression
+rem phase, trade skill limit, binding policy and the rest) live in data\configs and belong in the
+rem installation, not in a local file somebody edited by hand. Applying them here is what makes a
+rem fresh install come up with those decisions already in place.
+echo.
+echo Applying the project's tracked configuration from data\configs...
+powershell -NoProfile -ExecutionPolicy Bypass -File "%ROOT%\Warband-Configs.ps1" -Action apply
+if errorlevel 1 goto failed
+
 echo.
 echo WowWarband incremental build completed in %BIN%
 pause

@@ -118,6 +118,14 @@ New-Item -ItemType Directory -Path $configTarget -Force | Out-Null
 Get-ChildItem (Join-Path $BuildDir "configs") -File | Copy-Item -Destination $configTarget -Force
 Copy-Tree (Join-Path $BuildDir "configs\modules") (Join-Path $configTarget "modules")
 
+# The project's tracked decisions (data\configs) belong in the release, not only in the build tree a
+# packager happens to have: apply them to the staged configs so every zip ships them.
+$configScript = Join-Path $repo "Warband-Configs.ps1"
+if (Test-Path $configScript) {
+    & $configScript -Action apply -ConfigRoot $configTarget
+    Write-Host "  applied   data\configs (tracked configuration)"
+}
+
 $dataDirLine = 'DataDir = "./data"'
 foreach ($conf in @("worldserver.conf", "authserver.conf", "dbimport.conf")) {
     $path = Join-Path $configTarget $conf
